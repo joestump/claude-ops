@@ -1,0 +1,40 @@
+services:
+  watchdog:
+    build: .
+    container_name: claude-ops
+    restart: unless-stopped
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - CLAUDEOPS_INTERVAL=${CLAUDEOPS_INTERVAL:-3600}
+      - CLAUDEOPS_TIER1_MODEL=${CLAUDEOPS_TIER1_MODEL:-haiku}
+      - CLAUDEOPS_TIER2_MODEL=${CLAUDEOPS_TIER2_MODEL:-sonnet}
+      - CLAUDEOPS_TIER3_MODEL=${CLAUDEOPS_TIER3_MODEL:-opus}
+      - CLAUDEOPS_DRY_RUN=${CLAUDEOPS_DRY_RUN:-false}
+      # Notifications via Apprise (optional)
+      # Supports 80+ services: ntfy, email, Slack, Discord, Telegram, etc.
+      # Comma-separated Apprise URLs, e.g.:
+      #   ntfy://ntfy.sh/my-topic,mailto://user:pass@smtp.example.com
+      - CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS:-}
+    volumes:
+      # Persistent state and logs
+      - ./state:/state
+      - ./results:/results
+      # Infrastructure repos — add your repos here
+      # Each repo gets a subdirectory under /repos
+      # Example:
+      #   - /path/to/ansible-repo:/repos/infra-ansible:ro
+      #   - /path/to/docker-images:/repos/docker-images:ro
+      # SSH key for remote host access (optional)
+      #   - ~/.ssh/claude-ops_ed25519:/root/.ssh/id_ed25519:ro
+      #   - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+
+  chrome:
+    image: browserless/chromium
+    container_name: claude-ops-chrome
+    restart: unless-stopped
+    profiles:
+      - browser
+    ports:
+      - "9222:9222"
+    environment:
+      - CONNECTION_TIMEOUT=120000

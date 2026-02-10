@@ -1,0 +1,30 @@
+{
+  "mcpServers": {
+    "docker": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-docker"]
+    },
+    "postgres": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-postgres"],
+      "env": {
+        "POSTGRES_CONNECTION": "${CLAUDEOPS_POSTGRES_URL:-}"
+      }
+    },
+    "chrome-devtools": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-chrome-devtools"],
+      "env": {
+        "CDP_ENDPOINT": "ws://chrome:9222"
+      }
+    },
+    "fetch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-fetch"]
+    }
+  }
+}
