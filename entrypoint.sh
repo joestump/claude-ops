@@ -83,8 +83,7 @@ while true; do
     # Run Claude with tier 1 prompt
     claude \
         --model "${MODEL}" \
-        --print \
-        --prompt-file "${PROMPT_FILE}" \
+        -p "$(cat "${PROMPT_FILE}")" \
         --allowedTools "${ALLOWED_TOOLS}" \
         --append-system-prompt "Environment: ${ENV_CONTEXT}" \
         2>&1 | tee -a "${LOG_FILE}" || true

@@ -1,0 +1,139 @@
+---
+status: accepted
+date: 2025-06-01
+---
+
+# Build a Go/HTMX/DaisyUI Web Dashboard as the Application Entrypoint
+
+## Context and Problem Statement
+
+Claude Ops currently runs as a headless Docker container whose entrypoint is an infinite bash loop (`entrypoint.sh`). Each iteration invokes the Claude Code CLI with a prompt file, writes results to mounted directories, and sends notifications via Apprise. Operators interact with the system exclusively through Docker logs (`docker compose logs -f watchdog`), result files mounted from `/results/`, and push notifications.
+
+This headless architecture has served the project's initial goal of proving out AI-driven infrastructure monitoring, but it creates significant operational friction as usage grows:
+
+- **No visibility into active sessions.** When Claude is running a health check or remediation, operators cannot see what it is doing in real time. They must wait for the cycle to complete and then read log output.
+- **No historical view.** Health check results and remediation actions are written to flat files in `/results/`. There is no queryable history, no trend visualization, and no way to correlate events across services or time windows.
+- **No configuration UI.** Changing the monitoring interval, swapping models, adding repos, or adjusting cooldown parameters requires editing environment variables and restarting the container.
+- **No cooldown visibility.** The cooldown state (`cooldown.json`) is a JSON file on disk. Operators must `docker exec` into the container and cat the file to see which services are in cooldown and when limits reset.
+- **Bash loop limitations.** The entrypoint script is difficult to extend with scheduling logic, concurrent session management, or graceful shutdown handling. Process management in bash is fragile and hard to debug.
+
+The proposal is to replace the bash entrypoint with a Go application that serves a web dashboard using HTMX and DaisyUI/TailwindCSS, manages Claude Code CLI sessions as subprocesses, and provides real-time visibility into the system's operation.
+
+## Decision Drivers
+
+* **Operational visibility** -- Operators need to see what Claude Ops is doing right now, what it has done recently, and what it plans to do next, without shelling into a container or tailing logs.
+* **Real-time session output** -- When Claude is investigating or remediating an issue, operators should be able to watch the session output stream in their browser, not after the fact in a log file.
+* **Process management robustness** -- The current bash loop cannot gracefully handle concurrent sessions, timeouts, signal forwarding, or subprocess lifecycle management. A compiled language with first-class concurrency primitives is better suited.
+* **Single-binary deployment** -- The application must run in a Docker container with minimal dependencies. A single statically-linked binary simplifies the image and eliminates runtime version conflicts.
+* **Low frontend complexity** -- The dashboard should be maintainable by infrastructure engineers, not frontend specialists. Heavy JavaScript frameworks introduce build toolchains, node_modules, and a skill set that is orthogonal to the project's domain.
+* **Persistent state** -- Cooldown tracking, health check history, and remediation logs should be stored in a queryable format rather than flat JSON files, enabling historical analysis and trend detection.
+* **Minimal resource overhead** -- The dashboard runs alongside Claude Code CLI sessions in the same container. It must have a small memory and CPU footprint so it does not compete with the AI workload.
+
+## Considered Options
+
+1. **Go + HTMX + DaisyUI/TailwindCSS** -- A Go binary serves HTML templates with HTMX for interactivity, DaisyUI/TailwindCSS for styling, SSE for real-time streaming, and SQLite for state.
+2. **Python (Flask/FastAPI) + Jinja2 templates + HTMX** -- A Python web application with server-rendered templates, HTMX for dynamic updates, and SQLite or JSON file storage.
+3. **Node.js (Express) + React/Next.js SPA** -- A Node.js backend API with a React or Next.js single-page application frontend.
+4. **Rust (Axum) + HTMX + TailwindCSS** -- A Rust binary serving HTML templates with HTMX and TailwindCSS.
+5. **Keep headless (no web UI)** -- Continue with the current bash entrypoint and no dashboard.
+
+## Decision Outcome
+
+Chosen option: **"Go + HTMX + DaisyUI/TailwindCSS"**, because it delivers the best combination of deployment simplicity, runtime efficiency, developer accessibility, and frontend minimalism for this project's constraints.
+
+Go compiles to a single static binary that replaces `entrypoint.sh` as the container's entrypoint. The binary manages Claude Code CLI sessions as subprocesses using `os/exec`, with goroutines handling scheduling, concurrent session lifecycle, and graceful shutdown via signal handling. This is a substantial improvement over bash's fragile process management.
+
+HTMX eliminates the need for a JavaScript build toolchain or a client-side framework. The Go application renders HTML templates on the server and uses HTMX attributes (`hx-get`, `hx-post`, `hx-trigger`, `hx-swap`) for dynamic page updates. Server-Sent Events (SSE) stream Claude session output to the browser in real time -- operators can watch Claude think and act as it happens, rather than reading logs after the fact.
+
+DaisyUI, built on TailwindCSS, provides a comprehensive component library (cards, tables, badges, alerts, navigation) that produces a clean, responsive UI with semantic class names (`btn`, `card`, `badge badge-warning`) rather than verbose utility classes. Combined with Go's `html/template` package, this means the entire frontend is HTML templates with CSS classes -- no JavaScript modules, no bundler, no transpiler.
+
+SQLite (via `modernc.org/sqlite`, a pure-Go implementation) replaces `cooldown.json` for persistent state, enabling queryable health check history, remediation logs, and cooldown tracking. The pure-Go SQLite driver means no CGO dependency and clean cross-compilation.
+
+### Consequences
+
+**Positive:**
+
+* Operators get real-time visibility into Claude sessions via SSE streaming in the browser, replacing the current workflow of tailing Docker logs.
+* Health check results and remediation actions are stored in SQLite, enabling historical queries, trend analysis, and structured reporting that flat files cannot provide.
+* The Go binary handles subprocess lifecycle management (start, stop, timeout, signal forwarding) far more robustly than a bash loop, with proper error handling and concurrent session support.
+* A single statically-compiled binary simplifies the Docker image -- no runtime dependencies, no interpreter, no package manager.
+* HTMX and DaisyUI keep the frontend accessible to infrastructure engineers. Adding a new dashboard panel means writing an HTML template with CSS classes and an HTMX attribute, not learning React, state management, or a JavaScript build system.
+* Go's goroutines provide natural concurrency for managing multiple scheduled sessions, streaming output to multiple browser clients, and handling HTTP requests simultaneously.
+* The template-based approach means the dashboard can be extended or themed without touching Go code -- templates and static assets can even be embedded in the binary via `embed.FS`.
+
+**Negative:**
+
+* Replaces a simple, well-understood bash script with a compiled application that must be built, tested, and maintained as software. This is a significant increase in project complexity.
+* Go's `html/template` package is functional but limited compared to modern template engines. Complex UI interactions may push against its constraints.
+* HTMX, while simpler than React, still requires learning its attribute-based interaction model. Some UI patterns (drag-and-drop, complex form wizards) are awkward in HTMX.
+* SQLite introduces a data migration concern. Schema changes across versions must be handled with migration tooling, whereas `cooldown.json` had no schema to migrate.
+* The web dashboard exposes an HTTP port, introducing a new attack surface. Authentication, CSRF protection, and access control must be implemented, whereas the headless system had no network-accessible interface.
+* Two concerns (web UI + session management) are coupled in one binary. If the dashboard crashes, session management stops. The bash loop, while primitive, had no web server to crash.
+
+## Pros and Cons of the Options
+
+### Go + HTMX + DaisyUI/TailwindCSS
+
+* Good, because Go compiles to a single static binary with no runtime dependencies, producing a minimal Docker image.
+* Good, because `os/exec` and goroutines provide robust subprocess management for Claude Code CLI sessions, replacing fragile bash process handling.
+* Good, because HTMX requires no JavaScript build toolchain -- interactivity is declared in HTML attributes, keeping the frontend accessible to non-frontend engineers.
+* Good, because Server-Sent Events (SSE) are natively supported and pair naturally with HTMX for real-time session output streaming.
+* Good, because DaisyUI provides semantic component classes (`btn`, `card`, `table`, `badge`) that produce a polished UI without writing custom CSS or learning verbose utility-class patterns.
+* Good, because Go's standard library (`net/http`, `html/template`, `embed`) covers the web server, templating, and asset embedding without third-party framework dependencies.
+* Good, because the Go ecosystem has mature, pure-Go SQLite drivers (`modernc.org/sqlite`) that avoid CGO and simplify cross-compilation.
+* Good, because Go is widely known among infrastructure engineers, making the codebase accessible to the project's target contributors.
+* Bad, because it replaces a ~50-line bash script with a compiled application, significantly increasing the codebase size and maintenance burden.
+* Bad, because Go's type system and error handling verbosity can make simple CRUD operations more code-heavy than equivalent Python or Node.js implementations.
+* Bad, because `html/template`'s limited expressiveness may require helper functions or template composition patterns for complex UI components.
+* Bad, because the dashboard introduces network security concerns (authentication, CSRF, TLS) that the headless system did not have.
+
+### Python (Flask/FastAPI) + Jinja2 Templates + HTMX
+
+* Good, because Python has a large ecosystem of web libraries and is familiar to many infrastructure engineers.
+* Good, because Jinja2 is a powerful template engine with inheritance, macros, and filters that exceed Go's `html/template` in expressiveness.
+* Good, because FastAPI provides automatic OpenAPI documentation if an API layer is needed alongside the dashboard.
+* Good, because HTMX works identically with any server-side framework, so the frontend approach is the same as the Go option.
+* Bad, because Python requires a runtime interpreter in the Docker image, increasing image size and introducing version management concerns.
+* Bad, because Python's subprocess management (`subprocess.Popen`, `asyncio.create_subprocess_exec`) is functional but less ergonomic than Go's goroutine-based concurrency for managing multiple concurrent sessions.
+* Bad, because Python's Global Interpreter Lock (GIL) limits true parallelism, potentially bottlenecking when multiple SSE streams, HTTP requests, and subprocess reads occur simultaneously.
+* Bad, because Python applications require dependency management (pip, virtualenv, requirements.txt) that adds build complexity and potential version conflicts.
+* Bad, because Python's dynamic typing makes large-scale refactoring riskier than Go's compile-time type checking.
+
+### Node.js (Express) + React/Next.js SPA
+
+* Good, because React has the largest ecosystem of UI components, libraries, and developer tooling.
+* Good, because Next.js provides server-side rendering, API routes, and a mature development experience out of the box.
+* Good, because real-time features (WebSockets, SSE) are well-supported in the Node.js ecosystem.
+* Good, because the frontend development experience (hot reload, component devtools) is highly polished.
+* Bad, because it introduces a full JavaScript build toolchain (webpack/turbopack, babel/swc, npm/yarn) that infrastructure engineers must learn and maintain.
+* Bad, because React's component model, state management (useState, useEffect, context, or Redux), and JSX syntax are a significant learning curve for non-frontend contributors.
+* Bad, because `node_modules` adds substantial image size and dependency surface area. A typical Next.js project has hundreds of transitive dependencies.
+* Bad, because Node.js's single-threaded event loop and subprocess management (`child_process`) are less robust than Go's goroutine-based concurrency for managing multiple long-running CLI sessions.
+* Bad, because the SPA architecture means the client and server are separate concerns with an API contract between them, doubling the surface area for bugs and breaking changes.
+* Bad, because it is the heaviest option in terms of both resource consumption and cognitive overhead for a project whose primary audience is infrastructure engineers, not frontend developers.
+
+### Rust (Axum) + HTMX + TailwindCSS
+
+* Good, because Rust compiles to a single static binary with performance characteristics equal to or better than Go.
+* Good, because Rust's ownership model prevents entire categories of bugs (data races, use-after-free) at compile time.
+* Good, because Axum is a well-designed async web framework with strong typing and middleware support.
+* Good, because HTMX and TailwindCSS work identically regardless of the backend language.
+* Good, because Rust's async runtime (Tokio) provides excellent concurrent subprocess and I/O management.
+* Bad, because Rust has a steep learning curve that would limit contributions from infrastructure engineers who are not Rust programmers.
+* Bad, because Rust's compile times are significantly longer than Go's, slowing the development feedback loop.
+* Bad, because the Rust web ecosystem, while maturing, has fewer battle-tested libraries and less community support than Go's for common web application patterns.
+* Bad, because Rust's borrow checker and lifetime annotations add cognitive overhead to simple CRUD operations that would be straightforward in Go.
+* Bad, because hiring or finding contributors with Rust experience is harder than Go, which is widely adopted in the infrastructure and DevOps community.
+
+### Keep Headless (No Web UI)
+
+* Good, because it requires zero additional development effort -- the system works today.
+* Good, because it has the smallest attack surface -- no HTTP port, no web security concerns.
+* Good, because the bash entrypoint is simple and easy to understand.
+* Good, because there is no compiled application to build, test, or maintain.
+* Bad, because operators have no real-time visibility into what Claude is doing during a session.
+* Bad, because health check history and remediation logs are flat files with no queryable structure, making trend analysis and reporting impractical.
+* Bad, because the bash loop cannot gracefully manage concurrent sessions, handle timeouts robustly, or forward signals to subprocesses.
+* Bad, because configuration changes require editing environment variables and restarting the container, with no validation or feedback.
+* Bad, because cooldown state inspection requires `docker exec` into the container and reading a JSON file manually.
+* Bad, because as the system scales to monitor more services and repos, the lack of a dashboard becomes an increasingly significant operational burden.

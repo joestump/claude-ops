@@ -1,0 +1,73 @@
+{{define "index.html"}}
+<div class="max-w-6xl" id="overview-content">
+    <h1 class="text-2xl font-semibold mb-6">Overview</h1>
+
+    {{/* Recent events feed */}}
+    <section class="mb-8" id="events-feed" hx-get="/" hx-trigger="every 10s" hx-select="#events-feed-inner" hx-target="#events-feed-inner" hx-swap="outerHTML">
+        <h2 class="section-heading">Recent Events</h2>
+        <div id="events-feed-inner">
+        {{if .Events}}
+        <div class="space-y-2">
+            {{range .Events}}
+            <div class="card-base flex items-center gap-3 py-2">
+                <span class="badge-pill {{levelClass .Level}} text-xs">{{.Level}}</span>
+                {{if .Service}}<span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">{{.Service}}</span>{{end}}
+                <span class="text-sm flex-1">{{.Message}}</span>
+                <span class="text-xs text-muted font-mono">{{fmtTime .CreatedAt}}</span>
+            </div>
+            {{end}}
+        </div>
+        <div class="mt-3"><a href="/events" class="text-sm text-accent hover:underline">View all events &rarr;</a></div>
+        {{else}}
+        <div class="card-base text-sm text-muted">No events yet. Events will appear as the agent discovers notable findings.</div>
+        {{end}}
+        </div>
+    </section>
+
+    {{/* Last session summary */}}
+    <section class="mb-8" id="last-session" hx-get="/" hx-trigger="every 10s" hx-select="#last-session-inner" hx-target="#last-session-inner" hx-swap="outerHTML">
+        <h2 class="section-heading">Last Session</h2>
+        <div id="last-session-inner">
+        {{if .Session}}
+        <div class="card-base mb-4">
+            <div class="flex items-center justify-between mb-3">
+                <div>
+                    <a href="/sessions/{{.Session.ID}}" class="font-medium text-accent hover:underline">Session #{{.Session.ID}}</a>
+                    <span class="ml-2 badge-pill {{statusClass .Session.Status}}">{{.Session.Status}}</span>
+                </div>
+                <span class="text-xs text-muted">Tier {{.Session.Tier}} / {{tierLabel .Session.Tier}}</span>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-muted">
+                <div>Model: <span class="text-charcoal font-mono">{{.Session.Model}}</span></div>
+                <div>Started: <span class="text-charcoal">{{fmtTime .Session.StartedAt}}</span></div>
+                <div>Duration: <span class="text-charcoal">{{fmtDuration .Session.StartedAt .Session.EndedAt}}</span></div>
+                {{if .Session.CostUSD}}<div>Cost: <span class="text-charcoal font-mono">{{fmtCost .Session.CostUSD}}</span></div>{{end}}
+                {{if .Session.NumTurns}}<div>Turns: <span class="text-charcoal font-mono">{{intVal .Session.NumTurns}}</span></div>{{end}}
+            </div>
+        </div>
+        {{if .Session.Response}}
+        <div class="card-base prose">
+            {{renderMarkdown .Session.Response}}
+        </div>
+        {{end}}
+        {{else}}
+        <div class="card-base text-sm text-muted">No sessions recorded yet.</div>
+        {{end}}
+        </div>
+    </section>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {{/* Next run countdown */}}
+        <section>
+            <h2 class="section-heading">Next Run</h2>
+            <div class="card-base">
+                <div class="text-sm text-muted mb-2">Interval: {{.Interval}}s</div>
+                <div class="text-sm">
+                    Scheduled: <span class="text-charcoal font-medium">{{fmtTime .NextRun}}</span>
+                </div>
+            </div>
+        </section>
+    </div>
+
+</div>
+{{end}}

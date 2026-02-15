@@ -1,0 +1,25 @@
+{{define "events.html"}}
+<div class="max-w-5xl">
+    <h1 class="text-2xl font-semibold mb-6">Events</h1>
+
+    <div id="events-table" hx-get="/events" hx-trigger="every 5s" hx-select="#events-table-inner" hx-target="#events-table-inner" hx-swap="outerHTML">
+        <div id="events-table-inner">
+        {{if .Events}}
+        <div class="space-y-3">
+            {{range .Events}}
+            <div class="card-base flex items-start gap-3">
+                <span class="badge-pill {{levelClass .Level}}">{{.Level}}</span>
+                {{if .Service}}<span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">{{.Service}}</span>{{end}}
+                <span class="text-sm flex-1">{{.Message}}</span>
+                <span class="text-xs text-muted font-mono whitespace-nowrap">{{fmtTime .CreatedAt}}</span>
+                {{if .SessionID}}<a href="/sessions/{{.SessionID}}" class="text-xs text-accent hover:underline">#{{.SessionID}}</a>{{end}}
+            </div>
+            {{end}}
+        </div>
+        {{else}}
+        <div class="card-base text-sm text-muted">No events recorded yet. Events will appear as the agent discovers notable findings.</div>
+        {{end}}
+        </div>
+    </div>
+</div>
+{{end}}

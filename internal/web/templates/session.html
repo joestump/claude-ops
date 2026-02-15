@@ -1,0 +1,204 @@
+{{define "session.html"}}
+<div class="max-w-5xl">
+    <div class="mb-6">
+        <a href="/sessions" class="back-link">&larr; All sessions</a>
+    </div>
+
+    <div class="flex items-center gap-3 mb-6">
+        <h1 class="text-2xl font-semibold">Session #{{.Session.ID}}</h1>
+        <span class="badge-pill {{statusClass .Session.Status}}">{{.Session.Status}}</span>
+    </div>
+
+    {{/* Session metadata */}}
+    <div class="card-base mb-6">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+            <div>
+                <div class="meta-label">Tier</div>
+                <div>{{.Session.Tier}} / {{tierLabel .Session.Tier}}</div>
+            </div>
+            <div>
+                <div class="meta-label">Model</div>
+                <div class="font-mono">{{.Session.Model}}</div>
+            </div>
+            <div>
+                <div class="meta-label">Started</div>
+                <div class="font-mono text-xs">{{fmtTime .Session.StartedAt}}</div>
+            </div>
+            <div>
+                <div class="meta-label">Duration</div>
+                <div class="font-mono text-xs">{{fmtDuration .Session.StartedAt .Session.EndedAt}}</div>
+            </div>
+            <div>
+                <div class="meta-label">Trigger</div>
+                <div>{{.Session.Trigger}}</div>
+            </div>
+            {{if .Session.CostUSD}}
+            <div>
+                <div class="meta-label">Cost</div>
+                <div class="font-mono text-xs">{{fmtCost .Session.CostUSD}}</div>
+            </div>
+            {{end}}
+            {{if .Session.NumTurns}}
+            <div>
+                <div class="meta-label">Turns</div>
+                <div class="font-mono text-xs">{{intVal .Session.NumTurns}}</div>
+            </div>
+            {{end}}
+            {{if .Session.DurationMs}}
+            <div>
+                <div class="meta-label">API Time</div>
+                <div class="font-mono text-xs">{{fmtMs .Session.DurationMs}}</div>
+            </div>
+            {{end}}
+        </div>
+    </div>
+
+    {{/* Escalation chain links */}}
+    {{if or .Session.ParentSession .Session.ChildSessions}}
+    <div class="card-base mb-6">
+        <div class="meta-label mb-2">Escalation Chain</div>
+        {{if .Session.ParentSession}}
+        <div class="text-sm mb-1">
+            Escalated from <a href="/sessions/{{.Session.ParentSession.ID}}" class="text-accent hover:underline">Session #{{.Session.ParentSession.ID}}</a>
+            <span class="text-muted">(Tier {{.Session.ParentSession.Tier}} / {{tierLabel .Session.ParentSession.Tier}})</span>
+        </div>
+        {{end}}
+        {{range .Session.ChildSessions}}
+        <div class="text-sm mb-1">
+            Escalated to <a href="/sessions/{{.ID}}" class="text-accent hover:underline">Session #{{.ID}}</a>
+            <span class="text-muted">(Tier {{.Tier}} / {{tierLabel .Tier}})</span>
+            <span class="badge-pill {{statusClass .Status}}">{{.Status}}</span>
+        </div>
+        {{end}}
+        {{if gt .Session.ChainCost 0.0}}
+        <div class="text-xs text-muted mt-2">Chain total cost: {{fmtFloat .Session.ChainCost}}</div>
+        {{end}}
+    </div>
+    {{end}}
+
+    {{if .Session.PromptText}}
+    <div class="card-base mb-6">
+        <div class="meta-label mb-1">Ad-Hoc Prompt</div>
+        <div class="text-sm">{{.Session.PromptText}}</div>
+    </div>
+    {{end}}
+
+    {{/* Response — rendered markdown at the top */}}
+    {{if .Session.Response}}
+    <section class="mb-6">
+        <h2 class="section-heading">Response</h2>
+        <div class="card-base prose">
+            {{renderMarkdown .Session.Response}}
+        </div>
+    </section>
+    {{end}}
+
+    {{/* Activity log — CLI output */}}
+    <section>
+        <h2 class="section-heading">Activity Log</h2>
+        {{if eq .Session.Status "running"}}
+        <div class="terminal" id="activity-log"
+             hx-ext="sse"
+             sse-connect="/sessions/{{.Session.ID}}/stream"
+             sse-swap="message"
+             hx-swap="beforeend">
+        </div>
+        <button id="follow-btn" class="follow-btn follow-active" onclick="toggleFollow()">
+            <span class="follow-dot"></span>
+            <span id="follow-label">following</span>
+        </button>
+        <script>
+        (function() {
+            var following = true;
+            var terminal = document.getElementById('activity-log');
+            var btn = document.getElementById('follow-btn');
+            var label = document.getElementById('follow-label');
+
+            function scrollToBottom() {
+                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+            }
+
+            // Auto-scroll when new SSE content arrives.
+            var observer = new MutationObserver(function() {
+                if (following) {
+                    scrollToBottom();
+                }
+            });
+            observer.observe(terminal, { childList: true, subtree: true });
+
+            // Detect manual scroll — disable follow when user scrolls up.
+            var scrollTimer = null;
+            window.addEventListener('scroll', function() {
+                if (scrollTimer) clearTimeout(scrollTimer);
+                scrollTimer = setTimeout(function() {
+                    var atBottom = (window.innerHeight + window.scrollY) >= (document.body.scrollHeight - 100);
+                    if (!atBottom && following) {
+                        following = false;
+                        btn.classList.remove('follow-active');
+                        label.textContent = 'follow';
+                    } else if (atBottom && !following) {
+                        following = true;
+                        btn.classList.add('follow-active');
+                        label.textContent = 'following';
+                    }
+                }, 100);
+            });
+
+            // Toggle follow on click.
+            window.toggleFollow = function() {
+                following = !following;
+                if (following) {
+                    btn.classList.add('follow-active');
+                    label.textContent = 'following';
+                    scrollToBottom();
+                } else {
+                    btn.classList.remove('follow-active');
+                    label.textContent = 'follow';
+                }
+            };
+
+            // When SSE done event fires, change follow button to "scroll to output"
+            // and reload the page so the rendered markdown response appears.
+            terminal.addEventListener('htmx:sseClose', function() {
+                following = false;
+                observer.disconnect();
+                btn.classList.remove('follow-active');
+                label.textContent = 'scroll to output';
+                btn.onclick = function() {
+                    terminal.scrollIntoView({ behavior: 'smooth' });
+                };
+                // Reload after a brief delay to show the completed session with response.
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1500);
+            });
+
+            // Also listen for the custom "done" SSE event name.
+            terminal.addEventListener('done', function() {
+                following = false;
+                observer.disconnect();
+                btn.classList.remove('follow-active');
+                label.textContent = 'scroll to output';
+                btn.onclick = function() {
+                    terminal.scrollIntoView({ behavior: 'smooth' });
+                };
+                setTimeout(function() {
+                    window.location.reload();
+                }, 1500);
+            });
+        })();
+        </script>
+        {{else}}
+        <div class="terminal" id="activity-log">
+            {{.Output}}
+        </div>
+        {{end}}
+    </section>
+
+    {{if .Session.LogFile}}
+    <div class="mt-4 text-xs text-muted">
+        Log file: <span class="font-mono">{{.Session.LogFile}}</span>
+    </div>
+    {{end}}
+</div>
+{{end}}

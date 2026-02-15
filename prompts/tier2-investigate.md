@@ -85,6 +85,25 @@ After each remediation:
 - Update the cooldown state file
 - Verify the fix by re-checking the service
 
+## Event Reporting
+
+When you discover something notable, emit an event marker on its own line:
+
+    [EVENT:info] Routine observation message
+    [EVENT:warning] Something degraded but not critical
+    [EVENT:critical] Needs human attention immediately
+
+To tag a specific service:
+
+    [EVENT:warning:jellyfin] Container restarted, checking stability
+    [EVENT:critical:postgres] Connection refused on port 5432
+
+Events appear in the operator's dashboard in real-time. Use them for:
+- Service state changes (up/down/degraded)
+- Remediation actions taken and their results
+- Cooldown limits reached
+- Anything requiring human attention
+
 ## Step 5: Report Results
 
 ### Fixed
@@ -97,17 +116,30 @@ apprise -t "Claude Ops: Auto-remediated <service>" \
 ```
 
 ### Cannot fix (needs Tier 3)
-Escalate to Opus:
+Write a structured handoff file to `$CLAUDEOPS_STATE_DIR/handoff.json` with the following schema:
 
-```
-Task(
-  model: "$CLAUDEOPS_TIER3_MODEL" (default "opus"),
-  subagent_type: "general-purpose",
-  prompt: <contents of /app/prompts/tier3-remediate.md + investigation findings>
-)
+```json
+{
+  "recommended_tier": 3,
+  "services_affected": ["service1"],
+  "check_results": [
+    {
+      "service": "service1",
+      "check_type": "http",
+      "status": "down",
+      "error": "HTTP 502 Bad Gateway",
+      "response_time_ms": 1250
+    }
+  ],
+  "investigation_findings": "Container logs show OOM kill at 14:32 UTC. Memory limit is 512MB but process peaked at 1.2GB.",
+  "remediation_attempted": "Attempted docker restart — container came back but OOM killed again within 2 minutes."
+}
 ```
 
-Pass everything: original failure, your investigation findings, what you tried, why it didn't work.
+- Populate `investigation_findings` with your root cause analysis
+- Populate `remediation_attempted` with what you tried and why it failed
+- Carry forward the original `check_results` from the Tier 1 handoff
+- Write the handoff file using the Write tool and exit normally. The Go supervisor will read the handoff and spawn Tier 3 automatically.
 
 ### Cannot fix (cooldown exceeded)
 Send urgent notification:

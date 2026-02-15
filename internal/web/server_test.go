@@ -1,0 +1,692 @@
+package web
+
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/joestump/claude-ops/internal/config"
+	"github.com/joestump/claude-ops/internal/db"
+	"github.com/joestump/claude-ops/internal/hub"
+)
+
+type mockTrigger struct{}
+
+func (m *mockTrigger) TriggerAdHoc(prompt string) (int64, error) {
+	return 0, fmt.Errorf("not implemented in test")
+}
+
+func (m *mockTrigger) IsRunning() bool { return false }
+
+type testEnv struct {
+	srv *Server
+	hub *hub.Hub
+}
+
+func newTestEnv(t *testing.T) *testEnv {
+	t.Helper()
+	dbPath := filepath.Join(t.TempDir(), "test.db")
+	database, err := db.Open(dbPath)
+	if err != nil {
+		t.Fatalf("open test db: %v", err)
+	}
+	t.Cleanup(func() { database.Close() })
+
+	cfg := &config.Config{
+		Interval:      3600,
+		Tier1Model:    "haiku",
+		Tier2Model:    "sonnet",
+		Tier3Model:    "opus",
+		StateDir:      t.TempDir(),
+		ResultsDir:    t.TempDir(),
+		DashboardPort: 0,
+	}
+
+	h := hub.New()
+	return &testEnv{
+		srv: New(cfg, h, database, &mockTrigger{}),
+		hub: h,
+	}
+}
+
+func TestIndexReturns200(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /: expected 200, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "text/html") {
+		t.Fatalf("GET /: expected text/html content type, got %q", ct)
+	}
+}
+
+func TestSessionsReturns200(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/sessions", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /sessions: expected 200, got %d", w.Code)
+	}
+}
+
+func TestSessionNotFound(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/sessions/999", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("GET /sessions/999: expected 404, got %d", w.Code)
+	}
+}
+
+func TestEventsReturns200(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/events", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /events: expected 200, got %d", w.Code)
+	}
+}
+
+func TestServicesRouteRemoved(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/services", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code == http.StatusOK {
+		t.Fatalf("GET /services: expected non-200 (route removed), got %d", w.Code)
+	}
+}
+
+func TestCooldownsReturns200(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/cooldowns", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /cooldowns: expected 200, got %d", w.Code)
+	}
+}
+
+func TestConfigGetReturns200(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/config", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /config: expected 200, got %d", w.Code)
+	}
+}
+
+func TestConfigPostUpdatesValues(t *testing.T) {
+	e := newTestEnv(t)
+
+	form := url.Values{}
+	form.Set("interval", "1800")
+	form.Set("tier1_model", "sonnet")
+	form.Set("tier2_model", "opus")
+	form.Set("tier3_model", "haiku")
+	form.Set("dry_run", "on")
+
+	req := httptest.NewRequest("POST", "/config", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("POST /config: expected 200, got %d", w.Code)
+	}
+
+	// Verify config was updated in memory.
+	if e.srv.cfg.Interval != 1800 {
+		t.Errorf("expected interval 1800, got %d", e.srv.cfg.Interval)
+	}
+	if e.srv.cfg.Tier1Model != "sonnet" {
+		t.Errorf("expected tier1 sonnet, got %q", e.srv.cfg.Tier1Model)
+	}
+	if !e.srv.cfg.DryRun {
+		t.Error("expected dry_run true")
+	}
+
+	// Verify config was persisted to DB.
+	val, err := e.srv.db.GetConfig("interval", "0")
+	if err != nil {
+		t.Fatalf("GetConfig: %v", err)
+	}
+	if val != "1800" {
+		t.Errorf("expected DB interval '1800', got %q", val)
+	}
+}
+
+func TestHTMXPartialRendering(t *testing.T) {
+	e := newTestEnv(t)
+
+	// Full page request should include layout (DOCTYPE).
+	reqFull := httptest.NewRequest("GET", "/sessions", nil)
+	wFull := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(wFull, reqFull)
+	if !strings.Contains(wFull.Body.String(), "<!DOCTYPE html>") {
+		t.Error("full page response should contain DOCTYPE")
+	}
+
+	// HTMX partial request should NOT include layout.
+	reqPartial := httptest.NewRequest("GET", "/sessions", nil)
+	reqPartial.Header.Set("HX-Request", "true")
+	wPartial := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(wPartial, reqPartial)
+	if strings.Contains(wPartial.Body.String(), "<!DOCTYPE html>") {
+		t.Error("HTMX partial response should not contain DOCTYPE")
+	}
+	if !strings.Contains(wPartial.Body.String(), "Sessions") {
+		t.Error("HTMX partial response should contain page content")
+	}
+}
+
+func TestSSEContentType(t *testing.T) {
+	e := newTestEnv(t)
+
+	// Publish then close the session so Subscribe returns a closed channel
+	// and the SSE handler finishes quickly.
+	e.hub.Publish(1, "test")
+	e.hub.Close(1)
+
+	req := httptest.NewRequest("GET", "/sessions/1/stream", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	ct := w.Header().Get("Content-Type")
+	if ct != "text/event-stream" {
+		t.Fatalf("GET /sessions/1/stream: expected text/event-stream, got %q", ct)
+	}
+}
+
+func TestSessionInvalidID(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/sessions/abc", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("GET /sessions/abc: expected 400, got %d", w.Code)
+	}
+}
+
+func TestStaticFiles(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/static/style.css", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /static/style.css: expected 200, got %d", w.Code)
+	}
+	if !strings.Contains(w.Header().Get("Content-Type"), "text/css") {
+		t.Fatalf("expected text/css, got %q", w.Header().Get("Content-Type"))
+	}
+}
+
+// insertTestSession creates a session in the test DB and returns its ID.
+func insertTestSession(t *testing.T, e *testEnv, status string) int64 {
+	t.Helper()
+	now := time.Now().UTC().Format(time.RFC3339)
+	s := &db.Session{
+		Tier:       1,
+		Model:      "sonnet",
+		PromptFile: "/tmp/test.md",
+		Status:     status,
+		StartedAt:  now,
+	}
+	id, err := e.srv.db.InsertSession(s)
+	if err != nil {
+		t.Fatalf("insert session: %v", err)
+	}
+	return id
+}
+
+func TestSessionWithResponseRendersMarkdown(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	// Add response with markdown content.
+	err := e.srv.db.UpdateSessionResult(id, "## Health Report\n\nAll **3 services** are healthy.\n\n- caddy: `running`\n- postgres: `running`\n- redis: `running`\n", 0.0523, 4, 12345)
+	if err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Response section should be present.
+	if !strings.Contains(body, "Response") {
+		t.Error("response section heading missing")
+	}
+
+	// Markdown should be rendered as HTML, not raw text.
+	if !strings.Contains(body, "<h2>Health Report</h2>") {
+		t.Error("expected markdown heading rendered as <h2>")
+	}
+	if !strings.Contains(body, "<strong>3 services</strong>") {
+		t.Error("expected bold text rendered as <strong>")
+	}
+	if !strings.Contains(body, "<code>running</code>") {
+		t.Error("expected inline code rendered as <code>")
+	}
+
+	// Prose class should wrap the rendered markdown.
+	if !strings.Contains(body, `class="card-base prose"`) {
+		t.Error("expected prose class on response card")
+	}
+}
+
+func TestSessionWithoutResponseOmitsSection(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	// No UpdateSessionResult call — response stays NULL.
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Session header should be present.
+	if !strings.Contains(body, fmt.Sprintf("Session #%d", id)) {
+		t.Error("session header missing")
+	}
+
+	// Response section should NOT be present.
+	if strings.Contains(body, `class="card-base prose"`) {
+		t.Error("response section should not appear when response is empty")
+	}
+
+	// Activity Log should still be present.
+	if !strings.Contains(body, "Activity Log") {
+		t.Error("activity log section should be present")
+	}
+}
+
+func TestSessionMetadataDisplaysCostTurnsAPITime(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	err := e.srv.db.UpdateSessionResult(id, "done", 0.1234, 7, 45000)
+	if err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Cost should be formatted.
+	if !strings.Contains(body, "$0.1234") {
+		t.Error("expected formatted cost $0.1234")
+	}
+
+	// Turns should be displayed.
+	if !strings.Contains(body, "Turns") {
+		t.Error("expected Turns label in metadata")
+	}
+	if !strings.Contains(body, ">7<") {
+		t.Error("expected turns value 7")
+	}
+
+	// API Time should be formatted as duration.
+	if !strings.Contains(body, "API Time") {
+		t.Error("expected API Time label in metadata")
+	}
+	if !strings.Contains(body, "45s") {
+		t.Error("expected API time 45s")
+	}
+}
+
+func TestSessionMetadataHiddenWhenNil(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "running")
+
+	// No result data — cost/turns/API time should be nil.
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Tier and Model should always show.
+	if !strings.Contains(body, "Tier") {
+		t.Error("expected Tier label")
+	}
+	if !strings.Contains(body, "sonnet") {
+		t.Error("expected model name")
+	}
+
+	// Cost/Turns/API Time should be hidden when nil.
+	if strings.Contains(body, "Cost") {
+		t.Error("cost should not appear when nil")
+	}
+	if strings.Contains(body, "Turns") {
+		t.Error("turns should not appear when nil")
+	}
+	if strings.Contains(body, "API Time") {
+		t.Error("API time should not appear when nil")
+	}
+}
+
+func TestSessionLogFileFormattedWithFormatStreamEvent(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	// Create a temp NDJSON log file.
+	logFile := filepath.Join(t.TempDir(), "session.log")
+	lines := []string{
+		`{"type":"system","subtype":"init"}`,
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","id":"t1","input":{"command":"docker ps"}}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"t1","content":"CONTAINER ID  IMAGE  STATUS"}]}}`,
+		`{"type":"result","is_error":false,"result":"All good.","num_turns":2,"total_cost_usd":0.01,"duration_ms":5000}`,
+	}
+	if err := os.WriteFile(logFile, []byte(strings.Join(lines, "\n")+"\n"), 0644); err != nil {
+		t.Fatalf("write log file: %v", err)
+	}
+
+	// Update session with log file path.
+	ended := time.Now().UTC().Format(time.RFC3339)
+	exitCode := 0
+	if err := e.srv.db.UpdateSession(id, "completed", &ended, &exitCode, &logFile); err != nil {
+		t.Fatalf("update session: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Should contain formatted HTML output, not raw JSON.
+	if strings.Contains(body, `"type":"system"`) {
+		t.Error("raw JSON should not appear in activity log")
+	}
+	if !strings.Contains(body, "term-marker") {
+		t.Error("expected term-marker class for session markers")
+	}
+	if !strings.Contains(body, "session started") {
+		t.Error("expected session started marker")
+	}
+	if !strings.Contains(body, "term-tool-badge") {
+		t.Error("expected term-tool-badge class for tool invocations")
+	}
+	if !strings.Contains(body, "Bash") {
+		t.Error("expected Bash tool name in output")
+	}
+	if !strings.Contains(body, "term-result-content") {
+		t.Error("expected term-result-content class for tool results")
+	}
+	if !strings.Contains(body, "session complete") {
+		t.Error("expected session complete marker")
+	}
+
+	// Log file path should be shown.
+	if !strings.Contains(body, logFile) {
+		t.Error("expected log file path in output")
+	}
+}
+
+func TestSessionRunningShowsSSEStream(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "running")
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Running sessions should have SSE attributes.
+	if !strings.Contains(body, `hx-ext="sse"`) {
+		t.Error("expected hx-ext=sse for running session")
+	}
+	if !strings.Contains(body, `sse-connect=`) {
+		t.Error("expected sse-connect attribute for running session")
+	}
+
+	// Should have follow button.
+	if !strings.Contains(body, `follow-btn`) {
+		t.Error("running session should have follow button")
+	}
+}
+
+func TestSessionCompletedShowsStaticLog(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Completed sessions should have static terminal output (id="activity-log").
+	if !strings.Contains(body, `id="activity-log"`) {
+		t.Error("completed session should have activity-log terminal block")
+	}
+
+	// Should NOT have SSE attributes.
+	if strings.Contains(body, `hx-ext="sse"`) {
+		t.Error("completed session should not have SSE streaming")
+	}
+
+	// Should NOT have follow button.
+	if strings.Contains(body, `follow-btn`) {
+		t.Error("completed session should not have follow button")
+	}
+}
+
+func TestSessionPageLayoutOrder(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	err := e.srv.db.UpdateSessionResult(id, "## Report\n\nHealthy.", 0.05, 3, 10000)
+	if err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	// Verify layout order per spec: back link → header → metadata → response → activity log → log path.
+	backIdx := strings.Index(body, "All sessions")
+	headerIdx := strings.Index(body, fmt.Sprintf("Session #%d", id))
+	metaIdx := strings.Index(body, "meta-label")
+	responseIdx := strings.Index(body, "card-base prose")
+	activityIdx := strings.Index(body, "Activity Log")
+
+	if backIdx == -1 || headerIdx == -1 || metaIdx == -1 || responseIdx == -1 || activityIdx == -1 {
+		t.Fatal("missing expected page sections")
+	}
+	if backIdx >= headerIdx {
+		t.Error("back link should appear before header")
+	}
+	if headerIdx >= metaIdx {
+		t.Error("header should appear before metadata")
+	}
+	if metaIdx >= responseIdx {
+		t.Error("metadata should appear before response")
+	}
+	if responseIdx >= activityIdx {
+		t.Error("response should appear before activity log")
+	}
+}
+
+func TestSessionDetailShowsEscalationChain(t *testing.T) {
+	e := newTestEnv(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// Create a parent (Tier 1) and child (Tier 2) session.
+	parentID, err := e.srv.db.InsertSession(&db.Session{
+		Tier: 1, Model: "haiku", PromptFile: "/tmp/t1.md",
+		Status: "completed", StartedAt: now, Trigger: "scheduled",
+	})
+	if err != nil {
+		t.Fatalf("insert parent: %v", err)
+	}
+
+	childID, err := e.srv.db.InsertSession(&db.Session{
+		Tier: 2, Model: "sonnet", PromptFile: "/tmp/t2.md",
+		Status: "completed", StartedAt: now, Trigger: "scheduled",
+		ParentSessionID: &parentID,
+	})
+	if err != nil {
+		t.Fatalf("insert child: %v", err)
+	}
+
+	// Parent session detail should show escalation to child.
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", parentID), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Escalation Chain") {
+		t.Error("parent session should show Escalation Chain section")
+	}
+	if !strings.Contains(body, fmt.Sprintf("Session #%d", childID)) {
+		t.Error("parent session should link to child session")
+	}
+	if !strings.Contains(body, "Escalated to") {
+		t.Error("parent session should show 'Escalated to' text")
+	}
+
+	// Child session detail should show escalation from parent.
+	req2 := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", childID), nil)
+	w2 := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w2, req2)
+
+	if w2.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w2.Code)
+	}
+
+	body2 := w2.Body.String()
+	if !strings.Contains(body2, "Escalation Chain") {
+		t.Error("child session should show Escalation Chain section")
+	}
+	if !strings.Contains(body2, fmt.Sprintf("Session #%d", parentID)) {
+		t.Error("child session should link to parent session")
+	}
+	if !strings.Contains(body2, "Escalated from") {
+		t.Error("child session should show 'Escalated from' text")
+	}
+}
+
+func TestSessionsListShowsChainIndicator(t *testing.T) {
+	e := newTestEnv(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// Create a chain: Tier 1 -> Tier 2.
+	parentID, err := e.srv.db.InsertSession(&db.Session{
+		Tier: 1, Model: "haiku", PromptFile: "/tmp/t1.md",
+		Status: "completed", StartedAt: now, Trigger: "scheduled",
+	})
+	if err != nil {
+		t.Fatalf("insert parent: %v", err)
+	}
+
+	_, err = e.srv.db.InsertSession(&db.Session{
+		Tier: 2, Model: "sonnet", PromptFile: "/tmp/t2.md",
+		Status: "completed", StartedAt: now, Trigger: "scheduled",
+		ParentSessionID: &parentID,
+	})
+	if err != nil {
+		t.Fatalf("insert child: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/sessions", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Chain root should show chain indicator.
+	if !strings.Contains(body, "(chain:") {
+		t.Error("chain root should show chain length indicator")
+	}
+
+	// Child session should show indent arrow.
+	if !strings.Contains(body, "&#x2514;") {
+		t.Error("child session should show indent arrow")
+	}
+}
+
+func TestStandaloneSessionNoChainIndicator(t *testing.T) {
+	e := newTestEnv(t)
+	_ = insertTestSession(t, e, "completed")
+
+	req := httptest.NewRequest("GET", "/sessions", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+	if strings.Contains(body, "(chain:") {
+		t.Error("standalone session should not show chain indicator")
+	}
+	if strings.Contains(body, "&#x2514;") {
+		t.Error("standalone session should not show indent arrow")
+	}
+}

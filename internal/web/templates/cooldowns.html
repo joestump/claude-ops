@@ -1,0 +1,32 @@
+{{define "cooldowns.html"}}
+<div class="max-w-5xl">
+    <h1 class="text-2xl font-semibold mb-6">Cooldowns</h1>
+
+    {{if not .Cooldowns}}
+    <div class="card-base text-sm text-muted">No active cooldowns.</div>
+    {{else}}
+    <div class="card-base overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="thead-row">
+                    <th class="pb-3 pr-4">Service</th>
+                    <th class="pb-3 pr-4">Action</th>
+                    <th class="pb-3 pr-4">Count</th>
+                    <th class="pb-3">Last Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Cooldowns}}
+                <tr class="tbody-row">
+                    <td class="py-3 pr-4 font-medium">{{.Service}}</td>
+                    <td class="py-3 pr-4 text-xs font-mono">{{.ActionType}}</td>
+                    <td class="py-3 pr-4 font-mono">{{.Count}}</td>
+                    <td class="py-3 font-mono text-xs text-muted">{{fmtTime .LastAction}}</td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{end}}
+</div>
+{{end}}

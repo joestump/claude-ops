@@ -1,0 +1,53 @@
+{{define "sessions.html"}}
+<div class="max-w-5xl">
+    <h1 class="text-2xl font-semibold mb-6">Sessions</h1>
+
+    <div id="sessions-table" hx-get="/sessions" hx-trigger="every 5s" hx-select="#sessions-table-inner" hx-target="#sessions-table-inner" hx-swap="outerHTML">
+        <div id="sessions-table-inner" class="card-base overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="thead-row">
+                        <th class="pb-3 pr-4">#</th>
+                        <th class="pb-3 pr-4">Time</th>
+                        <th class="pb-3 pr-4">Tier</th>
+                        <th class="pb-3 pr-4">Model</th>
+                        <th class="pb-3 pr-4">Status</th>
+                        <th class="pb-3 pr-4">Trigger</th>
+                        <th class="pb-3 pr-4">Duration</th>
+                        <th class="pb-3 pr-4">Cost</th>
+                        <th class="pb-3 pr-4">Turns</th>
+                        <th class="pb-3">Exit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {{range .Sessions}}
+                    <tr class="tbody-row">
+                        <td class="py-3 pr-4">
+                            {{if .ParentSessionID}}<span class="text-muted text-xs mr-1" title="Escalated from #{{intPtr .ParentSessionID}}">&#x2514;</span>{{end}}
+                            <a href="/sessions/{{.ID}}" class="text-accent hover:underline font-mono">{{.ID}}</a>
+                            {{if .IsChainRoot}}<span class="text-xs text-muted ml-1" title="Escalation chain root">(chain: {{.ChainLength}})</span>{{end}}
+                        </td>
+                        <td class="py-3 pr-4 text-muted font-mono text-xs">{{fmtTime .StartedAt}}</td>
+                        <td class="py-3 pr-4">
+                            <span class="text-xs">T{{.Tier}}</span>
+                            <span class="text-xs text-muted ml-1">{{tierLabel .Tier}}</span>
+                        </td>
+                        <td class="py-3 pr-4 font-mono text-xs">{{.Model}}</td>
+                        <td class="py-3 pr-4">
+                            <span class="badge-pill {{statusClass .Status}}">{{.Status}}</span>
+                        </td>
+                        <td class="py-3 pr-4">
+                            <span class="text-xs {{if eq .Trigger "manual"}}text-accent font-medium{{else}}text-muted{{end}}">{{.Trigger}}</span>
+                        </td>
+                        <td class="py-3 pr-4 font-mono text-xs text-muted">{{fmtDuration .StartedAt .EndedAt}}</td>
+                        <td class="py-3 pr-4 font-mono text-xs text-muted">{{fmtCost .CostUSD}}{{if and .IsChainRoot (gt .ChainCost 0.0)}} <span class="text-accent" title="Total chain cost">({{fmtFloat .ChainCost}})</span>{{end}}</td>
+                        <td class="py-3 pr-4 font-mono text-xs text-muted">{{if .NumTurns}}{{intVal .NumTurns}}{{else}}--{{end}}</td>
+                        <td class="py-3 font-mono text-xs">{{intVal .ExitCode}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{{end}}

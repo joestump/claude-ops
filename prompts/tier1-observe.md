@@ -8,7 +8,6 @@ Read the following environment variables from the system prompt:
 - `CLAUDEOPS_REPOS_DIR` — where infrastructure repos are mounted
 - `CLAUDEOPS_STATE_DIR` — where cooldown state lives
 - `CLAUDEOPS_DRY_RUN` — if true, observe only
-- `CLAUDEOPS_TIER2_MODEL` — model to use for Tier 2 escalation
 - `CLAUDEOPS_APPRISE_URLS` — Apprise notification URLs (optional)
 
 ## Step 1: Discover Infrastructure Repos
@@ -16,16 +15,17 @@ Read the following environment variables from the system prompt:
 Scan `$CLAUDEOPS_REPOS_DIR` (default `/repos`) for mounted repositories:
 
 1. List subdirectories under the repos directory
-2. For each, check for a `CLAUDE-OPS.md` manifest
-3. If present, read it to understand the repo's purpose and capabilities
-4. If absent, read top-level files to infer what it is
-5. Check for a `.claude-ops/` directory containing repo-specific extensions:
+2. **If the repos directory is empty or does not exist, output "No repos found — nothing to check" and EXIT IMMEDIATELY. Do NOT fall back to scanning the local system, running docker ps, or checking any services not defined in a mounted repo.**
+3. For each subdirectory, check for a `CLAUDE-OPS.md` manifest
+4. If present, read it to understand the repo's purpose and capabilities
+5. If absent, read top-level files to infer what it is
+6. Check for a `.claude-ops/` directory containing repo-specific extensions:
    - `.claude-ops/checks/` — additional health checks to run alongside built-in checks
    - `.claude-ops/playbooks/` — remediation procedures specific to this repo's services
    - `.claude-ops/skills/` — custom capabilities (maintenance tasks, reporting, etc.)
-6. Build a map of available repos, their capabilities, and any custom checks/playbooks/skills
+7. Build a map of available repos, their capabilities, and any custom checks/playbooks/skills
 
-Find the inventory from whichever repo has `service-discovery` capability.
+Find the inventory from whichever repo has `service-discovery` capability. **Only check services that are explicitly defined in a discovered repo's inventory. Never discover services by other means (docker ps, process lists, network scanning, etc.).**
 
 ## Step 2: Service Discovery
 
@@ -33,14 +33,17 @@ From the inventory (whatever format it's in — Ansible YAML, JSON, TOML, etc.):
 
 1. Extract all services/applications that are enabled or deployed
 2. For each service, note: name, hostname/URL, expected ports, health check endpoints
-3. Build a checklist of what to verify
+3. Identify the **target hosts** from the inventory — these are the remote machines where services run (NOT localhost, NOT the machine Claude Ops is running on)
+4. Build a checklist of what to verify
+
+**CRITICAL: All health checks target remote hosts defined in the inventory. You are NOT monitoring the local machine. Do not run `docker ps`, `docker inspect`, or any local container commands unless the CLAUDE-OPS.md manifest explicitly says the services run on localhost. The repos tell you WHERE services are — check them THERE.**
 
 ## Step 3: Health Checks
 
-Run through the checks defined in `/app/checks/`. For each service:
+Run checks ONLY against the hosts and services discovered from repos. **Never check localhost or the local Docker daemon unless a repo's CLAUDE-OPS.md explicitly defines localhost as a target host.**
 
 ### HTTP Health
-- For services with web endpoints: `curl -s -o /dev/null -w "%{http_code}" <url>`
+- For services with web endpoints (derived from inventory DNS/hostnames): `curl -s -o /dev/null -w "%{http_code}" https://<service>.<domain>`
 - Expect 2xx or 3xx
 - Note response time
 
@@ -48,18 +51,19 @@ Run through the checks defined in `/app/checks/`. For each service:
 - For services with DNS names: `dig +short <hostname>`
 - Verify it resolves to the expected IP/CNAME
 
-### Container State
-- Use Docker MCP or `docker ps` to verify expected containers are running
-- Check restart counts (high count = crashloop)
-- Check container health status
+### Container State (Remote Only)
+- **Only if** the repo provides SSH access or a remote Docker MCP for the target host
+- Do NOT run `docker ps` against the local Docker daemon — that shows containers on YOUR machine, not the monitored infrastructure
+- If no remote access is available, skip container checks and rely on HTTP/DNS checks
 
 ### Database Health
-- If database MCPs are configured, check connectivity and basic stats
+- If database MCPs are configured for remote hosts, check connectivity and basic stats
 - PostgreSQL: connection count, database sizes
 - Redis: memory usage, connected clients
+- Connect to databases at the hostnames defined in inventory, never localhost
 
 ### Service-Specific
-- For services with API endpoints or widget URLs, verify they respond
+- For services with API endpoints or widget URLs, verify they respond at their inventory-defined hostnames
 - Check for service-specific health indicators (see `/app/checks/services.md`)
 
 ### Repo-Specific Checks
@@ -88,21 +92,52 @@ Categorize each service:
 
 ### Issues found
 - Summarize all failures: which services, what checks failed, error details
-- Spawn a Tier 2 subagent to investigate and remediate:
+- Write a structured handoff file to `$CLAUDEOPS_STATE_DIR/handoff.json` with the following schema:
 
-```
-Task(
-  model: "$CLAUDEOPS_TIER2_MODEL" (default "sonnet"),
-  subagent_type: "general-purpose",
-  prompt: <contents of /app/prompts/tier2-investigate.md + failure summary>
-)
+```json
+{
+  "recommended_tier": 2,
+  "services_affected": ["service1", "service2"],
+  "check_results": [
+    {
+      "service": "service1",
+      "check_type": "http",
+      "status": "down",
+      "error": "HTTP 502 Bad Gateway",
+      "response_time_ms": 1250
+    }
+  ],
+  "investigation_findings": "",
+  "remediation_attempted": ""
+}
 ```
 
-Pass the full context: service names, check results, error messages, cooldown state. The Tier 2 agent should not re-run checks.
+- Include every failed service in `services_affected` and every failed check in `check_results`
+- Leave `investigation_findings` and `remediation_attempted` empty — Tier 2 will populate these if it needs to escalate further
+- Write the handoff file using the Write tool and exit normally. The Go supervisor will read the handoff and spawn the next tier automatically.
 
 ### Services in cooldown
 - For services where cooldown limits are reached, send a notification via Apprise (if configured) indicating "needs human attention"
 - Do not escalate — cooldown means we've already tried
+
+## Event Reporting
+
+When you discover something notable, emit an event marker on its own line:
+
+    [EVENT:info] Routine observation message
+    [EVENT:warning] Something degraded but not critical
+    [EVENT:critical] Needs human attention immediately
+
+To tag a specific service:
+
+    [EVENT:warning:jellyfin] Container restarted, checking stability
+    [EVENT:critical:postgres] Connection refused on port 5432
+
+Events appear in the operator's dashboard in real-time. Use them for:
+- Service state changes (up/down/degraded)
+- Remediation actions taken and their results
+- Cooldown limits reached
+- Anything requiring human attention
 
 ## Output Format
 
@@ -119,5 +154,5 @@ In cooldown: <count>
 
 [Details for any non-healthy services]
 
-Actions taken: [none | escalated to tier 2 | sent notifications]
+Actions taken: [none | wrote handoff for tier 2 | sent notifications]
 ```

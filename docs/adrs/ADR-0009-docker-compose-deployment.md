@@ -1,0 +1,113 @@
+---
+status: accepted
+date: 2025-06-01
+---
+
+# Package as Docker Compose Application for Single-Host Deployment
+
+## Context and Problem Statement
+
+Claude Ops is an AI infrastructure monitoring and remediation agent that runs on a schedule inside a container. It discovers services in mounted infrastructure repositories, checks their health, and remediates issues through a tiered escalation model. The system needs a packaging and deployment strategy that defines how the agent container, its optional sidecars (browser automation), persistent state, and configuration are composed and run.
+
+The target audience is home lab operators and small infrastructure teams managing a handful of hosts -- not enterprises running Kubernetes clusters. The deployment story must be simple enough that an operator can go from cloning the repository to a running agent in under five minutes, while still supporting extensibility (optional sidecars, volume mounts for repos, environment-based configuration) for more advanced setups.
+
+The core question is: **How should Claude Ops be packaged and deployed so that it is easy to run on a single host, supports optional components, and follows infrastructure-as-code conventions?**
+
+## Decision Drivers
+
+* **Operator simplicity** -- The primary audience is engineers who manage small infrastructure. The deployment method should require minimal tooling and no specialized orchestration knowledge.
+* **Single-host targeting** -- Claude Ops monitors infrastructure from a single vantage point. It does not need horizontal scaling, service discovery, or multi-node scheduling.
+* **Optional sidecar support** -- Browser automation (via `browserless/chromium`) is required only when the agent needs to interact with web UIs for credential rotation or service configuration. The deployment model must support this optionality cleanly.
+* **Persistent state** -- Cooldown state (`/state`), run results (`/results`), and mounted infrastructure repos (`/repos/`) must survive container restarts and upgrades.
+* **12-factor configuration** -- All configuration should flow through environment variables and a `.env` file, consistent with the 12-factor app methodology.
+* **CI/CD compatibility** -- The container image must be buildable and publishable via standard CI/CD pipelines (GitHub Actions to GHCR) with tagged releases and semantic versioning.
+* **Restart resilience** -- The agent should automatically recover from crashes or host reboots without manual intervention.
+
+## Considered Options
+
+1. **Docker Compose with optional sidecar profiles** -- Multi-service composition with `profiles` for optional components, volume mounts for persistence, and `.env`-based configuration.
+2. **Kubernetes Deployment with Helm chart** -- Deploy as a Kubernetes workload with a Helm chart for templating, ConfigMaps for configuration, and PersistentVolumeClaims for state.
+3. **Raw Docker (single container, no orchestration)** -- Run the container directly with `docker run`, passing flags for volumes, environment variables, and restart policy.
+4. **Systemd service (no containerization)** -- Install the Claude Code CLI, dependencies, and entrypoint script directly on the host, managed by a systemd unit file.
+
+## Decision Outcome
+
+Chosen option: **"Docker Compose with optional sidecar profiles"**, because it provides the right level of abstraction for single-host deployment -- multi-service composition, declarative volume and environment management, and optional sidecars via profiles -- without introducing the operational complexity of Kubernetes or the ergonomic limitations of raw Docker commands.
+
+Docker Compose is the de facto standard for single-host container composition. It is pre-installed with Docker Desktop and Docker Engine on every major platform. An operator clones the repo, creates a `.env` file with their API key, and runs `docker compose up -d`. The entire system -- services, volumes, environment, restart policy, and optional sidecars -- is declared in a single `docker-compose.yaml` file that serves as both configuration and documentation.
+
+The `profiles` feature cleanly handles the optional browser sidecar: `docker compose up -d` starts only the watchdog, while `docker compose --profile browser up -d` adds the Chromium container for browser automation. This avoids the complexity of conditional logic or separate compose files for different deployment scenarios.
+
+### Consequences
+
+**Positive:**
+
+* Deployment is a three-step process: clone, configure `.env`, run `docker compose up -d`. No orchestration platform, no cluster setup, no package installation beyond Docker itself.
+* The `docker-compose.yaml` file is a single source of truth for the entire deployment topology -- services, volumes, environment, networking, and restart behavior.
+* `restart: unless-stopped` provides automatic recovery after container crashes or host reboots, covering the primary resilience requirement without external supervision.
+* The `profiles` feature allows the browser sidecar to exist in the same compose file without being started by default, keeping the common case simple while supporting advanced use cases.
+* Volume mounts for `/state`, `/results`, and `/repos/` are declarative and visible in the compose file, making the persistence model explicit and auditable.
+* CI/CD integration is straightforward: GitHub Actions builds and pushes the image to GHCR with semantic version tags; operators pull tagged images by updating the compose file or using `docker compose pull`.
+* Environment-based configuration via `.env` follows 12-factor conventions and keeps secrets out of the compose file and version control.
+* Docker Compose is universally available on Linux, macOS, and Windows, imposing no platform-specific requirements on operators.
+
+**Negative:**
+
+* Single-host only. If Claude Ops ever needs to run across multiple hosts (e.g., region-distributed monitoring), Docker Compose cannot orchestrate that -- a migration to Kubernetes, Docker Swarm, or a custom solution would be required.
+* No built-in health checking of the watchdog itself. Docker Compose can define `healthcheck` directives, but there is no higher-level orchestrator to reschedule or alert if the compose stack itself fails.
+* Volume mounts require the operator to manage directory permissions and paths on the host. There is no abstraction layer (like Kubernetes PVCs) to handle storage provisioning.
+* Upgrades require manual steps: pull the new image, recreate the container. There is no rolling update or zero-downtime deployment mechanism.
+* The `.env` file must be managed carefully -- it contains the Anthropic API key and potentially notification service credentials. Docker Compose has no built-in secret management beyond file permissions.
+
+## Pros and Cons of the Options
+
+### Docker Compose with Optional Sidecar Profiles
+
+* Good, because it is the standard tool for single-host multi-container applications, requiring no additional infrastructure.
+* Good, because the entire deployment topology is declared in a single file that serves as both configuration and documentation.
+* Good, because `profiles` cleanly separate required services (watchdog) from optional ones (browser sidecar) without conditional logic or multiple compose files.
+* Good, because `restart: unless-stopped` provides automatic crash and reboot recovery without external supervision.
+* Good, because `.env`-based configuration keeps secrets out of version control and follows 12-factor conventions.
+* Good, because Docker Compose is pre-installed with Docker on all major platforms, imposing no additional tooling requirements.
+* Good, because CI/CD is simple: build, tag, push to GHCR. Operators pull images with `docker compose pull`.
+* Bad, because it is limited to single-host deployments with no built-in multi-host orchestration.
+* Bad, because there is no higher-level supervisor for the compose stack itself -- if Docker or the host fails, no external system will recover it.
+* Bad, because upgrades are manual (pull and recreate) with no rolling update or blue-green deployment capability.
+* Bad, because secret management is limited to file permissions on the `.env` file, with no encryption or rotation support.
+
+### Kubernetes Deployment with Helm Chart
+
+* Good, because Kubernetes provides robust scheduling, self-healing, rolling updates, and horizontal scaling.
+* Good, because Helm charts enable templated, versioned, parameterized deployments with `values.yaml` overrides.
+* Good, because Kubernetes Secrets and ConfigMaps provide structured secret and configuration management.
+* Good, because PersistentVolumeClaims abstract storage provisioning from the deployment definition.
+* Good, because health checks (liveness and readiness probes) are first-class concepts with automatic remediation (pod restart).
+* Bad, because it requires a running Kubernetes cluster, which is significant operational overhead for a single-agent deployment on a home lab or small server.
+* Bad, because the target audience (home lab operators, small teams) is unlikely to have or want a Kubernetes cluster for a single monitoring agent.
+* Bad, because Helm chart authoring and maintenance adds complexity disproportionate to the simplicity of the application (one long-running container with an optional sidecar).
+* Bad, because debugging Kubernetes-specific issues (pod scheduling, PVC binding, RBAC, service networking) requires specialized knowledge unrelated to Claude Ops itself.
+* Bad, because it introduces a heavy dependency: the entire Kubernetes control plane must be operational before the monitoring agent can run, creating a bootstrap problem (who monitors the monitor's platform?).
+
+### Raw Docker (Single Container, No Orchestration)
+
+* Good, because it has the fewest moving parts -- a single `docker run` command with no compose file or orchestration layer.
+* Good, because it is the most transparent deployment method: every flag is visible in the command.
+* Good, because it works on any system with Docker installed, including minimal environments.
+* Bad, because multi-container composition (adding the browser sidecar) requires a second manual `docker run` command with correct networking flags, which is error-prone and undocumented.
+* Bad, because the full `docker run` command with all volume mounts, environment variables, and restart policy is long, fragile, and not self-documenting -- operators must reconstruct it from documentation.
+* Bad, because there is no declarative file to version-control the deployment configuration, making it difficult to reproduce or audit the exact runtime configuration.
+* Bad, because networking between the watchdog and browser sidecar requires manual Docker network creation and container linking, which Docker Compose handles automatically.
+* Bad, because operators must manage restart policy, volume mounts, and environment variables through CLI flags rather than a structured file, increasing the surface area for misconfiguration.
+
+### Systemd Service (No Containerization)
+
+* Good, because systemd is built into every major Linux distribution with no additional software required.
+* Good, because systemd provides robust process supervision, restart policies, logging (journald), and dependency management.
+* Good, because there is no container layer, eliminating Docker-related overhead and complexity.
+* Good, because the agent has direct access to the host filesystem and network, simplifying repo mounting and SSH access.
+* Bad, because it requires installing Node.js, Python, the Claude Code CLI, apprise, and all system dependencies directly on the host, creating a complex and fragile setup process.
+* Bad, because there is no isolation between the agent and the host system -- a bug in the agent or its dependencies could affect the host.
+* Bad, because the installation procedure is platform-specific (Ubuntu vs. Debian vs. RHEL vs. Arch), requiring multiple sets of installation instructions.
+* Bad, because reproducibility is poor -- the agent's behavior depends on the host's installed packages, versions, and configuration, which may drift over time.
+* Bad, because the browser sidecar (browserless/chromium) would still need Docker or a manual Chromium installation, creating a mixed deployment model.
+* Bad, because CI/CD cannot produce a single deployable artifact. Instead, operators must pull the repo and run an installation script, which is more error-prone than pulling a container image.

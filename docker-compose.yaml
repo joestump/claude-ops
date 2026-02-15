@@ -10,11 +10,17 @@ services:
       - CLAUDEOPS_TIER2_MODEL=${CLAUDEOPS_TIER2_MODEL:-sonnet}
       - CLAUDEOPS_TIER3_MODEL=${CLAUDEOPS_TIER3_MODEL:-opus}
       - CLAUDEOPS_DRY_RUN=${CLAUDEOPS_DRY_RUN:-false}
+      # Escalation settings
+      - CLAUDEOPS_MAX_TIER=${CLAUDEOPS_MAX_TIER:-3}
+      - CLAUDEOPS_TIER2_PROMPT=${CLAUDEOPS_TIER2_PROMPT:-prompts/tier2-investigate.md}
+      - CLAUDEOPS_TIER3_PROMPT=${CLAUDEOPS_TIER3_PROMPT:-prompts/tier3-remediate.md}
       # Notifications via Apprise (optional)
       # Supports 80+ services: ntfy, email, Slack, Discord, Telegram, etc.
       # Comma-separated Apprise URLs, e.g.:
       #   ntfy://ntfy.sh/my-topic,mailto://user:pass@smtp.example.com
       - CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS:-}
+    ports:
+      - "8080:8080"
     volumes:
       # Persistent state and logs
       - ./state:/state

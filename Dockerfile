@@ -1,3 +1,14 @@
+# Build stage: compile Go binary
+FROM golang:1.23-alpine AS builder
+
+WORKDIR /build
+COPY go.mod ./
+RUN go mod download
+COPY cmd/ cmd/
+COPY internal/ internal/
+RUN CGO_ENABLED=0 go build -o /claudeops ./cmd/claudeops
+
+# Runtime stage
 FROM node:22-slim
 
 # System dependencies for health checks and remediation
@@ -20,13 +31,13 @@ RUN npm install -g @anthropic-ai/claude-code
 # Working directory — this repo gets copied in
 WORKDIR /app
 
-# Copy project files
-COPY . .
+# Copy Go binary from build stage
+COPY --from=builder /claudeops /claudeops
 
-# Ensure entrypoint is executable
-RUN chmod +x entrypoint.sh
+# Copy project files (prompts, checks, playbooks, etc.)
+COPY . .
 
 # State and results directories (mount volumes over these)
 RUN mkdir -p /state /results /repos
 
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["/claudeops"]
