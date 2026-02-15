@@ -139,6 +139,33 @@ Events appear in the operator's dashboard in real-time. Use them for:
 - Cooldown limits reached
 - Anything requiring human attention
 
+## Memory Recording
+
+You can persist operational knowledge across sessions by emitting memory markers in your output. Memories are stored in a database and injected into future sessions' system prompts.
+
+### Format
+
+```
+[MEMORY:category] observation text
+[MEMORY:category:service] observation text about a specific service
+```
+
+### Categories
+
+- **timing**: Startup delays, timeout patterns, response time baselines
+- **dependency**: Service ordering, prerequisites, startup sequences
+- **behavior**: Quirks, workarounds, known issues, expected error patterns
+- **remediation**: What works, what doesn't, successful fix patterns
+- **maintenance**: Scheduled tasks, periodic needs, cleanup requirements
+
+### Guidelines
+
+- Only emit memories for genuine operational insights, not routine observations
+- Be specific and actionable: "Jellyfin takes 60s to start after restart" not "Jellyfin is slow"
+- Memories persist across sessions — they will appear in your context next time
+- If you discover something contradicts an existing memory, emit a corrected version
+- Record patterns you notice from repeated health check observations, such as services that are consistently slow or DNS entries that intermittently fail
+
 ## Output Format
 
 At the end of your run, output a structured summary:

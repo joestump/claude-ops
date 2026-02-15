@@ -189,6 +189,9 @@ func (s *Server) parseTemplates() {
 		"fmtFloat": func(v float64) string {
 			return fmt.Sprintf("$%.4f", v)
 		},
+		"fmtPct": func(v float64) string {
+			return fmt.Sprintf("%.0f%%", v*100)
+		},
 		"fmtMs": func(p *int64) string {
 			if p == nil {
 				return "--"
@@ -215,6 +218,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /sessions/{id}", s.handleSession)
 	s.mux.HandleFunc("GET /sessions/{id}/stream", s.handleSessionStream)
 	s.mux.HandleFunc("GET /events", s.handleEvents)
+	s.mux.HandleFunc("GET /memories", s.handleMemories)
+	s.mux.HandleFunc("POST /memories", s.handleMemoryCreate)
+	s.mux.HandleFunc("POST /memories/{id}/update", s.handleMemoryUpdate)
+	s.mux.HandleFunc("POST /memories/{id}/delete", s.handleMemoryDelete)
 	s.mux.HandleFunc("GET /cooldowns", s.handleCooldowns)
 	s.mux.HandleFunc("GET /config", s.handleConfigGet)
 	s.mux.HandleFunc("POST /config", s.handleConfigPost)

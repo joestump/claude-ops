@@ -46,6 +46,14 @@
                     </a>
                 </li>
                 <li>
+                    <a href="/memories"
+                       class="nav-link{{if eq .Page "memories.html"}} nav-active{{end}}"
+                       hx-get="/memories" hx-target="#main" hx-push-url="true">
+                        <span class="nav-icon">&#9679;</span>
+                        Memories
+                    </a>
+                </li>
+                <li>
                     <a href="/cooldowns"
                        class="nav-link{{if eq .Page "cooldowns.html"}} nav-active{{end}}"
                        hx-get="/cooldowns" hx-target="#main" hx-push-url="true">

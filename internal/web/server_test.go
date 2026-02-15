@@ -674,6 +674,214 @@ func TestSessionsListShowsChainIndicator(t *testing.T) {
 	}
 }
 
+func TestMemoriesPageRenders(t *testing.T) {
+	e := newTestEnv(t)
+
+	// Insert a test memory.
+	now := time.Now().UTC().Format(time.RFC3339)
+	svc := "caddy"
+	_, err := e.srv.db.InsertMemory(&db.Memory{
+		Service:     &svc,
+		Category:    "behavior",
+		Observation: "Caddy restarts fix most issues",
+		Confidence:  0.85,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Tier:        1,
+	})
+	if err != nil {
+		t.Fatalf("insert memory: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/memories", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /memories: expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "Memories") {
+		t.Error("expected page heading 'Memories'")
+	}
+	if !strings.Contains(body, "caddy") {
+		t.Error("expected service name 'caddy' in memory table")
+	}
+	if !strings.Contains(body, "Caddy restarts fix most issues") {
+		t.Error("expected observation text in memory table")
+	}
+	if !strings.Contains(body, "85%") {
+		t.Error("expected confidence displayed as 85%")
+	}
+}
+
+func TestMemoriesPageEmpty(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/memories", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /memories: expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "No memories recorded yet") {
+		t.Error("expected empty state message")
+	}
+}
+
+func TestMemoriesFilterByService(t *testing.T) {
+	e := newTestEnv(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	svc1 := "caddy"
+	svc2 := "postgres"
+	e.srv.db.InsertMemory(&db.Memory{
+		Service: &svc1, Category: "behavior", Observation: "caddy memory",
+		Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
+	})
+	e.srv.db.InsertMemory(&db.Memory{
+		Service: &svc2, Category: "config", Observation: "postgres memory",
+		Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
+	})
+
+	req := httptest.NewRequest("GET", "/memories?service=caddy", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !strings.Contains(body, "caddy memory") {
+		t.Error("expected caddy memory in filtered results")
+	}
+	if strings.Contains(body, "postgres memory") {
+		t.Error("postgres memory should not appear in caddy-filtered results")
+	}
+}
+
+func TestMemoryCreate(t *testing.T) {
+	e := newTestEnv(t)
+
+	form := url.Values{}
+	form.Set("service", "redis")
+	form.Set("category", "behavior")
+	form.Set("observation", "Redis needs restart after OOM")
+	form.Set("confidence", "0.9")
+
+	req := httptest.NewRequest("POST", "/memories", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("POST /memories: expected 303, got %d", w.Code)
+	}
+
+	// Verify memory was created.
+	memories, err := e.srv.db.ListMemories(nil, nil, 100)
+	if err != nil {
+		t.Fatalf("ListMemories: %v", err)
+	}
+	if len(memories) != 1 {
+		t.Fatalf("expected 1 memory, got %d", len(memories))
+	}
+	if memories[0].Observation != "Redis needs restart after OOM" {
+		t.Errorf("unexpected observation: %q", memories[0].Observation)
+	}
+	if memories[0].Service == nil || *memories[0].Service != "redis" {
+		t.Error("expected service 'redis'")
+	}
+}
+
+func TestMemoryDelete(t *testing.T) {
+	e := newTestEnv(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	svc := "caddy"
+	id, err := e.srv.db.InsertMemory(&db.Memory{
+		Service:     &svc,
+		Category:    "behavior",
+		Observation: "test memory to delete",
+		Confidence:  0.5,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Tier:        1,
+	})
+	if err != nil {
+		t.Fatalf("insert memory: %v", err)
+	}
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/memories/%d/delete", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("POST /memories/%d/delete: expected 303, got %d", id, w.Code)
+	}
+
+	// Verify memory was deleted.
+	m, err := e.srv.db.GetMemory(id)
+	if err != nil {
+		t.Fatalf("GetMemory: %v", err)
+	}
+	if m != nil {
+		t.Error("expected memory to be deleted")
+	}
+}
+
+func TestMemoryUpdate(t *testing.T) {
+	e := newTestEnv(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	svc := "caddy"
+	id, err := e.srv.db.InsertMemory(&db.Memory{
+		Service:     &svc,
+		Category:    "behavior",
+		Observation: "original observation",
+		Confidence:  0.5,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Tier:        1,
+	})
+	if err != nil {
+		t.Fatalf("insert memory: %v", err)
+	}
+
+	form := url.Values{}
+	form.Set("observation", "updated observation")
+	form.Set("confidence", "0.95")
+	form.Set("active", "on")
+
+	req := httptest.NewRequest("POST", fmt.Sprintf("/memories/%d/update", id), strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusSeeOther {
+		t.Fatalf("POST /memories/%d/update: expected 303, got %d", id, w.Code)
+	}
+
+	// Verify memory was updated.
+	m, err := e.srv.db.GetMemory(id)
+	if err != nil {
+		t.Fatalf("GetMemory: %v", err)
+	}
+	if m.Observation != "updated observation" {
+		t.Errorf("expected updated observation, got %q", m.Observation)
+	}
+	if m.Confidence != 0.95 {
+		t.Errorf("expected confidence 0.95, got %f", m.Confidence)
+	}
+}
+
 func TestStandaloneSessionNoChainIndicator(t *testing.T) {
 	e := newTestEnv(t)
 	_ = insertTestSession(t, e, "completed")

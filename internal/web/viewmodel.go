@@ -187,6 +187,54 @@ func ToEventViews(events []db.Event) []EventView {
 	return views
 }
 
+// MemoryView is a template-friendly representation of a db.Memory with parsed times.
+type MemoryView struct {
+	ID          int64
+	Service     string
+	Category    string
+	Observation string
+	Confidence  float64
+	Active      bool
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	SessionID   *int64
+	Tier        int
+}
+
+// ToMemoryView converts a db.Memory to a MemoryView.
+func ToMemoryView(m db.Memory) MemoryView {
+	v := MemoryView{
+		ID:          m.ID,
+		Category:    m.Category,
+		Observation: m.Observation,
+		Confidence:  m.Confidence,
+		Active:      m.Active,
+		SessionID:   m.SessionID,
+		Tier:        m.Tier,
+	}
+	if m.Service != nil {
+		v.Service = *m.Service
+	} else {
+		v.Service = "-"
+	}
+	if t, err := time.Parse(timeFormat, m.CreatedAt); err == nil {
+		v.CreatedAt = t
+	}
+	if t, err := time.Parse(timeFormat, m.UpdatedAt); err == nil {
+		v.UpdatedAt = t
+	}
+	return v
+}
+
+// ToMemoryViews converts a slice of db.Memory to MemoryView.
+func ToMemoryViews(memories []db.Memory) []MemoryView {
+	views := make([]MemoryView, len(memories))
+	for i, m := range memories {
+		views[i] = ToMemoryView(m)
+	}
+	return views
+}
+
 // ToCooldownViews converts db.RecentCooldown records to template-friendly CooldownView.
 func ToCooldownViews(cooldowns []db.RecentCooldown) []CooldownView {
 	views := make([]CooldownView, len(cooldowns))

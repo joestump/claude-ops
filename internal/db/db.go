@@ -56,6 +56,20 @@ type Event struct {
 	CreatedAt string
 }
 
+// Memory represents a persistent operational knowledge record.
+type Memory struct {
+	ID          int64
+	Service     *string
+	Category    string
+	Observation string
+	Confidence  float64
+	Active      bool
+	CreatedAt   string
+	UpdatedAt   string
+	SessionID   *int64
+	Tier        int
+}
+
 // CooldownAction represents a remediation action record.
 type CooldownAction struct {
 	ID         int64
@@ -114,6 +128,7 @@ var migrations = []migration{
 	{version: 3, fn: migrate003},
 	{version: 4, fn: migrate004},
 	{version: 5, fn: migrate005},
+	{version: 6, fn: migrate006},
 }
 
 func (d *DB) migrate() error {
@@ -666,6 +681,195 @@ func (d *DB) GetChildSessions(sessionID int64) ([]Session, error) {
 		sessions = append(sessions, s)
 	}
 	return sessions, rows.Err()
+}
+
+func migrate006(tx *sql.Tx) error {
+	stmts := []string{
+		`CREATE TABLE memories (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			service TEXT,
+			category TEXT NOT NULL,
+			observation TEXT NOT NULL,
+			confidence REAL NOT NULL DEFAULT 0.7,
+			active INTEGER NOT NULL DEFAULT 1,
+			created_at TEXT NOT NULL,
+			updated_at TEXT NOT NULL,
+			session_id INTEGER REFERENCES sessions(id),
+			tier INTEGER NOT NULL DEFAULT 1
+		)`,
+		`CREATE INDEX idx_memories_service ON memories(service, active)`,
+		`CREATE INDEX idx_memories_confidence ON memories(confidence, active)`,
+		`CREATE INDEX idx_memories_category ON memories(category)`,
+	}
+	for _, s := range stmts {
+		if _, err := tx.Exec(s); err != nil {
+			return fmt.Errorf("exec %q: %w", s[:40], err)
+		}
+	}
+	return nil
+}
+
+// --- Memory Methods ---
+
+// InsertMemory stores a memory record and returns its ID.
+func (d *DB) InsertMemory(m *Memory) (int64, error) {
+	res, err := d.conn.Exec(
+		`INSERT INTO memories (service, category, observation, confidence, active, created_at, updated_at, session_id, tier)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		m.Service, m.Category, m.Observation, m.Confidence, boolToInt(m.Active), m.CreatedAt, m.UpdatedAt, m.SessionID, m.Tier,
+	)
+	if err != nil {
+		return 0, fmt.Errorf("insert memory: %w", err)
+	}
+	return res.LastInsertId()
+}
+
+// GetMemory retrieves a single memory by ID.
+func (d *DB) GetMemory(id int64) (*Memory, error) {
+	m := &Memory{}
+	var active int
+	err := d.conn.QueryRow(
+		`SELECT id, service, category, observation, confidence, active, created_at, updated_at, session_id, tier
+		 FROM memories WHERE id = ?`, id,
+	).Scan(&m.ID, &m.Service, &m.Category, &m.Observation, &m.Confidence, &active, &m.CreatedAt, &m.UpdatedAt, &m.SessionID, &m.Tier)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get memory %d: %w", id, err)
+	}
+	m.Active = active == 1
+	return m, nil
+}
+
+// UpdateMemory updates a memory's observation, confidence, and active flag.
+func (d *DB) UpdateMemory(id int64, observation string, confidence float64, active bool) error {
+	_, err := d.conn.Exec(
+		`UPDATE memories SET observation = ?, confidence = ?, active = ?, updated_at = datetime('now') WHERE id = ?`,
+		observation, confidence, boolToInt(active), id,
+	)
+	if err != nil {
+		return fmt.Errorf("update memory %d: %w", id, err)
+	}
+	return nil
+}
+
+// DeleteMemory removes a memory by ID.
+func (d *DB) DeleteMemory(id int64) error {
+	_, err := d.conn.Exec(`DELETE FROM memories WHERE id = ?`, id)
+	if err != nil {
+		return fmt.Errorf("delete memory %d: %w", id, err)
+	}
+	return nil
+}
+
+// ListMemories returns memories with optional service and category filters,
+// ordered by confidence descending.
+func (d *DB) ListMemories(service *string, category *string, limit int) ([]Memory, error) {
+	query := `SELECT id, service, category, observation, confidence, active, created_at, updated_at, session_id, tier FROM memories WHERE 1=1`
+	var args []any
+
+	if service != nil {
+		query += ` AND service = ?`
+		args = append(args, *service)
+	}
+	if category != nil {
+		query += ` AND category = ?`
+		args = append(args, *category)
+	}
+	query += ` ORDER BY confidence DESC LIMIT ?`
+	args = append(args, limit)
+
+	rows, err := d.conn.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list memories: %w", err)
+	}
+	defer rows.Close()
+
+	var memories []Memory
+	for rows.Next() {
+		var m Memory
+		var active int
+		if err := rows.Scan(&m.ID, &m.Service, &m.Category, &m.Observation, &m.Confidence, &active, &m.CreatedAt, &m.UpdatedAt, &m.SessionID, &m.Tier); err != nil {
+			return nil, fmt.Errorf("scan memory: %w", err)
+		}
+		m.Active = active == 1
+		memories = append(memories, m)
+	}
+	return memories, rows.Err()
+}
+
+// GetActiveMemories returns active memories with confidence >= 0.3,
+// ordered by confidence descending.
+func (d *DB) GetActiveMemories(limit int) ([]Memory, error) {
+	rows, err := d.conn.Query(
+		`SELECT id, service, category, observation, confidence, active, created_at, updated_at, session_id, tier
+		 FROM memories WHERE active = 1 AND confidence >= 0.3
+		 ORDER BY confidence DESC LIMIT ?`, limit,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("get active memories: %w", err)
+	}
+	defer rows.Close()
+
+	var memories []Memory
+	for rows.Next() {
+		var m Memory
+		var active int
+		if err := rows.Scan(&m.ID, &m.Service, &m.Category, &m.Observation, &m.Confidence, &active, &m.CreatedAt, &m.UpdatedAt, &m.SessionID, &m.Tier); err != nil {
+			return nil, fmt.Errorf("scan active memory: %w", err)
+		}
+		m.Active = active == 1
+		memories = append(memories, m)
+	}
+	return memories, rows.Err()
+}
+
+// FindSimilarMemory finds an existing memory matching the given service and category.
+func (d *DB) FindSimilarMemory(service *string, category string) (*Memory, error) {
+	var query string
+	var args []any
+
+	if service != nil {
+		query = `SELECT id, service, category, observation, confidence, active, created_at, updated_at, session_id, tier
+			 FROM memories WHERE service = ? AND category = ? ORDER BY confidence DESC LIMIT 1`
+		args = []any{*service, category}
+	} else {
+		query = `SELECT id, service, category, observation, confidence, active, created_at, updated_at, session_id, tier
+			 FROM memories WHERE service IS NULL AND category = ? ORDER BY confidence DESC LIMIT 1`
+		args = []any{category}
+	}
+
+	m := &Memory{}
+	var active int
+	err := d.conn.QueryRow(query, args...).Scan(&m.ID, &m.Service, &m.Category, &m.Observation, &m.Confidence, &active, &m.CreatedAt, &m.UpdatedAt, &m.SessionID, &m.Tier)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("find similar memory: %w", err)
+	}
+	m.Active = active == 1
+	return m, nil
+}
+
+// DecayStaleMemories reduces confidence for memories not updated within graceDays,
+// then deactivates any that fall below 0.3.
+func (d *DB) DecayStaleMemories(graceDays int, decayRate float64) error {
+	cutoff := time.Now().UTC().AddDate(0, 0, -graceDays).Format(time.RFC3339)
+	_, err := d.conn.Exec(
+		`UPDATE memories SET confidence = confidence - ? WHERE active = 1 AND updated_at < ?`,
+		decayRate, cutoff,
+	)
+	if err != nil {
+		return fmt.Errorf("decay stale memories: %w", err)
+	}
+
+	_, err = d.conn.Exec(`UPDATE memories SET active = 0 WHERE confidence < 0.3`)
+	if err != nil {
+		return fmt.Errorf("deactivate low-confidence memories: %w", err)
+	}
+	return nil
 }
 
 func boolToInt(b bool) int {

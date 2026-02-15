@@ -550,3 +550,340 @@ func TestGetChildSessions(t *testing.T) {
 		t.Fatalf("expected 0 children, got %d", len(noChildren))
 	}
 }
+
+// --- Memory Tests ---
+
+func TestMigration006(t *testing.T) {
+	d := openTestDB(t)
+
+	// Verify the memories table exists by running a query against it.
+	var count int
+	err := d.Conn().QueryRow(`SELECT COUNT(*) FROM memories`).Scan(&count)
+	if err != nil {
+		t.Fatalf("memories table should exist: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("expected 0 rows in fresh table, got %d", count)
+	}
+}
+
+func TestInsertAndGetMemory(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	svc := "jellyfin"
+
+	id, err := d.InsertMemory(&Memory{
+		Service:     &svc,
+		Category:    "timing",
+		Observation: "Takes 60s to start after restart",
+		Confidence:  0.8,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Tier:        2,
+	})
+	if err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+	if id < 1 {
+		t.Fatalf("expected positive ID, got %d", id)
+	}
+
+	m, err := d.GetMemory(id)
+	if err != nil {
+		t.Fatalf("GetMemory: %v", err)
+	}
+	if m == nil {
+		t.Fatal("expected memory, got nil")
+	}
+	if m.Service == nil || *m.Service != "jellyfin" {
+		t.Fatalf("expected service jellyfin, got %v", m.Service)
+	}
+	if m.Category != "timing" {
+		t.Fatalf("expected category timing, got %q", m.Category)
+	}
+	if m.Observation != "Takes 60s to start after restart" {
+		t.Fatalf("expected observation, got %q", m.Observation)
+	}
+	if m.Confidence != 0.8 {
+		t.Fatalf("expected confidence 0.8, got %f", m.Confidence)
+	}
+	if !m.Active {
+		t.Fatal("expected active=true")
+	}
+	if m.Tier != 2 {
+		t.Fatalf("expected tier 2, got %d", m.Tier)
+	}
+
+	// Non-existent ID returns nil.
+	m2, err := d.GetMemory(9999)
+	if err != nil {
+		t.Fatalf("GetMemory non-existent: %v", err)
+	}
+	if m2 != nil {
+		t.Fatalf("expected nil for non-existent memory, got %+v", m2)
+	}
+}
+
+func TestUpdateMemory(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	svc := "caddy"
+
+	id, err := d.InsertMemory(&Memory{
+		Service:     &svc,
+		Category:    "dependency",
+		Observation: "Must start after WireGuard",
+		Confidence:  0.7,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Tier:        1,
+	})
+	if err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+
+	if err := d.UpdateMemory(id, "Must start after WireGuard — confirmed", 0.95, true); err != nil {
+		t.Fatalf("UpdateMemory: %v", err)
+	}
+
+	m, err := d.GetMemory(id)
+	if err != nil {
+		t.Fatalf("GetMemory: %v", err)
+	}
+	if m.Observation != "Must start after WireGuard — confirmed" {
+		t.Fatalf("expected updated observation, got %q", m.Observation)
+	}
+	if m.Confidence != 0.95 {
+		t.Fatalf("expected confidence 0.95, got %f", m.Confidence)
+	}
+}
+
+func TestDeleteMemory(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	id, err := d.InsertMemory(&Memory{
+		Category:    "behavior",
+		Observation: "Temporary observation",
+		Confidence:  0.5,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Tier:        1,
+	})
+	if err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+
+	if err := d.DeleteMemory(id); err != nil {
+		t.Fatalf("DeleteMemory: %v", err)
+	}
+
+	m, err := d.GetMemory(id)
+	if err != nil {
+		t.Fatalf("GetMemory after delete: %v", err)
+	}
+	if m != nil {
+		t.Fatalf("expected nil after delete, got %+v", m)
+	}
+}
+
+func TestListMemoriesWithFilters(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	svc1 := "jellyfin"
+	svc2 := "caddy"
+
+	// Insert memories for different services and categories.
+	d.InsertMemory(&Memory{Service: &svc1, Category: "timing", Observation: "obs1", Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	d.InsertMemory(&Memory{Service: &svc1, Category: "behavior", Observation: "obs2", Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2})
+	d.InsertMemory(&Memory{Service: &svc2, Category: "timing", Observation: "obs3", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	d.InsertMemory(&Memory{Category: "remediation", Observation: "obs4", Confidence: 0.7, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3})
+
+	// No filters — all 4.
+	all, err := d.ListMemories(nil, nil, 100)
+	if err != nil {
+		t.Fatalf("ListMemories (no filters): %v", err)
+	}
+	if len(all) != 4 {
+		t.Fatalf("expected 4, got %d", len(all))
+	}
+	// Should be ordered by confidence DESC.
+	if all[0].Confidence < all[1].Confidence {
+		t.Fatal("expected confidence DESC ordering")
+	}
+
+	// Filter by service.
+	byService, err := d.ListMemories(&svc1, nil, 100)
+	if err != nil {
+		t.Fatalf("ListMemories (service filter): %v", err)
+	}
+	if len(byService) != 2 {
+		t.Fatalf("expected 2 for jellyfin, got %d", len(byService))
+	}
+
+	// Filter by category.
+	cat := "timing"
+	byCat, err := d.ListMemories(nil, &cat, 100)
+	if err != nil {
+		t.Fatalf("ListMemories (category filter): %v", err)
+	}
+	if len(byCat) != 2 {
+		t.Fatalf("expected 2 timing memories, got %d", len(byCat))
+	}
+
+	// Both filters.
+	both, err := d.ListMemories(&svc1, &cat, 100)
+	if err != nil {
+		t.Fatalf("ListMemories (both filters): %v", err)
+	}
+	if len(both) != 1 {
+		t.Fatalf("expected 1 for jellyfin+timing, got %d", len(both))
+	}
+
+	// Limit.
+	limited, err := d.ListMemories(nil, nil, 2)
+	if err != nil {
+		t.Fatalf("ListMemories (limit): %v", err)
+	}
+	if len(limited) != 2 {
+		t.Fatalf("expected 2 with limit, got %d", len(limited))
+	}
+}
+
+func TestGetActiveMemories(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	svc := "postgres"
+
+	// Active with high confidence — included.
+	d.InsertMemory(&Memory{Service: &svc, Category: "maintenance", Observation: "needs vacuum", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	// Active but below threshold — excluded.
+	d.InsertMemory(&Memory{Service: &svc, Category: "behavior", Observation: "low conf", Confidence: 0.2, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	// Inactive — excluded.
+	d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "inactive", Confidence: 0.9, Active: false, CreatedAt: now, UpdatedAt: now, Tier: 2})
+	// Exactly at threshold — included.
+	d.InsertMemory(&Memory{Category: "remediation", Observation: "borderline", Confidence: 0.3, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3})
+
+	active, err := d.GetActiveMemories(100)
+	if err != nil {
+		t.Fatalf("GetActiveMemories: %v", err)
+	}
+	if len(active) != 2 {
+		t.Fatalf("expected 2 active memories, got %d", len(active))
+	}
+	// First should be highest confidence.
+	if active[0].Confidence != 0.8 {
+		t.Fatalf("expected highest confidence first (0.8), got %f", active[0].Confidence)
+	}
+	if active[1].Confidence != 0.3 {
+		t.Fatalf("expected second confidence 0.3, got %f", active[1].Confidence)
+	}
+}
+
+func TestFindSimilarMemory(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+	svc := "jellyfin"
+
+	d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "Takes 60s to start", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2})
+	d.InsertMemory(&Memory{Category: "remediation", Observation: "Retry DNS once", Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+
+	// Find by service + category.
+	m, err := d.FindSimilarMemory(&svc, "timing")
+	if err != nil {
+		t.Fatalf("FindSimilarMemory: %v", err)
+	}
+	if m == nil {
+		t.Fatal("expected memory, got nil")
+	}
+	if m.Observation != "Takes 60s to start" {
+		t.Fatalf("expected matching observation, got %q", m.Observation)
+	}
+
+	// Find general memory (nil service).
+	m2, err := d.FindSimilarMemory(nil, "remediation")
+	if err != nil {
+		t.Fatalf("FindSimilarMemory (nil service): %v", err)
+	}
+	if m2 == nil {
+		t.Fatal("expected general memory, got nil")
+	}
+	if m2.Observation != "Retry DNS once" {
+		t.Fatalf("expected general observation, got %q", m2.Observation)
+	}
+
+	// No match.
+	m3, err := d.FindSimilarMemory(&svc, "nonexistent")
+	if err != nil {
+		t.Fatalf("FindSimilarMemory (no match): %v", err)
+	}
+	if m3 != nil {
+		t.Fatalf("expected nil for no match, got %+v", m3)
+	}
+}
+
+func TestDecayStaleMemories(t *testing.T) {
+	d := openTestDB(t)
+	svc := "caddy"
+
+	// Insert a stale memory (updated 60 days ago).
+	staleTime := time.Now().UTC().AddDate(0, 0, -60).Format(time.RFC3339)
+	d.InsertMemory(&Memory{Service: &svc, Category: "dependency", Observation: "stale obs", Confidence: 0.5, Active: true, CreatedAt: staleTime, UpdatedAt: staleTime, Tier: 1})
+
+	// Insert a fresh memory (updated now).
+	freshTime := time.Now().UTC().Format(time.RFC3339)
+	d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "fresh obs", Confidence: 0.8, Active: true, CreatedAt: freshTime, UpdatedAt: freshTime, Tier: 2})
+
+	// Decay memories older than 30 days by 0.1.
+	if err := d.DecayStaleMemories(30, 0.1); err != nil {
+		t.Fatalf("DecayStaleMemories: %v", err)
+	}
+
+	// Stale memory: 0.5 - 0.1 = 0.4, still active.
+	all, err := d.ListMemories(nil, nil, 100)
+	if err != nil {
+		t.Fatalf("ListMemories: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("expected 2 memories, got %d", len(all))
+	}
+
+	// Find the stale one.
+	stale, err := d.FindSimilarMemory(&svc, "dependency")
+	if err != nil {
+		t.Fatalf("FindSimilarMemory: %v", err)
+	}
+	if stale == nil {
+		t.Fatal("expected stale memory")
+	}
+	if stale.Confidence < 0.39 || stale.Confidence > 0.41 {
+		t.Fatalf("expected confidence ~0.4 after decay, got %f", stale.Confidence)
+	}
+	if !stale.Active {
+		t.Fatal("expected stale memory still active at 0.4")
+	}
+
+	// Fresh memory should be unchanged.
+	fresh, err := d.FindSimilarMemory(&svc, "timing")
+	if err != nil {
+		t.Fatalf("FindSimilarMemory (fresh): %v", err)
+	}
+	if fresh.Confidence != 0.8 {
+		t.Fatalf("expected fresh confidence unchanged at 0.8, got %f", fresh.Confidence)
+	}
+
+	// Decay again twice more — stale should drop below 0.3 and be deactivated.
+	d.DecayStaleMemories(30, 0.1)
+	d.DecayStaleMemories(30, 0.1)
+
+	stale2, err := d.GetMemory(stale.ID)
+	if err != nil {
+		t.Fatalf("GetMemory stale after multi-decay: %v", err)
+	}
+	if stale2.Active {
+		t.Fatalf("expected stale memory deactivated after dropping below 0.3, confidence=%f", stale2.Confidence)
+	}
+}

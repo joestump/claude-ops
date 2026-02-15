@@ -21,6 +21,7 @@ type Config struct {
 	MaxTier       int
 	Tier2Prompt   string
 	Tier3Prompt   string
+	MemoryBudget  int
 }
 
 // Load reads configuration from viper, which merges flag values, env vars,
@@ -44,5 +45,6 @@ func Load() Config {
 		MaxTier:       viper.GetInt("max_tier"),
 		Tier2Prompt:   viper.GetString("tier2_prompt"),
 		Tier3Prompt:   viper.GetString("tier3_prompt"),
+		MemoryBudget:  viper.GetInt("memory_budget"),
 	}
 }

@@ -108,6 +108,11 @@ func (m *Manager) runAdHoc(ctx context.Context, prompt string) {
 // runEscalationChain runs Tier 1 and escalates to higher tiers if the agent
 // writes a handoff file requesting it.
 func (m *Manager) runEscalationChain(ctx context.Context, trigger string) {
+	// Decay stale memories before each escalation chain.
+	if err := m.db.DecayStaleMemories(30, 0.1); err != nil {
+		fmt.Fprintf(os.Stderr, "decay stale memories: %v\n", err)
+	}
+
 	// Clean up any stale handoff file from a previous run.
 	if err := DeleteHandoff(m.cfg.StateDir); err != nil {
 		fmt.Fprintf(os.Stderr, "cleanup stale handoff: %v\n", err)
@@ -250,6 +255,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 
 	// Build environment context string.
 	envCtx := m.buildEnvContext()
+	if memCtx := m.buildMemoryContext(); memCtx != "" {
+		envCtx += "\n\n" + memCtx
+	}
 	if handoffContext != "" {
 		envCtx += "\n\n" + handoffContext
 	}
@@ -316,7 +324,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 					resultDurationMs = evt.DurationMs
 				}
 
-				// Parse event markers from assistant text blocks only.
+				// Parse event and memory markers from assistant text blocks only.
 				if evt.Type == "assistant" {
 					for _, block := range evt.Message.Content {
 						if block.Type == "text" {
@@ -330,6 +338,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 									Message:   pe.Message,
 									CreatedAt: now,
 								})
+							}
+							for _, pm := range parseMemoryMarkers(block.Text) {
+								m.upsertMemory(sessionID, tier, pm)
 							}
 						}
 					}
@@ -750,6 +761,35 @@ type parsedEvent struct {
 	Message string
 }
 
+// memoryMarkerRe matches [MEMORY:category] or [MEMORY:category:service] markers in assistant text.
+var memoryMarkerRe = regexp.MustCompile(`\[MEMORY:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+
+// parseMemoryMarkers scans text for memory markers and returns parsed memories.
+func parseMemoryMarkers(text string) []parsedMemory {
+	var memories []parsedMemory
+	for _, line := range strings.Split(text, "\n") {
+		matches := memoryMarkerRe.FindStringSubmatch(strings.TrimSpace(line))
+		if matches == nil {
+			continue
+		}
+		pm := parsedMemory{
+			Category:    matches[1],
+			Observation: matches[3],
+		}
+		if matches[2] != "" {
+			pm.Service = &matches[2]
+		}
+		memories = append(memories, pm)
+	}
+	return memories
+}
+
+type parsedMemory struct {
+	Category    string
+	Service     *string
+	Observation string
+}
+
 // WrapLogLine wraps formatted HTML content with a line number, timestamp, and anchor.
 func WrapLogLine(num int, ts string, content string) string {
 	return fmt.Sprintf(`<div class="log-line" id="L%d"><a class="line-num" href="#L%d">%d</a><span class="line-ts">%s</span><div class="line-content">%s</div></div>`,
@@ -817,4 +857,130 @@ func (m *Manager) buildEnvContext() string {
 	}
 
 	return ctx
+}
+
+// upsertMemory handles the insert-or-update logic for a parsed memory marker.
+// If a similar memory exists (same service + category), it either reinforces
+// (increases confidence) or contradicts (decreases old, inserts new).
+func (m *Manager) upsertMemory(sessionID int64, tier int, pm parsedMemory) {
+	existing, err := m.db.FindSimilarMemory(pm.Service, pm.Category)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "find similar memory: %v\n", err)
+		return
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	if existing != nil {
+		if existing.Observation == pm.Observation {
+			// Same observation — reinforce confidence.
+			newConf := existing.Confidence + 0.1
+			if newConf > 1.0 {
+				newConf = 1.0
+			}
+			if err := m.db.UpdateMemory(existing.ID, existing.Observation, newConf, existing.Active); err != nil {
+				fmt.Fprintf(os.Stderr, "reinforce memory %d: %v\n", existing.ID, err)
+			}
+			return
+		}
+		// Different observation — decrease old confidence.
+		newConf := existing.Confidence - 0.1
+		active := existing.Active
+		if newConf < 0.3 {
+			active = false
+		}
+		if err := m.db.UpdateMemory(existing.ID, existing.Observation, newConf, active); err != nil {
+			fmt.Fprintf(os.Stderr, "decay contradicted memory %d: %v\n", existing.ID, err)
+		}
+	}
+
+	// Insert new memory.
+	mem := &db.Memory{
+		Service:     pm.Service,
+		Category:    pm.Category,
+		Observation: pm.Observation,
+		Confidence:  0.7,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		SessionID:   &sessionID,
+		Tier:        tier,
+	}
+	if _, err := m.db.InsertMemory(mem); err != nil {
+		fmt.Fprintf(os.Stderr, "insert memory: %v\n", err)
+	}
+}
+
+// buildMemoryContext queries active memories and formats them as a structured
+// markdown block for injection into the system prompt. It respects the
+// configured MemoryBudget (estimated as characters / 4).
+func (m *Manager) buildMemoryContext() string {
+	budget := m.cfg.MemoryBudget
+	if budget <= 0 {
+		return ""
+	}
+
+	memories, err := m.db.GetActiveMemories(200)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "get active memories: %v\n", err)
+		return ""
+	}
+	if len(memories) == 0 {
+		return ""
+	}
+
+	// Group memories by service (nil service = "general").
+	type memEntry struct {
+		Category    string
+		Observation string
+		Confidence  float64
+	}
+	groups := make(map[string][]memEntry)
+	var order []string
+	for _, mem := range memories {
+		key := "general"
+		if mem.Service != nil {
+			key = *mem.Service
+		}
+		if _, exists := groups[key]; !exists {
+			order = append(order, key)
+		}
+		groups[key] = append(groups[key], memEntry{
+			Category:    mem.Category,
+			Observation: mem.Observation,
+			Confidence:  mem.Confidence,
+		})
+	}
+
+	var b strings.Builder
+	budgetChars := budget * 4
+	memCount := 0
+	lastSvc := ""
+	for _, svc := range order {
+		entries := groups[svc]
+		for _, e := range entries {
+			line := fmt.Sprintf("- [%s] %s (confidence: %.1f)\n", e.Category, e.Observation, e.Confidence)
+			header := ""
+			if svc != lastSvc {
+				header = fmt.Sprintf("\n### %s\n", svc)
+				lastSvc = svc
+			}
+			candidate := header + line
+			if b.Len()+len(candidate) > budgetChars {
+				goto done
+			}
+			b.WriteString(candidate)
+			memCount++
+		}
+	}
+done:
+
+	if memCount == 0 {
+		return ""
+	}
+
+	// Estimate tokens for the header.
+	header := fmt.Sprintf("## Operational Memory (%d memories, ~%d tokens)\n", memCount, b.Len()/4)
+
+	return header + b.String()
 }

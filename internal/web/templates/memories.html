@@ -1,0 +1,149 @@
+{{define "memories.html"}}
+<div class="max-w-6xl">
+    <h1 class="text-2xl font-semibold mb-6">Memories</h1>
+
+    {{/* Filter bar */}}
+    <div class="card-base mb-6">
+        <form method="GET" action="/memories" class="flex items-end gap-4 flex-wrap">
+            <div>
+                <label class="meta-label" for="filter-service">Service</label>
+                <input type="text" name="service" id="filter-service" value="{{.Service}}"
+                       class="input-field text-sm" placeholder="e.g. caddy">
+            </div>
+            <div>
+                <label class="meta-label" for="filter-category">Category</label>
+                <input type="text" name="category" id="filter-category" value="{{.Category}}"
+                       class="input-field text-sm" placeholder="e.g. behavior">
+            </div>
+            <button type="submit" class="btn-primary text-sm">Filter</button>
+            {{if or .Service .Category}}
+            <a href="/memories" class="text-sm text-accent hover:underline">Clear</a>
+            {{end}}
+        </form>
+    </div>
+
+    {{/* Add Memory form */}}
+    <details class="mb-6">
+        <summary class="section-heading cursor-pointer select-none">Add Memory</summary>
+        <div class="card-base mt-2">
+            <form method="POST" action="/memories" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="meta-label" for="new-service">Service</label>
+                        <input type="text" name="service" id="new-service"
+                               class="input-field w-full text-sm" placeholder="Leave blank for global">
+                    </div>
+                    <div>
+                        <label class="meta-label" for="new-category">Category</label>
+                        <select name="category" id="new-category" class="input-field w-full text-sm">
+                            <option value="behavior">behavior</option>
+                            <option value="config">config</option>
+                            <option value="dependency">dependency</option>
+                            <option value="failure_pattern">failure_pattern</option>
+                            <option value="fix">fix</option>
+                            <option value="performance">performance</option>
+                        </select>
+                    </div>
+                </div>
+                <div>
+                    <label class="meta-label" for="new-observation">Observation</label>
+                    <textarea name="observation" id="new-observation" rows="3"
+                              class="input-field w-full text-sm" placeholder="What did you observe?" required></textarea>
+                </div>
+                <div>
+                    <label class="meta-label" for="new-confidence">Confidence: <span id="confidence-display">0.70</span></label>
+                    <input type="range" name="confidence" id="new-confidence"
+                           min="0" max="1" step="0.05" value="0.7"
+                           class="w-full accent-[#D4764E]"
+                           oninput="document.getElementById('confidence-display').textContent = parseFloat(this.value).toFixed(2)">
+                </div>
+                <button type="submit" class="btn-primary text-sm">Save Memory</button>
+            </form>
+        </div>
+    </details>
+
+    {{/* Memories table */}}
+    {{if .Memories}}
+    <div class="card-base overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="thead-row">
+                    <th class="py-2 px-3">Service</th>
+                    <th class="py-2 px-3">Category</th>
+                    <th class="py-2 px-3">Observation</th>
+                    <th class="py-2 px-3">Confidence</th>
+                    <th class="py-2 px-3">Active</th>
+                    <th class="py-2 px-3">Updated</th>
+                    <th class="py-2 px-3">Session</th>
+                    <th class="py-2 px-3">Tier</th>
+                    <th class="py-2 px-3">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Memories}}
+                <tr class="tbody-row" id="memory-row-{{.ID}}">
+                    <td class="py-2 px-3 font-mono text-xs">{{.Service}}</td>
+                    <td class="py-2 px-3">
+                        <span class="badge-pill level-info">{{.Category}}</span>
+                    </td>
+                    <td class="py-2 px-3 max-w-xs truncate" title="{{.Observation}}">{{.Observation}}</td>
+                    <td class="py-2 px-3 font-mono text-xs">{{fmtPct .Confidence}}</td>
+                    <td class="py-2 px-3">
+                        {{if .Active}}<span class="dot dot-healthy"></span>{{else}}<span class="dot dot-unknown"></span>{{end}}
+                    </td>
+                    <td class="py-2 px-3 text-xs text-muted font-mono whitespace-nowrap">{{fmtTime .UpdatedAt}}</td>
+                    <td class="py-2 px-3 text-xs">
+                        {{if .SessionID}}<a href="/sessions/{{.SessionID}}" class="text-accent hover:underline">#{{.SessionID}}</a>{{else}}--{{end}}
+                    </td>
+                    <td class="py-2 px-3 text-xs font-mono">{{.Tier}}</td>
+                    <td class="py-2 px-3">
+                        <div class="flex gap-2">
+                            <button onclick="toggleEdit({{.ID}})" class="text-xs text-accent hover:underline">Edit</button>
+                            <form method="POST" action="/memories/{{.ID}}/delete" onsubmit="return confirm('Delete this memory?')">
+                                <button type="submit" class="text-xs text-red-500 hover:underline">Delete</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+                <tr class="hidden" id="memory-edit-{{.ID}}">
+                    <td colspan="9" class="py-3 px-3 bg-surface">
+                        <form method="POST" action="/memories/{{.ID}}/update" class="space-y-3">
+                            <div>
+                                <label class="meta-label">Observation</label>
+                                <textarea name="observation" rows="2" class="input-field w-full text-sm" required>{{.Observation}}</textarea>
+                            </div>
+                            <div class="flex items-center gap-6">
+                                <div>
+                                    <label class="meta-label">Confidence</label>
+                                    <input type="range" name="confidence" min="0" max="1" step="0.05" value="{{.Confidence}}"
+                                           class="accent-[#D4764E]"
+                                           oninput="this.nextElementSibling.textContent = parseFloat(this.value).toFixed(2)">
+                                    <span class="text-xs text-muted font-mono">{{printf "%.2f" .Confidence}}</span>
+                                </div>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" name="active" class="checkbox-field" {{if .Active}}checked{{end}}>
+                                    Active
+                                </label>
+                                <button type="submit" class="btn-primary text-sm">Update</button>
+                                <button type="button" onclick="toggleEdit({{.ID}})" class="text-sm text-muted hover:text-charcoal">Cancel</button>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+    {{else}}
+    <div class="card-base text-sm text-muted">No memories recorded yet. Memories will appear as the agent learns about your infrastructure.</div>
+    {{end}}
+</div>
+<script>
+function toggleEdit(id) {
+    var editRow = document.getElementById('memory-edit-' + id);
+    if (editRow) {
+        editRow.classList.toggle('hidden');
+    }
+}
+</script>
+{{end}}

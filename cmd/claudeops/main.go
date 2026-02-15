@@ -48,6 +48,7 @@ func main() {
 	f.Int("max-tier", 3, "maximum escalation tier (1-3)")
 	f.String("tier2-prompt", "/app/prompts/tier2-investigate.md", "path to Tier 2 prompt file")
 	f.String("tier3-prompt", "/app/prompts/tier3-remediate.md", "path to Tier 3 prompt file")
+	f.Int("memory-budget", 2000, "max tokens for memory context injection")
 
 	// Bind flags to viper. Viper keys use underscores (tier1_model) so they
 	// match the env var suffix after stripping the CLAUDEOPS_ prefix.
@@ -71,6 +72,7 @@ func main() {
 	bindFlag("max_tier", "max-tier")
 	bindFlag("tier2_prompt", "tier2-prompt")
 	bindFlag("tier3_prompt", "tier3-prompt")
+	bindFlag("memory_budget", "memory-budget")
 
 	// Bind CLAUDEOPS_* environment variables. AutomaticEnv with the prefix
 	// maps CLAUDEOPS_INTERVAL -> "interval", CLAUDEOPS_TIER1_MODEL -> "tier1_model", etc.

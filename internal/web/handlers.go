@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/joestump/claude-ops/internal/db"
 	"github.com/joestump/claude-ops/internal/session"
 )
 
@@ -31,16 +32,25 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		events = ToEventViews(evts)
 	}
 
+	var memoryCount int
+	if memories, err := s.db.ListMemories(nil, nil, 1000); err != nil {
+		log.Printf("handleIndex: ListMemories: %v", err)
+	} else {
+		memoryCount = len(memories)
+	}
+
 	data := struct {
-		Events   []EventView
-		Session  *SessionView
-		NextRun  time.Time
-		Interval int
+		Events      []EventView
+		Session     *SessionView
+		NextRun     time.Time
+		Interval    int
+		MemoryCount int
 	}{
-		Events:   events,
-		Session:  sessionView,
-		NextRun:  time.Now().UTC().Add(time.Duration(s.cfg.Interval) * time.Second),
-		Interval: s.cfg.Interval,
+		Events:      events,
+		Session:     sessionView,
+		NextRun:     time.Now().UTC().Add(time.Duration(s.cfg.Interval) * time.Second),
+		Interval:    s.cfg.Interval,
+		MemoryCount: memoryCount,
 	}
 
 	s.render(w, r, "index.html", data)
@@ -301,6 +311,141 @@ func (s *Server) handleCooldowns(w http.ResponseWriter, r *http.Request) {
 	}
 
 	s.render(w, r, "cooldowns.html", data)
+}
+
+// handleMemories renders the memories list with optional filters.
+func (s *Server) handleMemories(w http.ResponseWriter, r *http.Request) {
+	var serviceFilter *string
+	var categoryFilter *string
+
+	if v := r.URL.Query().Get("service"); v != "" {
+		serviceFilter = &v
+	}
+	if v := r.URL.Query().Get("category"); v != "" {
+		categoryFilter = &v
+	}
+
+	memories, err := s.db.ListMemories(serviceFilter, categoryFilter, 200)
+	if err != nil {
+		log.Printf("handleMemories: %v", err)
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	data := struct {
+		Memories []MemoryView
+		Service  string
+		Category string
+	}{
+		Memories: ToMemoryViews(memories),
+	}
+	if serviceFilter != nil {
+		data.Service = *serviceFilter
+	}
+	if categoryFilter != nil {
+		data.Category = *categoryFilter
+	}
+
+	s.render(w, r, "memories.html", data)
+}
+
+// handleMemoryCreate handles POST /memories to create a new memory.
+func (s *Server) handleMemoryCreate(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form data", http.StatusBadRequest)
+		return
+	}
+
+	service := strings.TrimSpace(r.FormValue("service"))
+	category := strings.TrimSpace(r.FormValue("category"))
+	observation := strings.TrimSpace(r.FormValue("observation"))
+	confidenceStr := r.FormValue("confidence")
+
+	if category == "" || observation == "" {
+		http.Error(w, "category and observation are required", http.StatusBadRequest)
+		return
+	}
+
+	confidence := 0.7
+	if confidenceStr != "" {
+		if v, err := strconv.ParseFloat(confidenceStr, 64); err == nil {
+			confidence = v
+		}
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	m := &db.Memory{
+		Category:    category,
+		Observation: observation,
+		Confidence:  confidence,
+		Active:      true,
+		CreatedAt:   now,
+		UpdatedAt:   now,
+		Tier:        0,
+	}
+	if service != "" {
+		m.Service = &service
+	}
+
+	if _, err := s.db.InsertMemory(m); err != nil {
+		log.Printf("handleMemoryCreate: %v", err)
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/memories", http.StatusSeeOther)
+}
+
+// handleMemoryUpdate handles POST /memories/{id}/update.
+func (s *Server) handleMemoryUpdate(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid memory ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		http.Error(w, "bad form data", http.StatusBadRequest)
+		return
+	}
+
+	observation := strings.TrimSpace(r.FormValue("observation"))
+	confidenceStr := r.FormValue("confidence")
+	active := r.FormValue("active") == "on"
+
+	confidence := 0.7
+	if confidenceStr != "" {
+		if v, err := strconv.ParseFloat(confidenceStr, 64); err == nil {
+			confidence = v
+		}
+	}
+
+	if err := s.db.UpdateMemory(id, observation, confidence, active); err != nil {
+		log.Printf("handleMemoryUpdate: %v", err)
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/memories", http.StatusSeeOther)
+}
+
+// handleMemoryDelete handles POST /memories/{id}/delete.
+func (s *Server) handleMemoryDelete(w http.ResponseWriter, r *http.Request) {
+	idStr := r.PathValue("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		http.Error(w, "invalid memory ID", http.StatusBadRequest)
+		return
+	}
+
+	if err := s.db.DeleteMemory(id); err != nil {
+		log.Printf("handleMemoryDelete: %v", err)
+		http.Error(w, "database error", http.StatusInternalServerError)
+		return
+	}
+
+	http.Redirect(w, r, "/memories", http.StatusSeeOther)
 }
 
 // handleConfigGet renders the configuration form.
