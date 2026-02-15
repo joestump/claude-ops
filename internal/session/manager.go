@@ -20,10 +20,11 @@ import (
 
 // Manager runs Claude CLI sessions on a recurring interval.
 type Manager struct {
-	cfg    *config.Config
-	db     *db.DB
-	hub    *hub.Hub
-	runner ProcessRunner
+	cfg      *config.Config
+	db       *db.DB
+	hub      *hub.Hub
+	runner   ProcessRunner
+	redactor *RedactionFilter
 
 	// PreSessionHook is called before each session starts.
 	// If it returns an error, the session is skipped.
@@ -43,6 +44,7 @@ func New(cfg *config.Config, database *db.DB, h *hub.Hub, runner ProcessRunner) 
 		db:          database,
 		hub:         h,
 		runner:      runner,
+		redactor:    NewRedactionFilter(),
 		triggerCh:   make(chan string, 1),
 		lastAdHocID: make(chan int64, 1),
 	}
@@ -300,7 +302,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 		var lineNum int
 		for scanner.Scan() {
-			raw := scanner.Text()
+			raw := m.redactor.Redact(scanner.Text())
 			ts := time.Now().UTC()
 
 			// Write timestamped JSON to log file for forensic analysis.
@@ -854,6 +856,10 @@ func (m *Manager) buildEnvContext() string {
 
 	if m.cfg.AppriseURLs != "" {
 		ctx += fmt.Sprintf(" CLAUDEOPS_APPRISE_URLS=%s", m.cfg.AppriseURLs)
+	}
+
+	if m.cfg.BrowserAllowedOrigins != "" {
+		ctx += fmt.Sprintf(" BROWSER_ALLOWED_ORIGINS=%s", m.cfg.BrowserAllowedOrigins)
 	}
 
 	return ctx

@@ -451,18 +451,28 @@ func (s *Server) handleMemoryDelete(w http.ResponseWriter, r *http.Request) {
 // handleConfigGet renders the configuration form.
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 	data := struct {
-		Interval   int
-		Tier1Model string
-		Tier2Model string
-		Tier3Model string
-		DryRun     bool
-		Saved      bool
+		Interval              int
+		Tier1Model            string
+		Tier2Model            string
+		Tier3Model            string
+		DryRun                bool
+		Saved                 bool
+		StateDir              string
+		ResultsDir            string
+		ReposDir              string
+		MaxTier               int
+		BrowserAllowedOrigins string
 	}{
-		Interval:   s.cfg.Interval,
-		Tier1Model: s.cfg.Tier1Model,
-		Tier2Model: s.cfg.Tier2Model,
-		Tier3Model: s.cfg.Tier3Model,
-		DryRun:     s.cfg.DryRun,
+		Interval:              s.cfg.Interval,
+		Tier1Model:            s.cfg.Tier1Model,
+		Tier2Model:            s.cfg.Tier2Model,
+		Tier3Model:            s.cfg.Tier3Model,
+		DryRun:                s.cfg.DryRun,
+		StateDir:              s.cfg.StateDir,
+		ResultsDir:            s.cfg.ResultsDir,
+		ReposDir:              s.cfg.ReposDir,
+		MaxTier:               s.cfg.MaxTier,
+		BrowserAllowedOrigins: s.cfg.BrowserAllowedOrigins,
 	}
 
 	s.render(w, r, "config.html", data)
@@ -527,19 +537,29 @@ func (s *Server) handleConfigPost(w http.ResponseWriter, r *http.Request) {
 		s.cfg.Interval, s.cfg.Tier1Model, s.cfg.Tier2Model, s.cfg.Tier3Model, s.cfg.DryRun)
 
 	data := struct {
-		Interval   int
-		Tier1Model string
-		Tier2Model string
-		Tier3Model string
-		DryRun     bool
-		Saved      bool
+		Interval              int
+		Tier1Model            string
+		Tier2Model            string
+		Tier3Model            string
+		DryRun                bool
+		Saved                 bool
+		StateDir              string
+		ResultsDir            string
+		ReposDir              string
+		MaxTier               int
+		BrowserAllowedOrigins string
 	}{
-		Interval:   s.cfg.Interval,
-		Tier1Model: s.cfg.Tier1Model,
-		Tier2Model: s.cfg.Tier2Model,
-		Tier3Model: s.cfg.Tier3Model,
-		DryRun:     s.cfg.DryRun,
-		Saved:      true,
+		Interval:              s.cfg.Interval,
+		Tier1Model:            s.cfg.Tier1Model,
+		Tier2Model:            s.cfg.Tier2Model,
+		Tier3Model:            s.cfg.Tier3Model,
+		DryRun:                s.cfg.DryRun,
+		Saved:                 true,
+		StateDir:              s.cfg.StateDir,
+		ResultsDir:            s.cfg.ResultsDir,
+		ReposDir:              s.cfg.ReposDir,
+		MaxTier:               s.cfg.MaxTier,
+		BrowserAllowedOrigins: s.cfg.BrowserAllowedOrigins,
 	}
 
 	s.render(w, r, "config.html", data)

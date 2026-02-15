@@ -19,6 +19,13 @@ services:
       # Comma-separated Apprise URLs, e.g.:
       #   ntfy://ntfy.sh/my-topic,mailto://user:pass@smtp.example.com
       - CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS:-}
+      # Browser automation (requires: docker compose --profile browser up -d)
+      # Comma-separated list of allowed origins, e.g.: https://sonarr.example.com,https://radarr.example.com
+      - CLAUDEOPS_BROWSER_ALLOWED_ORIGINS=${CLAUDEOPS_BROWSER_ALLOWED_ORIGINS:-}
+      # Add BROWSER_CRED_* env vars for each service the agent needs to log into.
+      # Convention: BROWSER_CRED_{SERVICE}_{FIELD}, e.g.:
+      #   - BROWSER_CRED_SONARR_USER=${BROWSER_CRED_SONARR_USER}
+      #   - BROWSER_CRED_SONARR_PASS=${BROWSER_CRED_SONARR_PASS}
     ports:
       - "8080:8080"
     volumes:
@@ -34,6 +41,8 @@ services:
       #   - ~/.ssh/claude-ops_ed25519:/root/.ssh/id_ed25519:ro
       #   - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
 
+  # Headless Chrome sidecar for browser automation (credential rotation, web UI checks).
+  # Only starts when using: docker compose --profile browser up -d
   chrome:
     image: browserless/chromium
     container_name: claude-ops-chrome
@@ -44,3 +53,4 @@ services:
       - "9222:9222"
     environment:
       - CONNECTION_TIMEOUT=120000
+      - CHROME_FLAGS=--incognito

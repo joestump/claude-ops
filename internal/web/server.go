@@ -192,6 +192,24 @@ func (s *Server) parseTemplates() {
 		"fmtPct": func(v float64) string {
 			return fmt.Sprintf("%.0f%%", v*100)
 		},
+		"fmtInterval": func(seconds int) string {
+			if seconds < 60 {
+				return fmt.Sprintf("%ds", seconds)
+			}
+			if seconds < 3600 {
+				m := seconds / 60
+				if seconds%60 == 0 {
+					return fmt.Sprintf("%dm", m)
+				}
+				return fmt.Sprintf("%dm %ds", m, seconds%60)
+			}
+			h := seconds / 3600
+			rem := seconds % 3600
+			if rem == 0 {
+				return fmt.Sprintf("%dh", h)
+			}
+			return fmt.Sprintf("%dh %dm", h, rem/60)
+		},
 		"fmtMs": func(p *int64) string {
 			if p == nil {
 				return "--"

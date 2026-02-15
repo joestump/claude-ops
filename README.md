@@ -58,7 +58,7 @@ On a healthy day, you spend ~$1-2 running 24 Haiku checks. Sonnet and Opus token
 - **Built-in health checks**: HTTP endpoints, DNS resolution, Docker container state, PostgreSQL/Redis/MySQL connectivity, and service-specific APIs (Sonarr, Radarr, Jellyfin, etc.).
 - **Built-in playbooks**: Container restart, full redeployment via Ansible/Helm, and API key rotation (including browser automation for web UIs without APIs).
 - **Notifications via Apprise**: One env var, 80+ notification services. Email, ntfy, Slack, Discord, Telegram, PagerDuty, and more.
-- **Browser automation**: Optional Chrome sidecar for interacting with web UIs that don't have APIs (e.g., rotating API keys from provider dashboards).
+- **Browser automation**: Optional Chrome sidecar for interacting with web UIs that don't have APIs (e.g., rotating API keys from provider dashboards). Four security layers: credential injection (agent never sees raw values), URL allowlist, log redaction, and incognito context isolation. See [docs/browser-automation.md](docs/browser-automation.md) for the full setup guide.
 - **MCP integration**: Docker, PostgreSQL, Chrome DevTools, and Fetch MCP servers included. Repos can bring their own MCP server configs.
 - **12-factor config**: Everything configured via environment variables. No config files to template.
 - **Manual triggers**: Kick off an ad-hoc run from the dashboard with the "Run Now" button — no need to wait for the next scheduled interval.
@@ -173,6 +173,8 @@ All configuration via environment variables:
 | `CLAUDEOPS_APPRISE_URLS` | *(disabled)* | Comma-separated [Apprise URLs](https://github.com/caronc/apprise/wiki) for notifications |
 | `CLAUDEOPS_DASHBOARD_PORT` | `8080` | HTTP port for the web dashboard |
 | `CLAUDEOPS_ALLOWED_TOOLS` | `Bash,Read,Grep,Glob,Task,WebFetch` | Claude CLI tools to enable |
+| `CLAUDEOPS_BROWSER_ALLOWED_ORIGINS` | *(disabled)* | Comma-separated origins for browser automation (e.g., `https://sonarr.example.com`) |
+| `BROWSER_CRED_{SERVICE}_{FIELD}` | *(none)* | Service credentials for browser login. `{SERVICE}` = uppercase name, `{FIELD}` = `USER`, `PASS`, `TOKEN`, or `API_KEY` |
 
 ## Architecture
 

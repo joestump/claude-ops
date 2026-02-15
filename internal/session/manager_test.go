@@ -221,6 +221,78 @@ func TestNewReturnsManager(t *testing.T) {
 	}
 }
 
+func TestBrowserAllowedOriginsInEnvContext(t *testing.T) {
+	m, _ := testManager(t)
+	m.cfg.BrowserAllowedOrigins = "https://sonarr.stump.rocks,https://prowlarr.stump.rocks"
+
+	ctx := m.buildEnvContext()
+
+	if !strings.Contains(ctx, "BROWSER_ALLOWED_ORIGINS=https://sonarr.stump.rocks,https://prowlarr.stump.rocks") {
+		t.Errorf("envContext should contain BROWSER_ALLOWED_ORIGINS; got %q", ctx)
+	}
+}
+
+func TestBrowserAllowedOriginsOmittedWhenEmpty(t *testing.T) {
+	m, _ := testManager(t)
+	// BrowserAllowedOrigins defaults to ""
+
+	ctx := m.buildEnvContext()
+
+	if strings.Contains(ctx, "BROWSER_ALLOWED_ORIGINS") {
+		t.Errorf("envContext should not contain BROWSER_ALLOWED_ORIGINS when empty; got %q", ctx)
+	}
+}
+
+func TestRedactionInStreamPipeline(t *testing.T) {
+	t.Setenv("BROWSER_CRED_SONARR_PASS", "supersecret")
+
+	m, cfg := testManager(t)
+	// Re-create redactor after setting env var.
+	m.redactor = NewRedactionFilter()
+
+	// Mock runner that outputs a stream event containing the credential.
+	m.runner = &mockRunner{
+		output: `{"type":"assistant","message":{"content":[{"type":"text","text":"password is supersecret"}]}}` + "\n",
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	_ = m.runOnce(ctx, "", "scheduled")
+
+	// Read the log file and verify redaction.
+	entries, err := os.ReadDir(cfg.ResultsDir)
+	if err != nil {
+		t.Fatalf("read results dir: %v", err)
+	}
+
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), "run-") || !strings.HasSuffix(e.Name(), ".log") {
+			continue
+		}
+		data, err := os.ReadFile(filepath.Join(cfg.ResultsDir, e.Name()))
+		if err != nil {
+			t.Fatalf("read log: %v", err)
+		}
+		content := string(data)
+		if strings.Contains(content, "supersecret") {
+			t.Errorf("log file should not contain raw credential; got:\n%s", content)
+		}
+		if !strings.Contains(content, "[REDACTED:BROWSER_CRED_SONARR_PASS]") {
+			t.Errorf("log file should contain redaction placeholder; got:\n%s", content)
+		}
+		return
+	}
+	t.Error("no log file found")
+}
+
+func TestRedactorInitializedInNew(t *testing.T) {
+	m, _ := testManager(t)
+	if m.redactor == nil {
+		t.Fatal("Manager.redactor should not be nil after New()")
+	}
+}
+
 func TestResultsDirUsed(t *testing.T) {
 	m, cfg := testManager(t)
 	// Use a subdirectory that doesn't exist yet to ensure it's created properly.

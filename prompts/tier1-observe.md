@@ -83,6 +83,15 @@ Categorize each service:
 - **down** — service is unreachable or critical checks failed
 - **in_cooldown** — known issue, cooldown limits reached, waiting for human
 
+## Browser Automation
+
+Browser authentication is NOT permitted at Tier 1. You may check if a login page loads (unauthenticated navigation to allowed origins only), but you MUST NOT:
+- Fill login forms or inject credentials
+- Use BROWSER_CRED_* references
+- Perform any authenticated browser actions
+
+If a service requires browser-based investigation, escalate to Tier 2 via the handoff file.
+
 ## Step 6: Report or Escalate
 
 ### All healthy

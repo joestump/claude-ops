@@ -37,11 +37,10 @@
                         <label class="meta-label" for="new-category">Category</label>
                         <select name="category" id="new-category" class="input-field w-full text-sm">
                             <option value="behavior">behavior</option>
-                            <option value="config">config</option>
+                            <option value="timing">timing</option>
                             <option value="dependency">dependency</option>
-                            <option value="failure_pattern">failure_pattern</option>
-                            <option value="fix">fix</option>
-                            <option value="performance">performance</option>
+                            <option value="remediation">remediation</option>
+                            <option value="maintenance">maintenance</option>
                         </select>
                     </div>
                 </div>
@@ -82,7 +81,7 @@
             <tbody>
                 {{range .Memories}}
                 <tr class="tbody-row" id="memory-row-{{.ID}}">
-                    <td class="py-2 px-3 font-mono text-xs">{{.Service}}</td>
+                    <td class="py-2 px-3 font-mono text-xs{{if eq .Service "global"}} text-muted{{end}}">{{.Service}}</td>
                     <td class="py-2 px-3">
                         <span class="badge-pill level-info">{{.Category}}</span>
                     </td>
@@ -95,7 +94,7 @@
                     <td class="py-2 px-3 text-xs">
                         {{if .SessionID}}<a href="/sessions/{{.SessionID}}" class="text-accent hover:underline">#{{.SessionID}}</a>{{else}}--{{end}}
                     </td>
-                    <td class="py-2 px-3 text-xs font-mono">{{.Tier}}</td>
+                    <td class="py-2 px-3 text-xs font-mono">{{if eq .Tier 0}}manual{{else}}T{{.Tier}}{{end}}</td>
                     <td class="py-2 px-3">
                         <div class="flex gap-2">
                             <button onclick="toggleEdit({{.ID}})" class="text-xs text-accent hover:underline">Edit</button>

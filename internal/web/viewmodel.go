@@ -215,7 +215,7 @@ func ToMemoryView(m db.Memory) MemoryView {
 	if m.Service != nil {
 		v.Service = *m.Service
 	} else {
-		v.Service = "-"
+		v.Service = "global"
 	}
 	if t, err := time.Parse(timeFormat, m.CreatedAt); err == nil {
 		v.CreatedAt = t

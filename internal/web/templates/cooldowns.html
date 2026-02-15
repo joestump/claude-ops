@@ -3,7 +3,7 @@
     <h1 class="text-2xl font-semibold mb-6">Cooldowns</h1>
 
     {{if not .Cooldowns}}
-    <div class="card-base text-sm text-muted">No active cooldowns.</div>
+    <div class="card-base text-sm text-muted">No active cooldowns. Cooldowns are created when the agent restarts or redeploys a service, preventing repeated actions on the same service within a short window (2 restarts per 4 hours, 1 redeployment per 24 hours).</div>
     {{else}}
     <div class="card-base overflow-x-auto">
         <table class="w-full text-sm">

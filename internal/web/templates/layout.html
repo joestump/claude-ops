@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Claude Ops</title>
+    <title>Claude Ops{{if eq .Page "sessions.html"}} &mdash; Sessions{{else if eq .Page "session.html"}} &mdash; Session{{else if eq .Page "events.html"}} &mdash; Events{{else if eq .Page "memories.html"}} &mdash; Memories{{else if eq .Page "cooldowns.html"}} &mdash; Cooldowns{{else if eq .Page "config.html"}} &mdash; Config{{end}}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet">
     <link href="/static/style.css" rel="stylesheet">
@@ -31,7 +31,7 @@
                 </li>
                 <li>
                     <a href="/sessions"
-                       class="nav-link{{if eq .Page "sessions.html"}} nav-active{{end}}"
+                       class="nav-link{{if or (eq .Page "sessions.html") (eq .Page "session.html")}} nav-active{{end}}"
                        hx-get="/sessions" hx-target="#main" hx-push-url="true">
                         <span class="nav-icon">&#9654;</span>
                         Sessions

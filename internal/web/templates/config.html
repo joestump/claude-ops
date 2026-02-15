@@ -9,7 +9,7 @@
     {{end}}
 
     <form class="card-base" hx-post="/config" hx-target="#main" hx-swap="innerHTML">
-        <div class="space-y-5">
+        <div class="space-y-6">
             {{/* Interval */}}
             <div>
                 <label for="interval" class="block text-xs text-muted uppercase tracking-wider mb-1">
@@ -18,39 +18,44 @@
                 <input type="number" id="interval" name="interval"
                        value="{{.Interval}}" min="60"
                        class="input-field w-full max-w-xs">
+                <p class="text-xs text-muted mt-1">How often the agent runs a health check cycle. Minimum 60 seconds.</p>
             </div>
 
             {{/* Models */}}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                    <label for="tier1_model" class="block text-xs text-muted uppercase tracking-wider mb-1">
-                        Tier 1 Model
-                    </label>
-                    <select id="tier1_model" name="tier1_model" class="input-field w-full">
-                        <option value="haiku" {{if eq .Tier1Model "haiku"}}selected{{end}}>haiku</option>
-                        <option value="sonnet" {{if eq .Tier1Model "sonnet"}}selected{{end}}>sonnet</option>
-                        <option value="opus" {{if eq .Tier1Model "opus"}}selected{{end}}>opus</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="tier2_model" class="block text-xs text-muted uppercase tracking-wider mb-1">
-                        Tier 2 Model
-                    </label>
-                    <select id="tier2_model" name="tier2_model" class="input-field w-full">
-                        <option value="haiku" {{if eq .Tier2Model "haiku"}}selected{{end}}>haiku</option>
-                        <option value="sonnet" {{if eq .Tier2Model "sonnet"}}selected{{end}}>sonnet</option>
-                        <option value="opus" {{if eq .Tier2Model "opus"}}selected{{end}}>opus</option>
-                    </select>
-                </div>
-                <div>
-                    <label for="tier3_model" class="block text-xs text-muted uppercase tracking-wider mb-1">
-                        Tier 3 Model
-                    </label>
-                    <select id="tier3_model" name="tier3_model" class="input-field w-full">
-                        <option value="haiku" {{if eq .Tier3Model "haiku"}}selected{{end}}>haiku</option>
-                        <option value="sonnet" {{if eq .Tier3Model "sonnet"}}selected{{end}}>sonnet</option>
-                        <option value="opus" {{if eq .Tier3Model "opus"}}selected{{end}}>opus</option>
-                    </select>
+            <div>
+                <div class="text-xs text-muted uppercase tracking-wider mb-2">Escalation Models</div>
+                <p class="text-xs text-muted mb-3">Each tier uses a different model. Tier 1 observes, Tier 2 investigates and applies safe fixes, Tier 3 performs full remediation.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="tier1_model" class="block text-xs text-muted mb-1">
+                            Tier 1 &mdash; Observe
+                        </label>
+                        <select id="tier1_model" name="tier1_model" class="input-field w-full">
+                            <option value="haiku" {{if eq .Tier1Model "haiku"}}selected{{end}}>haiku</option>
+                            <option value="sonnet" {{if eq .Tier1Model "sonnet"}}selected{{end}}>sonnet</option>
+                            <option value="opus" {{if eq .Tier1Model "opus"}}selected{{end}}>opus</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="tier2_model" class="block text-xs text-muted mb-1">
+                            Tier 2 &mdash; Investigate
+                        </label>
+                        <select id="tier2_model" name="tier2_model" class="input-field w-full">
+                            <option value="haiku" {{if eq .Tier2Model "haiku"}}selected{{end}}>haiku</option>
+                            <option value="sonnet" {{if eq .Tier2Model "sonnet"}}selected{{end}}>sonnet</option>
+                            <option value="opus" {{if eq .Tier2Model "opus"}}selected{{end}}>opus</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="tier3_model" class="block text-xs text-muted mb-1">
+                            Tier 3 &mdash; Remediate
+                        </label>
+                        <select id="tier3_model" name="tier3_model" class="input-field w-full">
+                            <option value="haiku" {{if eq .Tier3Model "haiku"}}selected{{end}}>haiku</option>
+                            <option value="sonnet" {{if eq .Tier3Model "sonnet"}}selected{{end}}>sonnet</option>
+                            <option value="opus" {{if eq .Tier3Model "opus"}}selected{{end}}>opus</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -61,7 +66,7 @@
                        class="checkbox-field">
                 <label for="dry_run" class="text-sm">
                     Dry run mode
-                    <span class="text-xs text-muted ml-1">(no actual remediation actions)</span>
+                    <span class="text-xs text-muted ml-1">(observe only, skip all remediation actions)</span>
                 </label>
             </div>
         </div>
@@ -70,5 +75,20 @@
             <button type="submit" class="btn-primary">Save Configuration</button>
         </div>
     </form>
+
+    {{/* Read-only environment settings */}}
+    <div class="mt-6">
+        <h2 class="section-heading">Environment (read-only)</h2>
+        <div class="card-base text-sm text-muted">
+            <p class="mb-2">These settings are configured via environment variables or CLI flags and cannot be changed at runtime.</p>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-xs">
+                <div>CLAUDEOPS_STATE_DIR</div><div class="text-charcoal">{{.StateDir}}</div>
+                <div>CLAUDEOPS_RESULTS_DIR</div><div class="text-charcoal">{{.ResultsDir}}</div>
+                <div>CLAUDEOPS_REPOS_DIR</div><div class="text-charcoal">{{.ReposDir}}</div>
+                <div>CLAUDEOPS_MAX_TIER</div><div class="text-charcoal">{{.MaxTier}}</div>
+                <div>CLAUDEOPS_BROWSER_ALLOWED_ORIGINS</div><div class="text-charcoal">{{if .BrowserAllowedOrigins}}{{.BrowserAllowedOrigins}}{{else}}(not set){{end}}</div>
+            </div>
+        </div>
+    </div>
 </div>
 {{end}}

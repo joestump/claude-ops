@@ -20,6 +20,9 @@
                     </tr>
                 </thead>
                 <tbody>
+                    {{if not .Sessions}}
+                    <tr><td colspan="10" class="py-8 text-center text-sm text-muted">No sessions recorded yet. Sessions will appear after the first health check run or when you trigger one manually with the Run Now button.</td></tr>
+                    {{end}}
                     {{range .Sessions}}
                     <tr class="tbody-row">
                         <td class="py-3 pr-4">

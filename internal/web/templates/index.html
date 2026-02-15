@@ -51,7 +51,7 @@
         </div>
         {{end}}
         {{else}}
-        <div class="card-base text-sm text-muted">No sessions recorded yet.</div>
+        <div class="card-base text-sm text-muted">No sessions recorded yet. Start one with the Run Now button in the sidebar, or wait for the next scheduled run.</div>
         {{end}}
         </div>
     </section>
@@ -59,11 +59,11 @@
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {{/* Next run countdown */}}
         <section>
-            <h2 class="section-heading">Next Run</h2>
+            <h2 class="section-heading">Schedule</h2>
             <div class="card-base">
-                <div class="text-sm text-muted mb-2">Interval: {{.Interval}}s</div>
+                <div class="text-sm text-muted mb-2">Runs every <span class="text-charcoal font-mono">{{fmtInterval .Interval}}</span></div>
                 <div class="text-sm">
-                    Scheduled: <span class="text-charcoal font-medium">{{fmtTime .NextRun}}</span>
+                    Next run: <span class="text-charcoal font-medium">{{fmtTime .NextRun}}</span>
                 </div>
             </div>
         </section>
