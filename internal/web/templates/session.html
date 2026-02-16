@@ -113,15 +113,22 @@
             var terminal = document.getElementById('activity-log');
             var btn = document.getElementById('follow-btn');
             var label = document.getElementById('follow-label');
+            var caughtUp = false; // true once initial buffer replay is done
 
             function scrollToBottom() {
-                window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+                window.scrollTo({ top: document.body.scrollHeight, behavior: caughtUp ? 'smooth' : 'instant' });
             }
 
             // Auto-scroll when new SSE content arrives.
+            var catchupTimer = null;
             var observer = new MutationObserver(function() {
                 if (following) {
                     scrollToBottom();
+                }
+                // Mark caught up after 500ms of no new mutations (buffer replay is done).
+                if (!caughtUp) {
+                    if (catchupTimer) clearTimeout(catchupTimer);
+                    catchupTimer = setTimeout(function() { caughtUp = true; }, 500);
                 }
             });
             observer.observe(terminal, { childList: true, subtree: true });
