@@ -706,7 +706,7 @@ func TestListMemoriesWithFilters(t *testing.T) {
 	if _, err := d.InsertMemory(&Memory{Service: &svc2, Category: "timing", Observation: "obs3", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1}); err != nil {
 		t.Fatalf("InsertMemory: %v", err)
 	}
-	d.InsertMemory(&Memory{Category: "remediation", Observation: "obs4", Confidence: 0.7, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3})
+	_, _ = d.InsertMemory(&Memory{Category: "remediation", Observation: "obs4", Confidence: 0.7, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3})
 
 	// No filters — all 4.
 	all, err := d.ListMemories(nil, nil, 100, 0)
@@ -765,13 +765,13 @@ func TestGetActiveMemories(t *testing.T) {
 	svc := "postgres"
 
 	// Active with high confidence — included.
-	d.InsertMemory(&Memory{Service: &svc, Category: "maintenance", Observation: "needs vacuum", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	_, _ = d.InsertMemory(&Memory{Service: &svc, Category: "maintenance", Observation: "needs vacuum", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
 	// Active but below threshold — excluded.
-	d.InsertMemory(&Memory{Service: &svc, Category: "behavior", Observation: "low conf", Confidence: 0.2, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	_, _ = d.InsertMemory(&Memory{Service: &svc, Category: "behavior", Observation: "low conf", Confidence: 0.2, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
 	// Inactive — excluded.
-	d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "inactive", Confidence: 0.9, Active: false, CreatedAt: now, UpdatedAt: now, Tier: 2})
+	_, _ = d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "inactive", Confidence: 0.9, Active: false, CreatedAt: now, UpdatedAt: now, Tier: 2})
 	// Exactly at threshold — included.
-	d.InsertMemory(&Memory{Category: "remediation", Observation: "borderline", Confidence: 0.3, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3})
+	_, _ = d.InsertMemory(&Memory{Category: "remediation", Observation: "borderline", Confidence: 0.3, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3})
 
 	active, err := d.GetActiveMemories(100)
 	if err != nil {
@@ -794,8 +794,8 @@ func TestFindSimilarMemory(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	svc := "jellyfin"
 
-	d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "Takes 60s to start", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2})
-	d.InsertMemory(&Memory{Category: "remediation", Observation: "Retry DNS once", Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	_, _ = d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "Takes 60s to start", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2})
+	_, _ = d.InsertMemory(&Memory{Category: "remediation", Observation: "Retry DNS once", Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
 
 	// Find by service + category.
 	m, err := d.FindSimilarMemory(&svc, "timing")
@@ -837,11 +837,11 @@ func TestDecayStaleMemories(t *testing.T) {
 
 	// Insert a stale memory (updated 60 days ago).
 	staleTime := time.Now().UTC().AddDate(0, 0, -60).Format(time.RFC3339)
-	d.InsertMemory(&Memory{Service: &svc, Category: "dependency", Observation: "stale obs", Confidence: 0.5, Active: true, CreatedAt: staleTime, UpdatedAt: staleTime, Tier: 1})
+	_, _ = d.InsertMemory(&Memory{Service: &svc, Category: "dependency", Observation: "stale obs", Confidence: 0.5, Active: true, CreatedAt: staleTime, UpdatedAt: staleTime, Tier: 1})
 
 	// Insert a fresh memory (updated now).
 	freshTime := time.Now().UTC().Format(time.RFC3339)
-	d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "fresh obs", Confidence: 0.8, Active: true, CreatedAt: freshTime, UpdatedAt: freshTime, Tier: 2})
+	_, _ = d.InsertMemory(&Memory{Service: &svc, Category: "timing", Observation: "fresh obs", Confidence: 0.8, Active: true, CreatedAt: freshTime, UpdatedAt: freshTime, Tier: 2})
 
 	// Decay memories older than 30 days by 0.1.
 	if err := d.DecayStaleMemories(30, 0.1); err != nil {

@@ -104,7 +104,7 @@ func TestAPIListSessionsLimit(t *testing.T) {
 	}
 
 	var resp APISessionsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Sessions) != 1 {
 		t.Fatalf("expected 1 session with limit=1, got %d", len(resp.Sessions))
 	}
@@ -127,7 +127,7 @@ func TestAPIListSessionsOffset(t *testing.T) {
 	}
 
 	var resp APISessionsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Sessions) != 1 {
 		t.Fatalf("expected 1 session, got %d", len(resp.Sessions))
 	}
@@ -209,7 +209,7 @@ func TestAPIGetSessionWithEscalationChain(t *testing.T) {
 		Status: "completed", StartedAt: now, Trigger: "scheduled",
 	})
 	cost := 0.05
-	e.srv.db.UpdateSessionResult(parentID, "escalating", cost, 2, 5000)
+	_ = e.srv.db.UpdateSessionResult(parentID, "escalating", cost, 2, 5000)
 
 	childID, _ := e.srv.db.InsertSession(&db.Session{
 		Tier: 2, Model: "sonnet", PromptFile: "/tmp/t2.md",
@@ -223,7 +223,7 @@ func TestAPIGetSessionWithEscalationChain(t *testing.T) {
 	e.srv.mux.ServeHTTP(w, req)
 
 	var parentResp APISession
-	json.NewDecoder(w.Body).Decode(&parentResp)
+	_ = json.NewDecoder(w.Body).Decode(&parentResp)
 	if len(parentResp.ChildSessions) != 1 {
 		t.Fatalf("expected 1 child session, got %d", len(parentResp.ChildSessions))
 	}
@@ -240,7 +240,7 @@ func TestAPIGetSessionWithEscalationChain(t *testing.T) {
 	e.srv.mux.ServeHTTP(w2, req2)
 
 	var childResp APISession
-	json.NewDecoder(w2.Body).Decode(&childResp)
+	_ = json.NewDecoder(w2.Body).Decode(&childResp)
 	if childResp.ParentSession == nil {
 		t.Fatal("expected parent session to be set")
 	}
@@ -255,7 +255,7 @@ func TestAPITriggerSession(t *testing.T) {
 
 	// Insert a session record so GetSession returns it.
 	now := time.Now().UTC().Format(time.RFC3339)
-	e.srv.db.InsertSession(&db.Session{
+	_, _ = e.srv.db.InsertSession(&db.Session{
 		Tier: 1, Model: "haiku", PromptFile: "(ad-hoc)",
 		Status: "running", StartedAt: now, Trigger: "manual",
 	})
@@ -337,7 +337,7 @@ func TestAPIListEventsEmpty(t *testing.T) {
 	}
 
 	var resp APIEventsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Events) != 0 {
 		t.Fatalf("expected 0 events, got %d", len(resp.Events))
 	}
@@ -348,15 +348,15 @@ func TestAPIListEventsWithData(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	svc := "caddy"
 
-	e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc, Message: "healthy", CreatedAt: now})
-	e.srv.db.InsertEvent(&db.Event{Level: "critical", Service: &svc, Message: "down", CreatedAt: now})
+	_, _ = e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc, Message: "healthy", CreatedAt: now})
+	_, _ = e.srv.db.InsertEvent(&db.Event{Level: "critical", Service: &svc, Message: "down", CreatedAt: now})
 
 	req := httptest.NewRequest("GET", "/api/v1/events", nil)
 	w := httptest.NewRecorder()
 	e.srv.mux.ServeHTTP(w, req)
 
 	var resp APIEventsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Events) != 2 {
 		t.Fatalf("expected 2 events, got %d", len(resp.Events))
 	}
@@ -367,16 +367,16 @@ func TestAPIListEventsFilterLevel(t *testing.T) {
 	now := time.Now().UTC().Format(time.RFC3339)
 	svc := "caddy"
 
-	e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc, Message: "healthy", CreatedAt: now})
-	e.srv.db.InsertEvent(&db.Event{Level: "critical", Service: &svc, Message: "down", CreatedAt: now})
-	e.srv.db.InsertEvent(&db.Event{Level: "critical", Message: "another critical", CreatedAt: now})
+	_, _ = e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc, Message: "healthy", CreatedAt: now})
+	_, _ = e.srv.db.InsertEvent(&db.Event{Level: "critical", Service: &svc, Message: "down", CreatedAt: now})
+	_, _ = e.srv.db.InsertEvent(&db.Event{Level: "critical", Message: "another critical", CreatedAt: now})
 
 	req := httptest.NewRequest("GET", "/api/v1/events?level=critical", nil)
 	w := httptest.NewRecorder()
 	e.srv.mux.ServeHTTP(w, req)
 
 	var resp APIEventsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Events) != 2 {
 		t.Fatalf("expected 2 critical events, got %d", len(resp.Events))
 	}
@@ -393,15 +393,15 @@ func TestAPIListEventsFilterService(t *testing.T) {
 	svc1 := "caddy"
 	svc2 := "postgres"
 
-	e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc1, Message: "caddy ok", CreatedAt: now})
-	e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc2, Message: "pg ok", CreatedAt: now})
+	_, _ = e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc1, Message: "caddy ok", CreatedAt: now})
+	_, _ = e.srv.db.InsertEvent(&db.Event{Level: "info", Service: &svc2, Message: "pg ok", CreatedAt: now})
 
 	req := httptest.NewRequest("GET", "/api/v1/events?service=caddy", nil)
 	w := httptest.NewRecorder()
 	e.srv.mux.ServeHTTP(w, req)
 
 	var resp APIEventsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Events) != 1 {
 		t.Fatalf("expected 1 event for caddy, got %d", len(resp.Events))
 	}
@@ -423,7 +423,7 @@ func TestAPIListMemoriesEmpty(t *testing.T) {
 	}
 
 	var resp APIMemoriesResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Memories) != 0 {
 		t.Fatalf("expected 0 memories, got %d", len(resp.Memories))
 	}
@@ -442,7 +442,7 @@ func TestAPICreateMemory(t *testing.T) {
 	}
 
 	var mem APIMemory
-	json.NewDecoder(w.Body).Decode(&mem)
+	_ = json.NewDecoder(w.Body).Decode(&mem)
 	if mem.Category != "behavior" {
 		t.Fatalf("expected category 'behavior', got %q", mem.Category)
 	}
@@ -473,7 +473,7 @@ func TestAPICreateMemoryDefaultConfidence(t *testing.T) {
 	}
 
 	var mem APIMemory
-	json.NewDecoder(w.Body).Decode(&mem)
+	_ = json.NewDecoder(w.Body).Decode(&mem)
 	if mem.Confidence != 0.7 {
 		t.Fatalf("expected default confidence 0.7, got %f", mem.Confidence)
 	}
@@ -537,7 +537,7 @@ func TestAPIUpdateMemory(t *testing.T) {
 	}
 
 	var mem APIMemory
-	json.NewDecoder(w.Body).Decode(&mem)
+	_ = json.NewDecoder(w.Body).Decode(&mem)
 	if mem.Observation != "updated obs" {
 		t.Fatalf("expected 'updated obs', got %q", mem.Observation)
 	}
@@ -569,7 +569,7 @@ func TestAPIUpdateMemoryPartial(t *testing.T) {
 	}
 
 	var mem APIMemory
-	json.NewDecoder(w.Body).Decode(&mem)
+	_ = json.NewDecoder(w.Body).Decode(&mem)
 	if mem.Observation != "original obs" {
 		t.Fatalf("observation should be unchanged, got %q", mem.Observation)
 	}
@@ -641,7 +641,7 @@ func TestAPIListCooldownsEmpty(t *testing.T) {
 	}
 
 	var resp APICooldownsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Cooldowns) != 0 {
 		t.Fatalf("expected 0 cooldowns, got %d", len(resp.Cooldowns))
 	}
@@ -651,7 +651,7 @@ func TestAPIListCooldownsWithData(t *testing.T) {
 	e := newTestEnv(t)
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	e.srv.db.InsertCooldownAction(&db.CooldownAction{
+	_, _ = e.srv.db.InsertCooldownAction(&db.CooldownAction{
 		Service: "caddy", ActionType: "restart", Timestamp: now,
 		Success: true, Tier: 2,
 	})
@@ -661,7 +661,7 @@ func TestAPIListCooldownsWithData(t *testing.T) {
 	e.srv.mux.ServeHTTP(w, req)
 
 	var resp APICooldownsResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Cooldowns) != 1 {
 		t.Fatalf("expected 1 cooldown, got %d", len(resp.Cooldowns))
 	}
@@ -683,7 +683,7 @@ func TestAPIGetConfig(t *testing.T) {
 	}
 
 	var cfg APIConfig
-	json.NewDecoder(w.Body).Decode(&cfg)
+	_ = json.NewDecoder(w.Body).Decode(&cfg)
 	if cfg.Interval != 3600 {
 		t.Fatalf("expected interval 3600, got %d", cfg.Interval)
 	}
@@ -714,7 +714,7 @@ func TestAPIUpdateConfig(t *testing.T) {
 	}
 
 	var cfg APIConfig
-	json.NewDecoder(w.Body).Decode(&cfg)
+	_ = json.NewDecoder(w.Body).Decode(&cfg)
 	if cfg.Interval != 1800 {
 		t.Fatalf("expected interval 1800, got %d", cfg.Interval)
 	}
@@ -752,7 +752,7 @@ func TestAPIUpdateConfigPartial(t *testing.T) {
 	}
 
 	var cfg APIConfig
-	json.NewDecoder(w.Body).Decode(&cfg)
+	_ = json.NewDecoder(w.Body).Decode(&cfg)
 
 	// Changed.
 	if cfg.Tier2Model != "opus" {
@@ -823,11 +823,11 @@ func TestAPIListMemoriesFilterService(t *testing.T) {
 	svc1 := "caddy"
 	svc2 := "postgres"
 
-	e.srv.db.InsertMemory(&db.Memory{
+	_, _ = e.srv.db.InsertMemory(&db.Memory{
 		Service: &svc1, Category: "behavior", Observation: "caddy mem",
 		Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
-	e.srv.db.InsertMemory(&db.Memory{
+	_, _ = e.srv.db.InsertMemory(&db.Memory{
 		Service: &svc2, Category: "config", Observation: "pg mem",
 		Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
@@ -837,7 +837,7 @@ func TestAPIListMemoriesFilterService(t *testing.T) {
 	e.srv.mux.ServeHTTP(w, req)
 
 	var resp APIMemoriesResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Memories) != 1 {
 		t.Fatalf("expected 1 memory for caddy, got %d", len(resp.Memories))
 	}
@@ -850,11 +850,11 @@ func TestAPIListMemoriesFilterCategory(t *testing.T) {
 	e := newTestEnv(t)
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	e.srv.db.InsertMemory(&db.Memory{
+	_, _ = e.srv.db.InsertMemory(&db.Memory{
 		Category: "behavior", Observation: "beh mem",
 		Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
-	e.srv.db.InsertMemory(&db.Memory{
+	_, _ = e.srv.db.InsertMemory(&db.Memory{
 		Category: "config", Observation: "cfg mem",
 		Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
@@ -864,7 +864,7 @@ func TestAPIListMemoriesFilterCategory(t *testing.T) {
 	e.srv.mux.ServeHTTP(w, req)
 
 	var resp APIMemoriesResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if len(resp.Memories) != 1 {
 		t.Fatalf("expected 1 config memory, got %d", len(resp.Memories))
 	}

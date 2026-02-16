@@ -153,7 +153,7 @@ func TestBuildMemoryContext(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("InsertMemory: %v", err)
 	}
-	database.InsertMemory(&db.Memory{
+	_, _ = database.InsertMemory(&db.Memory{
 		Service: nil, Category: "remediation", Observation: "DNS checks fail transiently during WireGuard reconnects",
 		Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
@@ -198,7 +198,7 @@ func TestBuildMemoryContext_RespectsTokenBudget(t *testing.T) {
 	now := "2026-02-15T10:00:00Z"
 	for i := 0; i < 20; i++ {
 		svc := "svc"
-		database.InsertMemory(&db.Memory{
+		_, _ = database.InsertMemory(&db.Memory{
 			Service:     &svc,
 			Category:    "behavior",
 			Observation: strings.Repeat("x", 100),
@@ -232,7 +232,7 @@ func TestBuildMemoryContext_ZeroBudget(t *testing.T) {
 
 	now := "2026-02-15T10:00:00Z"
 	svc := "test"
-	database.InsertMemory(&db.Memory{
+	_, _ = database.InsertMemory(&db.Memory{
 		Service: &svc, Category: "timing", Observation: "test observation",
 		Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
@@ -248,11 +248,11 @@ func TestBuildMemoryContext_GroupsByService(t *testing.T) {
 
 	now := "2026-02-15T10:00:00Z"
 	svc := "jellyfin"
-	database.InsertMemory(&db.Memory{
+	_, _ = database.InsertMemory(&db.Memory{
 		Service: &svc, Category: "timing", Observation: "Takes 60s to start",
 		Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
-	database.InsertMemory(&db.Memory{
+	_, _ = database.InsertMemory(&db.Memory{
 		Service: &svc, Category: "behavior", Observation: "DB lock on first restart",
 		Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})
@@ -346,7 +346,7 @@ func TestUpsertMemory_ReinforceCap(t *testing.T) {
 
 	svc := "test"
 	now := "2026-02-15T10:00:00Z"
-	database.InsertMemory(&db.Memory{
+	_, _ = database.InsertMemory(&db.Memory{
 		Service: &svc, Category: "timing", Observation: "test obs",
 		Confidence: 0.95, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
 	})

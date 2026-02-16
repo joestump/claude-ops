@@ -297,7 +297,9 @@ func TestResultsDirUsed(t *testing.T) {
 	m, cfg := testManager(t)
 	// Use a subdirectory that doesn't exist yet to ensure it's created properly.
 	cfg.ResultsDir = filepath.Join(t.TempDir(), "sub", "results")
-	os.MkdirAll(cfg.ResultsDir, 0o755)
+	if err := os.MkdirAll(cfg.ResultsDir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
