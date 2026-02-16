@@ -1,0 +1,69 @@
+---
+id: trigger-session
+title: "Trigger ad-hoc session"
+description: "Triggers an ad-hoc monitoring session with a custom prompt. Returns 409 if a session is already running."
+sidebar_label: "Trigger ad-hoc session"
+hide_title: true
+hide_table_of_contents: true
+api: eJzdWFtv2zYU/iuEnjbASWw3LdAAecjaAAuwrkXjYMDSwqAl2mYjkRovucDwf+93SMqSbC/GtmIPAYJYInlu37lSq6wQNjeydlKr7CybGLlYCGMZV4wXR0uds0or6bSRasGssBbn2IN0S8ZZ7q3TFauNrmp3zD4L542y7HT4lsk59pvjEuxKI3jxxIxXCpyOs0Gma2E4ib0qINhFwdeRBNtG/OWFdb/o4ik7W4VXaQSOOuPFIMu1ckI52uJ1Xco8sDr5ZsmMVWbzpag4PbmnWoC/nn0TuUt8I6PbLGqefR3QE9RxUliiSesttXVkP6i30FqKZD1z4tGxuTbMYS0hl+wnYyupfhNq4ZbZ2Wi9Xg8y8ciruhRdadm7pcjvmFpI9cis485bRuiJ4ShbByIjbK2VjUqOsYyfvkYJP5YDbgcjfxBQkjgBHUOm6EKU+I0axgcDWVNOVMmPu5iCRStEQqdF4AbIKu7i0pvTHYRvlEQYtJFUwBQ5hyLH2TpptI9rn8mlzXkZzGZEwX4aneuZFeZeDNj4XKp7xJlcAK8Be3VuRCUKiZefyW9C+QoAjAbjwauv68b4g4HxruS+ECycZt6KIoUGMqETFJsYyJZc3nmyKIF6WIA3BlBsgIl0HY2zlGkhAkhKjIY5l6WIzoSZU+0R/eueC/eI3vioACxHRLmjzx9LoULodxQijsFNQhVbvG9b5sqXJUXLvxESGA8YoCUuVHTgSDxsqkxINOmmORzRld5GSiO+L+mT0TlkMCJmRHxASK6tm3pbdGXAD7OeiNZC7WflrnkT7XjJLj5dMWLHpGI31+97gpV27EmQRlXtG3QhZxoK7z8x8PegHNNz8EL8G5vSg/gcFln4WLmn1QGhB7L7feJDtlbAVFoBdQp7AO2mxhzMkl/1Qy9eHrhtA7NNFaqBhY95UXHleRmSItblKVX2ZyN3OzM7TTGkfb8bdIyjzY3sYFnNKaun6ehUFv8J3qv35GACIPJty+g81iLCA41ebOrjRjdoE+qrC+Wp6cr9vkXanY6bKjzaFMdUzdpi1qlF3UKDDjZ+czQcH43eTEbjs+EQf39m3XJBmvQyOC602RbfOxkQF3rxGZc2MdN4eMu/zzXfvX4htrErnw6Hu434g8RRjEzAU0DKUwqIH9WQhTF6T5ONy4fzwgOEI5rIOAoRC1SsgnF8IfqevwwM+35PQhJ+NN1tNGsAebsLyMUz4+BLQmXv2Iv6BpUWmN9sg9Ho9S5GN8r6utaUISwBwoLOLwifd9GQowlksQrFks0wMG+bFEF6vS+zrkBvFDplmOBM1OMlIST3GriOkFTCLTVdmGoUwVCZ6E6RnTTd5aQpdKi1gRz6364yb6gwn/BantzjNgEDCZfP7R3rcs99JFkJqVLNdTA/qZ/m24+1pXllB4fPl9eTMMg0F6LOebAyHJx9jpIturdLrgrWTN+UPwBNueMvCsPYPQZ/G1OIV2h5Mmc8DxOa053GKu5Bgd9KVGAp8JRrXRb6AZtfFAJkLhepNQyCuKXgJa6yaXr+QvdOgixaMToeHg+xglASuHSR/YpXZP6Hq0nwJvkAHu/spPvzVs/fBmjVBuv/eeNOwUsN76QuuQwNPUTGKsURppsEZv8qt6Rgw+5qNeNW3Bh0PlpG9Bjczm/xeM+NpKCnN3AFsAV1W4TenXjaSntCmZeedNlN/EFDcQEHh4b592e/dvLh08frCQ7P0veCKswLmeEPlOH4f5aFbw4uGEcfFGhtlZVcLTwiDfubwrP+DgpD8xs=
+sidebar_class_name: "post api-method"
+info_path: docs/api/claude-ops-api
+custom_edit_url: null
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Trigger ad-hoc session"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/sessions/trigger"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Triggers an ad-hoc monitoring session with a custom prompt. Returns 409 if a session is already running.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  parameters={undefined}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./trigger-session.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./trigger-session.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

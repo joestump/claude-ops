@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["prompt"],"properties":{"prompt":{"type":"string","description":"The prompt text for the ad-hoc session.","minLength":1}}},"example":{"prompt":"Check nginx status on ie01"}}}}}
