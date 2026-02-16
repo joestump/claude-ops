@@ -24,7 +24,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Apprise for notifications (supports 80+ services)
-RUN pip3 install --break-system-packages apprise
+RUN pip3 install --break-system-packages --retries 3 --timeout 120 apprise
 
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
