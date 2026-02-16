@@ -125,6 +125,13 @@
     50%      { opacity: 0.4; }
 }
 
+/* ---- Badge lines (event/memory markers in rendered markdown) ---- */
+.badge-line {
+    display: block;
+    margin: 0.25rem 0;
+    line-height: 1.6;
+}
+
 /* ---- Status badges ---- */
 .badge-pill {
     display: inline-block;

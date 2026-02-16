@@ -190,7 +190,7 @@ func (s *Server) parseTemplates() {
 				if service != "" {
 					badge += ` <span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">` + template.HTMLEscapeString(service) + `</span>`
 				}
-				return badge + ` ` + msg
+				return `<div class="badge-line">` + badge + ` ` + msg + `</div>`
 			})
 			// Replace [MEMORY:category] and [MEMORY:category:service] markers with brain badges.
 			html = memoryBadgeRe.ReplaceAllStringFunc(html, func(match string) string {
@@ -200,7 +200,7 @@ func (s *Server) parseTemplates() {
 				if service != "" {
 					badge += ` <span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">` + template.HTMLEscapeString(service) + `</span>`
 				}
-				return badge + ` ` + msg
+				return `<div class="badge-line">` + badge + ` ` + msg + `</div>`
 			})
 			return template.HTML(html)
 		},
