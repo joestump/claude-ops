@@ -1,0 +1,10 @@
+# Build artifacts
+claudeops
+
+# Local dev state (Docker Compose volumes)
+state/
+results/
+
+# Per-developer overrides
+.env
+docker-compose.override.yaml

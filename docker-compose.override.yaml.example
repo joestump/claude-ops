@@ -1,0 +1,26 @@
+# Per-developer overrides for local development.
+# Copy to docker-compose.override.yaml (auto-loaded by Docker Compose, gitignored).
+#
+#   cp docker-compose.override.yaml.example docker-compose.override.yaml
+
+services:
+  watchdog:
+    restart: no
+    volumes:
+      # Infrastructure repos — uncomment and edit paths
+      # - /path/to/your/ansible-repo:/repos/infra-ansible:ro
+      # - /path/to/your/docker-images:/repos/docker-images:ro
+      # SSH key for remote host access
+      # - ~/.ssh/claude-ops_ed25519:/root/.ssh/id_ed25519:ro
+      # - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+
+  # Chrome sidecar always starts in dev (no profile gate)
+  chrome:
+    image: browserless/chromium
+    container_name: claude-ops-chrome
+    restart: no
+    ports:
+      - "9222:9222"
+    environment:
+      - CONNECTION_TIMEOUT=120000
+      - CHROME_FLAGS=--incognito

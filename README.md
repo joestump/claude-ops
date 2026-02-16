@@ -72,30 +72,18 @@ git clone https://github.com/joestump/claude-ops.git
 cd claude-ops
 ```
 
-### 2. Create a `.env` file
+### 2. Configure environment
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...
-
-# Optional: notifications via Apprise (comma-separated URLs)
-# CLAUDEOPS_APPRISE_URLS=ntfy://ntfy.sh/my-topic,mailto://user:pass@smtp.example.com
+cp .env.example .env
+# Edit .env and add your Anthropic API key
 ```
 
 ### 3. Mount your infrastructure repos
 
-Edit `docker-compose.yaml` and add volume mounts for your repos:
-
-```yaml
-services:
-  watchdog:
-    volumes:
-      - ./state:/state
-      - ./results:/results
-      - /path/to/your/ansible-repo:/repos/infra-ansible:ro
-      - /path/to/your/docker-images:/repos/docker-images:ro
-      # SSH key for remote host access (optional)
-      # - ~/.ssh/claude-ops_ed25519:/root/.ssh/id_ed25519:ro
-      # - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+```bash
+cp docker-compose.override.yaml.example docker-compose.override.yaml
+# Edit docker-compose.override.yaml and uncomment/edit repo volume mounts
 ```
 
 ### 4. (Optional) Add a manifest to your repos
@@ -128,19 +116,13 @@ The dashboard is available at [http://localhost:8080](http://localhost:8080). Cl
 
 ### With browser automation
 
-If you need Claude to interact with web UIs (e.g., rotating API keys from provider dashboards):
+In production, use the `browser` profile to start the Chrome sidecar:
 
 ```bash
 docker compose --profile browser up -d
 ```
 
-### Dry run mode
-
-To observe without any remediation:
-
-```bash
-CLAUDEOPS_DRY_RUN=true docker compose up
-```
+In development, the `docker-compose.override.yaml` starts Chrome automatically (no profile needed).
 
 ## Dashboard
 
@@ -312,27 +294,38 @@ claude-ops/
 
 ## Development
 
+Local development uses Docker Compose, which runs the full container environment (Go supervisor, Chrome sidecar, MCP servers) matching production:
+
 ```bash
-# Build the Go binary
-make build
+# Set up local config
+cp .env.example .env              # add your API key
+cp docker-compose.override.yaml.example docker-compose.override.yaml
+                                   # uncomment repo mounts, SSH keys
 
-# Run tests
-make test
+# Build + start (foreground — see logs directly)
+make dev
 
-# Run locally (uses /tmp for state/results/repos)
-make run
+# Build + start (background)
+make dev-up
 
-# Run locally in dry-run mode
-make run-dry
+# Tail watchdog logs
+make dev-logs
 
-# Build Docker image
-make docker-build
+# Stop containers
+make dev-down
 
-# Start with Docker Compose
-make docker-up
+# Full rebuild (no cache)
+make dev-rebuild
+```
 
-# Stop
-make docker-down
+The override file sets `CLAUDEOPS_DRY_RUN=true` by default (via `.env.example`) and starts the Chrome sidecar automatically without needing the `browser` profile.
+
+For Go-only work (no Docker):
+
+```bash
+make build    # compile binary
+make test     # run Go tests
+make clean    # remove binary
 ```
 
 Requires Go 1.24+ for local development. The Docker build handles everything.

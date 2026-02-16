@@ -14,7 +14,6 @@ type Config struct {
 	ReposDir      string
 	AllowedTools  string
 	DryRun        bool
-	Verbose       bool
 	AppriseURLs   string
 	MCPConfig     string
 	DashboardPort int
@@ -39,7 +38,6 @@ func Load() Config {
 		ReposDir:      viper.GetString("repos_dir"),
 		AllowedTools:  viper.GetString("allowed_tools"),
 		DryRun:        viper.GetBool("dry_run"),
-		Verbose:       viper.GetBool("verbose"),
 		AppriseURLs:   viper.GetString("apprise_urls"),
 		MCPConfig:     viper.GetString("mcp_config"),
 		DashboardPort: viper.GetInt("dashboard_port"),

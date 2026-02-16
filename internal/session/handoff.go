@@ -27,7 +27,7 @@ type CheckResult struct {
 	CheckType      string `json:"check_type"`
 	Status         string `json:"status"`
 	Error          string `json:"error,omitempty"`
-	ResponseTimeMs int    `json:"response_time_ms,omitempty"`
+	ResponseTimeMs float64 `json:"response_time_ms,omitempty"`
 }
 
 // handoffFileName is the well-known file name for the handoff payload.

@@ -5,20 +5,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build and Run
 
 ```bash
-# Build the container
-docker compose build
+# Local dev setup
+cp .env.example .env                                          # add API key
+cp docker-compose.override.yaml.example docker-compose.override.yaml  # edit repo mounts
 
-# Run (production — loops every 60min)
-docker compose up -d
+# Development (Docker Compose — full environment with Chrome sidecar)
+make dev          # build + start (foreground)
+make dev-up       # build + start (background)
+make dev-down     # stop
+make dev-logs     # tail watchdog logs
+make dev-rebuild  # full rebuild (no cache)
 
-# Run with browser automation sidecar
-docker compose --profile browser up -d
+# Production
+docker compose up -d                        # without browser automation
+docker compose --profile browser up -d      # with Chrome sidecar
 
-# Dry run — observe only, no remediation
-CLAUDEOPS_DRY_RUN=true docker compose up
-
-# View logs
-docker compose logs -f watchdog
+# Go-only (no Docker)
+make build        # compile binary
+make test         # run tests
 ```
 
 Requires a `.env` file with at minimum `ANTHROPIC_API_KEY=sk-ant-...`. See README.md for all env vars.

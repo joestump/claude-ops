@@ -13,7 +13,7 @@ type mockRunner struct {
 	err    error
 }
 
-func (m *mockRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string, verbose bool) (io.ReadCloser, func() error, error) {
+func (m *mockRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (io.ReadCloser, func() error, error) {
 	if m.err != nil {
 		return nil, nil, m.err
 	}
@@ -23,7 +23,7 @@ func (m *mockRunner) Start(ctx context.Context, model string, promptContent stri
 
 func TestMockRunnerReturnsOutput(t *testing.T) {
 	runner := &mockRunner{output: `{"type":"system","subtype":"init"}` + "\n"}
-	stdout, wait, err := runner.Start(context.Background(), "haiku", "check health", "Bash,Read", "env=test", false)
+	stdout, wait, err := runner.Start(context.Background(), "haiku", "check health", "Bash,Read", "env=test")
 	if err != nil {
 		t.Fatalf("Start: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestMockRunnerReturnsOutput(t *testing.T) {
 
 func TestMockRunnerStartError(t *testing.T) {
 	runner := &mockRunner{err: io.ErrClosedPipe}
-	_, _, err := runner.Start(context.Background(), "haiku", "check health", "Bash", "env=test", false)
+	_, _, err := runner.Start(context.Background(), "haiku", "check health", "Bash", "env=test")
 	if err == nil {
 		t.Fatal("expected error from Start")
 	}

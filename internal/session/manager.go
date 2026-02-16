@@ -272,6 +272,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	} else {
 		data, err := os.ReadFile(promptFile)
 		if err != nil {
+			m.finalizeSession(sessionID, "failed", nil, &logPath)
 			return 0, fmt.Errorf("read prompt file %s: %w", promptFile, err)
 		}
 		promptContent = string(data)
@@ -282,7 +283,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		runStart, tier, model, promptFile, sessionID)
 
 	// Use the ProcessRunner to start the subprocess.
-	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, m.cfg.AllowedTools, envCtx, m.cfg.Verbose)
+	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, m.cfg.AllowedTools, envCtx)
 	if err != nil {
 		m.finalizeSession(sessionID, "failed", nil, &logPath)
 		return 0, fmt.Errorf("start claude: %w", err)
