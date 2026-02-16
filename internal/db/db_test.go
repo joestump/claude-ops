@@ -108,7 +108,7 @@ func TestListSessions(t *testing.T) {
 		}
 	}
 
-	sessions, err := d.ListSessions(3)
+	sessions, err := d.ListSessions(3, 0)
 	if err != nil {
 		t.Fatalf("ListSessions: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestSessionResultViaListAndLatest(t *testing.T) {
 	}
 
 	// Verify via ListSessions.
-	sessions, err := d.ListSessions(10)
+	sessions, err := d.ListSessions(10, 0)
 	if err != nil {
 		t.Fatalf("ListSessions: %v", err)
 	}
@@ -697,13 +697,19 @@ func TestListMemoriesWithFilters(t *testing.T) {
 	svc2 := "caddy"
 
 	// Insert memories for different services and categories.
-	d.InsertMemory(&Memory{Service: &svc1, Category: "timing", Observation: "obs1", Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
-	d.InsertMemory(&Memory{Service: &svc1, Category: "behavior", Observation: "obs2", Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2})
-	d.InsertMemory(&Memory{Service: &svc2, Category: "timing", Observation: "obs3", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	if _, err := d.InsertMemory(&Memory{Service: &svc1, Category: "timing", Observation: "obs1", Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+	if _, err := d.InsertMemory(&Memory{Service: &svc1, Category: "behavior", Observation: "obs2", Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+	if _, err := d.InsertMemory(&Memory{Service: &svc2, Category: "timing", Observation: "obs3", Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
 	d.InsertMemory(&Memory{Category: "remediation", Observation: "obs4", Confidence: 0.7, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3})
 
 	// No filters — all 4.
-	all, err := d.ListMemories(nil, nil, 100)
+	all, err := d.ListMemories(nil, nil, 100, 0)
 	if err != nil {
 		t.Fatalf("ListMemories (no filters): %v", err)
 	}
@@ -716,7 +722,7 @@ func TestListMemoriesWithFilters(t *testing.T) {
 	}
 
 	// Filter by service.
-	byService, err := d.ListMemories(&svc1, nil, 100)
+	byService, err := d.ListMemories(&svc1, nil, 100, 0)
 	if err != nil {
 		t.Fatalf("ListMemories (service filter): %v", err)
 	}
@@ -726,7 +732,7 @@ func TestListMemoriesWithFilters(t *testing.T) {
 
 	// Filter by category.
 	cat := "timing"
-	byCat, err := d.ListMemories(nil, &cat, 100)
+	byCat, err := d.ListMemories(nil, &cat, 100, 0)
 	if err != nil {
 		t.Fatalf("ListMemories (category filter): %v", err)
 	}
@@ -735,7 +741,7 @@ func TestListMemoriesWithFilters(t *testing.T) {
 	}
 
 	// Both filters.
-	both, err := d.ListMemories(&svc1, &cat, 100)
+	both, err := d.ListMemories(&svc1, &cat, 100, 0)
 	if err != nil {
 		t.Fatalf("ListMemories (both filters): %v", err)
 	}
@@ -744,7 +750,7 @@ func TestListMemoriesWithFilters(t *testing.T) {
 	}
 
 	// Limit.
-	limited, err := d.ListMemories(nil, nil, 2)
+	limited, err := d.ListMemories(nil, nil, 2, 0)
 	if err != nil {
 		t.Fatalf("ListMemories (limit): %v", err)
 	}
@@ -843,7 +849,7 @@ func TestDecayStaleMemories(t *testing.T) {
 	}
 
 	// Stale memory: 0.5 - 0.1 = 0.4, still active.
-	all, err := d.ListMemories(nil, nil, 100)
+	all, err := d.ListMemories(nil, nil, 100, 0)
 	if err != nil {
 		t.Fatalf("ListMemories: %v", err)
 	}
@@ -876,8 +882,8 @@ func TestDecayStaleMemories(t *testing.T) {
 	}
 
 	// Decay again twice more — stale should drop below 0.3 and be deactivated.
-	d.DecayStaleMemories(30, 0.1)
-	d.DecayStaleMemories(30, 0.1)
+	_ = d.DecayStaleMemories(30, 0.1)
+	_ = d.DecayStaleMemories(30, 0.1)
 
 	stale2, err := d.GetMemory(stale.ID)
 	if err != nil {

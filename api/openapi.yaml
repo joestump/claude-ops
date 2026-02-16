@@ -1,0 +1,931 @@
+openapi: "3.1.0"
+info:
+  title: Claude Ops API
+  description: |
+    REST API for the Claude Ops infrastructure monitoring and remediation agent.
+    Provides programmatic access to sessions, events, memories, cooldowns,
+    configuration, and health status.
+  version: "1.0.0"
+  license:
+    name: MIT
+
+servers:
+  - url: /api/v1
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      description: Returns the health status of the API server. Responds within 100ms.
+      operationId: getHealth
+      responses:
+        "200":
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    example: ok
+              example:
+                status: ok
+
+  /sessions:
+    get:
+      summary: List sessions
+      description: Returns sessions ordered by started_at descending with pagination.
+      operationId: listSessions
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of results to return.
+          schema:
+            type: integer
+            default: 50
+            minimum: 0
+        - name: offset
+          in: query
+          description: Number of results to skip.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+      responses:
+        "200":
+          description: A list of sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessions]
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Session"
+              example:
+                sessions:
+                  - id: 1
+                    tier: 1
+                    model: haiku
+                    status: completed
+                    started_at: "2026-02-16T10:00:00Z"
+                    ended_at: "2026-02-16T10:01:30Z"
+                    exit_code: 0
+                    cost_usd: 0.0042
+                    num_turns: 5
+                    duration_ms: 90000
+                    trigger: scheduled
+                    prompt_text: null
+                    parent_session_id: null
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "limit must be non-negative"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /sessions/{id}:
+    get:
+      summary: Get session detail
+      description: Returns a single session with its escalation chain (parent and children).
+      operationId: getSession
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Session ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: Session detail with escalation chain
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionDetail"
+              example:
+                id: 2
+                tier: 2
+                model: sonnet
+                status: completed
+                started_at: "2026-02-16T10:02:00Z"
+                ended_at: "2026-02-16T10:03:00Z"
+                exit_code: 0
+                cost_usd: 0.012
+                num_turns: 8
+                duration_ms: 60000
+                trigger: scheduled
+                prompt_text: null
+                parent_session_id: 1
+                parent_session:
+                  id: 1
+                  tier: 1
+                  model: haiku
+                  status: completed
+                  started_at: "2026-02-16T10:00:00Z"
+                  ended_at: "2026-02-16T10:01:30Z"
+                  exit_code: 0
+                  cost_usd: 0.0042
+                  num_turns: 5
+                  duration_ms: 90000
+                  trigger: scheduled
+                  prompt_text: null
+                  parent_session_id: null
+                child_sessions: []
+                chain_cost: 0.0162
+                response: "## Session Summary\nAll checks passed."
+        "400":
+          description: Invalid session ID format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "invalid session id"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "session not found"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /sessions/trigger:
+    post:
+      summary: Trigger ad-hoc session
+      description: Triggers an ad-hoc monitoring session with a custom prompt. Returns 409 if a session is already running.
+      operationId: triggerSession
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [prompt]
+              properties:
+                prompt:
+                  type: string
+                  description: The prompt text for the ad-hoc session.
+                  minLength: 1
+            example:
+              prompt: "Check nginx status on ie01"
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Session"
+              example:
+                id: 42
+                tier: 1
+                model: haiku
+                status: running
+                started_at: "2026-02-16T12:00:00Z"
+                ended_at: null
+                exit_code: null
+                cost_usd: null
+                num_turns: null
+                duration_ms: null
+                trigger: manual
+                prompt_text: "Check nginx status on ie01"
+                parent_session_id: null
+        "400":
+          description: Missing or empty prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "prompt is required"
+        "409":
+          description: A session is already running
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "a session is already in progress"
+        "415":
+          description: Unsupported content type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Content-Type must be application/json"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /events:
+    get:
+      summary: List events
+      description: Returns events ordered by created_at descending with optional level and service filters.
+      operationId: listEvents
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of results to return.
+          schema:
+            type: integer
+            default: 100
+            minimum: 0
+        - name: offset
+          in: query
+          description: Number of results to skip.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: level
+          in: query
+          description: Filter by event level (info, warning, critical).
+          schema:
+            type: string
+            enum: [info, warning, critical]
+        - name: service
+          in: query
+          description: Filter by service name.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of events
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Event"
+              example:
+                events:
+                  - id: 10
+                    session_id: 1
+                    level: warning
+                    service: nginx
+                    message: "High response time detected"
+                    created_at: "2026-02-16T10:01:00Z"
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "limit must be non-negative"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /memories:
+    get:
+      summary: List memories
+      description: Returns memories ordered by confidence descending with optional service and category filters.
+      operationId: listMemories
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of results to return.
+          schema:
+            type: integer
+            default: 200
+            minimum: 0
+        - name: offset
+          in: query
+          description: Number of results to skip.
+          schema:
+            type: integer
+            default: 0
+            minimum: 0
+        - name: service
+          in: query
+          description: Filter by service name.
+          schema:
+            type: string
+        - name: category
+          in: query
+          description: Filter by memory category.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A list of memories
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [memories]
+                properties:
+                  memories:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Memory"
+              example:
+                memories:
+                  - id: 1
+                    service: nginx
+                    category: config
+                    observation: "Listens on port 8080"
+                    confidence: 0.9
+                    active: true
+                    created_at: "2026-02-15T08:00:00Z"
+                    updated_at: "2026-02-16T10:00:00Z"
+                    session_id: 5
+                    tier: 1
+        "400":
+          description: Invalid query parameters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "offset must be non-negative"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    post:
+      summary: Create memory
+      description: Creates a new memory record. Defaults confidence to 0.7 and active to true if not provided.
+      operationId: createMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryCreate"
+            example:
+              service: nginx
+              category: config
+              observation: "Listens on port 8080"
+              confidence: 0.9
+              active: true
+      responses:
+        "201":
+          description: Memory created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Memory"
+              example:
+                id: 5
+                service: nginx
+                category: config
+                observation: "Listens on port 8080"
+                confidence: 0.9
+                active: true
+                created_at: "2026-02-16T12:00:00Z"
+                updated_at: "2026-02-16T12:00:00Z"
+                session_id: null
+                tier: 0
+        "400":
+          description: Missing required fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "category and observation are required"
+        "415":
+          description: Unsupported content type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Content-Type must be application/json"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /memories/{id}:
+    put:
+      summary: Update memory
+      description: Updates an existing memory's observation, confidence, and active status.
+      operationId: updateMemory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Memory ID
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MemoryUpdate"
+            example:
+              observation: "Updated observation text"
+              confidence: 0.85
+              active: true
+      responses:
+        "200":
+          description: Memory updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Memory"
+              example:
+                id: 5
+                service: nginx
+                category: config
+                observation: "Updated observation text"
+                confidence: 0.85
+                active: true
+                created_at: "2026-02-16T12:00:00Z"
+                updated_at: "2026-02-16T12:30:00Z"
+                session_id: null
+                tier: 0
+        "400":
+          description: Invalid request body or missing fields
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "observation, confidence, and active are required"
+        "404":
+          description: Memory not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "memory not found"
+        "415":
+          description: Unsupported content type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Content-Type must be application/json"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      summary: Delete memory
+      description: Deletes a memory record by ID.
+      operationId: deleteMemory
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Memory ID
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "204":
+          description: Memory deleted (no content)
+        "404":
+          description: Memory not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "memory not found"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /cooldowns:
+    get:
+      summary: List cooldowns
+      description: Returns cooldown action summaries within the last 24 hours, ordered by last_action descending.
+      operationId: listCooldowns
+      responses:
+        "200":
+          description: A list of cooldown summaries
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [cooldowns]
+                properties:
+                  cooldowns:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Cooldown"
+              example:
+                cooldowns:
+                  - service: nginx
+                    action_type: restart
+                    count: 2
+                    last_action: "2026-02-16T11:30:00Z"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /config:
+    get:
+      summary: Get configuration
+      description: Returns the current runtime configuration.
+      operationId: getConfig
+      responses:
+        "200":
+          description: Current configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+              example:
+                interval: 3600
+                tier1_model: haiku
+                tier2_model: sonnet
+                tier3_model: opus
+                dry_run: false
+                max_tier: 3
+                state_dir: /state
+                results_dir: /results
+                repos_dir: /repos
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    put:
+      summary: Update configuration
+      description: Updates runtime configuration. Only provided fields are changed; omitted fields retain their current values.
+      operationId: updateConfig
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConfigUpdate"
+            example:
+              interval: 1800
+              dry_run: true
+      responses:
+        "200":
+          description: Updated configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+              example:
+                interval: 1800
+                tier1_model: haiku
+                tier2_model: sonnet
+                tier3_model: opus
+                dry_run: true
+                max_tier: 3
+                state_dir: /state
+                results_dir: /results
+                repos_dir: /repos
+        "400":
+          description: Invalid configuration value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "interval must be a positive integer"
+        "415":
+          description: Unsupported content type
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+              example:
+                error: "Content-Type must be application/json"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+components:
+  responses:
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          example:
+            error: "internal server error"
+
+  schemas:
+    Session:
+      type: object
+      required:
+        - id
+        - tier
+        - model
+        - status
+        - started_at
+        - trigger
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique session identifier.
+        tier:
+          type: integer
+          description: Escalation tier (1=observe, 2=investigate, 3=remediate).
+          enum: [1, 2, 3]
+        model:
+          type: string
+          description: Claude model used for this session.
+          example: haiku
+        status:
+          type: string
+          description: Current session status.
+          enum: [running, completed, failed, timed_out, escalated]
+        started_at:
+          type: string
+          format: date-time
+          description: When the session started.
+        ended_at:
+          type: ["string", "null"]
+          format: date-time
+          description: When the session ended, or null if still running.
+        exit_code:
+          type: ["integer", "null"]
+          description: Process exit code, or null if still running.
+        cost_usd:
+          type: ["number", "null"]
+          format: double
+          description: Total API cost in USD, or null if not yet computed.
+        num_turns:
+          type: ["integer", "null"]
+          description: Number of conversation turns, or null if not yet computed.
+        duration_ms:
+          type: ["integer", "null"]
+          format: int64
+          description: Duration in milliseconds, or null if still running.
+        trigger:
+          type: string
+          description: How the session was started.
+          enum: [scheduled, manual, escalation]
+        prompt_text:
+          type: ["string", "null"]
+          description: Custom prompt for ad-hoc sessions, or null for scheduled.
+        parent_session_id:
+          type: ["integer", "null"]
+          format: int64
+          description: ID of the parent session if this was an escalation, or null.
+
+    SessionDetail:
+      allOf:
+        - $ref: "#/components/schemas/Session"
+        - type: object
+          properties:
+            parent_session:
+              oneOf:
+                - $ref: "#/components/schemas/Session"
+                - type: "null"
+              description: The parent session object if this session was escalated.
+            child_sessions:
+              type: array
+              items:
+                $ref: "#/components/schemas/Session"
+              description: Direct child sessions spawned by escalation.
+            chain_cost:
+              type: number
+              format: double
+              description: Total cost across the entire escalation chain.
+            response:
+              type: ["string", "null"]
+              description: Final markdown response from the session.
+
+    Event:
+      type: object
+      required:
+        - id
+        - level
+        - message
+        - created_at
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique event identifier.
+        session_id:
+          type: ["integer", "null"]
+          format: int64
+          description: ID of the session that produced this event.
+        level:
+          type: string
+          description: Event severity level.
+          enum: [info, warning, critical]
+        service:
+          type: ["string", "null"]
+          description: Service name associated with the event.
+        message:
+          type: string
+          description: Event message text.
+        created_at:
+          type: string
+          format: date-time
+          description: When the event was created.
+
+    Memory:
+      type: object
+      required:
+        - id
+        - category
+        - observation
+        - confidence
+        - active
+        - created_at
+        - updated_at
+        - tier
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Unique memory identifier.
+        service:
+          type: ["string", "null"]
+          description: Service this memory relates to, or null for general.
+        category:
+          type: string
+          description: Memory category.
+        observation:
+          type: string
+          description: The observation text.
+        confidence:
+          type: number
+          format: double
+          description: Confidence score between 0 and 1.
+          minimum: 0
+          maximum: 1
+        active:
+          type: boolean
+          description: Whether this memory is active.
+        created_at:
+          type: string
+          format: date-time
+          description: When the memory was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: When the memory was last updated.
+        session_id:
+          type: ["integer", "null"]
+          format: int64
+          description: ID of the session that created this memory.
+        tier:
+          type: integer
+          description: Tier of the session that created this memory.
+
+    MemoryCreate:
+      type: object
+      required:
+        - category
+        - observation
+      properties:
+        service:
+          type: string
+          description: Service this memory relates to.
+        category:
+          type: string
+          description: Memory category.
+        observation:
+          type: string
+          description: The observation text.
+        confidence:
+          type: number
+          format: double
+          description: Confidence score between 0 and 1. Defaults to 0.7.
+          minimum: 0
+          maximum: 1
+          default: 0.7
+        active:
+          type: boolean
+          description: Whether this memory is active. Defaults to true.
+          default: true
+
+    MemoryUpdate:
+      type: object
+      required:
+        - observation
+        - confidence
+        - active
+      properties:
+        observation:
+          type: string
+          description: Updated observation text.
+        confidence:
+          type: number
+          format: double
+          description: Updated confidence score between 0 and 1.
+          minimum: 0
+          maximum: 1
+        active:
+          type: boolean
+          description: Whether this memory is active.
+
+    Cooldown:
+      type: object
+      required:
+        - service
+        - action_type
+        - count
+        - last_action
+      properties:
+        service:
+          type: string
+          description: Service name.
+        action_type:
+          type: string
+          description: Type of remediation action.
+          enum: [restart, redeployment]
+        count:
+          type: integer
+          description: Number of actions in the current window.
+        last_action:
+          type: string
+          format: date-time
+          description: Timestamp of the most recent action.
+
+    Config:
+      type: object
+      required:
+        - interval
+        - tier1_model
+        - tier2_model
+        - tier3_model
+        - dry_run
+        - max_tier
+        - state_dir
+        - results_dir
+        - repos_dir
+      properties:
+        interval:
+          type: integer
+          description: Monitoring loop interval in seconds.
+          example: 3600
+        tier1_model:
+          type: string
+          description: Model for Tier 1 (observe) sessions.
+          example: haiku
+        tier2_model:
+          type: string
+          description: Model for Tier 2 (investigate) sessions.
+          example: sonnet
+        tier3_model:
+          type: string
+          description: Model for Tier 3 (remediate) sessions.
+          example: opus
+        dry_run:
+          type: boolean
+          description: Whether the agent is in observe-only mode.
+        max_tier:
+          type: integer
+          description: Maximum escalation tier allowed.
+          example: 3
+        state_dir:
+          type: string
+          description: Path to the state directory.
+          example: /state
+        results_dir:
+          type: string
+          description: Path to the results directory.
+          example: /results
+        repos_dir:
+          type: string
+          description: Path to the repos directory.
+          example: /repos
+
+    ConfigUpdate:
+      type: object
+      properties:
+        interval:
+          type: integer
+          description: Monitoring loop interval in seconds. Must be positive.
+          minimum: 1
+        tier1_model:
+          type: string
+          description: Model for Tier 1 (observe) sessions.
+        tier2_model:
+          type: string
+          description: Model for Tier 2 (investigate) sessions.
+        tier3_model:
+          type: string
+          description: Model for Tier 3 (remediate) sessions.
+        dry_run:
+          type: boolean
+          description: Whether the agent is in observe-only mode.
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.

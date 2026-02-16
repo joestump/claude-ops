@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Claude Ops API</title>
+    <link rel="icon" type="image/png" href="favicon-32x32.png" sizes="32x32">
+    <link rel="icon" type="image/png" href="favicon-16x16.png" sizes="16x16">
+    <link rel="stylesheet" href="swagger-ui.css">
+</head>
+<body>
+    <div id="swagger-ui"></div>
+    <script src="swagger-ui-bundle.js"></script>
+    <script src="swagger-ui-standalone-preset.js"></script>
+    <script>
+    SwaggerUIBundle({
+        url: "/api/openapi.yaml",
+        dom_id: "#swagger-ui",
+        presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+        layout: "StandaloneLayout"
+    });
+    </script>
+</body>
+</html>

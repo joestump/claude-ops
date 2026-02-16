@@ -6,7 +6,7 @@
     <div class="card-base mb-6">
         <form method="GET" action="/memories" class="flex items-end gap-4 flex-wrap">
             <div>
-                <label class="meta-label" for="filter-service">Service</label>
+                <label class="meta-label" for="filter-service">Scope</label>
                 <input type="text" name="service" id="filter-service" value="{{.Service}}"
                        class="input-field text-sm" placeholder="e.g. caddy">
             </div>
@@ -29,7 +29,7 @@
             <form method="POST" action="/memories" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="meta-label" for="new-service">Service</label>
+                        <label class="meta-label" for="new-service">Scope</label>
                         <input type="text" name="service" id="new-service"
                                class="input-field w-full text-sm" placeholder="Leave blank for global">
                     </div>
@@ -67,7 +67,7 @@
         <table class="w-full text-sm">
             <thead>
                 <tr class="thead-row">
-                    <th class="py-2 px-3">Service</th>
+                    <th class="py-2 px-3">Scope</th>
                     <th class="py-2 px-3">Category</th>
                     <th class="py-2 px-3">Observation</th>
                     <th class="py-2 px-3">Confidence</th>
@@ -81,7 +81,13 @@
             <tbody>
                 {{range .Memories}}
                 <tr class="tbody-row" id="memory-row-{{.ID}}">
-                    <td class="py-2 px-3 font-mono text-xs{{if eq .Service "global"}} text-muted{{end}}">{{.Service}}</td>
+                    <td class="py-2 px-3">
+                        {{if eq .Service "global"}}
+                        <span class="text-xs text-muted bg-surface px-2 py-0.5 rounded font-mono">global</span>
+                        {{else}}
+                        <span class="text-xs font-mono bg-surface px-2 py-0.5 rounded">{{.Service}}</span>
+                        {{end}}
+                    </td>
                     <td class="py-2 px-3">
                         <span class="badge-pill level-info">{{.Category}}</span>
                     </td>

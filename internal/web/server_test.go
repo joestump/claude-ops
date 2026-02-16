@@ -16,20 +16,32 @@ import (
 	"github.com/joestump/claude-ops/internal/hub"
 )
 
-type mockTrigger struct{}
-
-func (m *mockTrigger) TriggerAdHoc(prompt string) (int64, error) {
-	return 0, fmt.Errorf("not implemented in test")
+type mockTrigger struct {
+	running bool
+	nextID  int64
+	nextErr error
 }
 
-func (m *mockTrigger) IsRunning() bool { return false }
+func (m *mockTrigger) TriggerAdHoc(prompt string) (int64, error) {
+	if m.nextErr != nil {
+		return 0, m.nextErr
+	}
+	return m.nextID, nil
+}
+
+func (m *mockTrigger) IsRunning() bool { return m.running }
 
 type testEnv struct {
-	srv *Server
-	hub *hub.Hub
+	srv     *Server
+	hub     *hub.Hub
+	trigger *mockTrigger
 }
 
 func newTestEnv(t *testing.T) *testEnv {
+	return newTestEnvWithTrigger(t, &mockTrigger{nextErr: fmt.Errorf("not implemented in test")})
+}
+
+func newTestEnvWithTrigger(t *testing.T, trigger *mockTrigger) *testEnv {
 	t.Helper()
 	dbPath := filepath.Join(t.TempDir(), "test.db")
 	database, err := db.Open(dbPath)
@@ -43,15 +55,18 @@ func newTestEnv(t *testing.T) *testEnv {
 		Tier1Model:    "haiku",
 		Tier2Model:    "sonnet",
 		Tier3Model:    "opus",
+		MaxTier:       3,
 		StateDir:      t.TempDir(),
 		ResultsDir:    t.TempDir(),
+		ReposDir:      t.TempDir(),
 		DashboardPort: 0,
 	}
 
 	h := hub.New()
 	return &testEnv{
-		srv: New(cfg, h, database, &mockTrigger{}),
-		hub: h,
+		srv:     New(cfg, h, database, trigger),
+		hub:     h,
+		trigger: trigger,
 	}
 }
 
@@ -739,14 +754,18 @@ func TestMemoriesFilterByService(t *testing.T) {
 
 	svc1 := "caddy"
 	svc2 := "postgres"
-	e.srv.db.InsertMemory(&db.Memory{
+	if _, err := e.srv.db.InsertMemory(&db.Memory{
 		Service: &svc1, Category: "behavior", Observation: "caddy memory",
 		Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
-	})
-	e.srv.db.InsertMemory(&db.Memory{
+	}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+	if _, err := e.srv.db.InsertMemory(&db.Memory{
 		Service: &svc2, Category: "config", Observation: "postgres memory",
 		Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,
-	})
+	}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
 
 	req := httptest.NewRequest("GET", "/memories?service=caddy", nil)
 	w := httptest.NewRecorder()
@@ -784,7 +803,7 @@ func TestMemoryCreate(t *testing.T) {
 	}
 
 	// Verify memory was created.
-	memories, err := e.srv.db.ListMemories(nil, nil, 100)
+	memories, err := e.srv.db.ListMemories(nil, nil, 100, 0)
 	if err != nil {
 		t.Fatalf("ListMemories: %v", err)
 	}

@@ -26,14 +26,14 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var events []EventView
-	if evts, err := s.db.ListEvents(10); err != nil {
+	if evts, err := s.db.ListEvents(10, 0, nil, nil); err != nil {
 		log.Printf("handleIndex: ListEvents: %v", err)
 	} else {
 		events = ToEventViews(evts)
 	}
 
 	var memoryCount int
-	if memories, err := s.db.ListMemories(nil, nil, 1000); err != nil {
+	if memories, err := s.db.ListMemories(nil, nil, 1000, 0); err != nil {
 		log.Printf("handleIndex: ListMemories: %v", err)
 	} else {
 		memoryCount = len(memories)
@@ -58,7 +58,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 
 // handleSessions renders the session list.
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
-	sessions, err := s.db.ListSessions(50)
+	sessions, err := s.db.ListSessions(50, 0)
 	if err != nil {
 		log.Printf("handleSessions: %v", err)
 		http.Error(w, "database error", http.StatusInternalServerError)
@@ -279,7 +279,7 @@ func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 
 // handleEvents renders the events feed.
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
-	events, err := s.db.ListEvents(100)
+	events, err := s.db.ListEvents(100, 0, nil, nil)
 	if err != nil {
 		log.Printf("handleEvents: %v", err)
 		http.Error(w, "database error", http.StatusInternalServerError)
@@ -325,7 +325,7 @@ func (s *Server) handleMemories(w http.ResponseWriter, r *http.Request) {
 		categoryFilter = &v
 	}
 
-	memories, err := s.db.ListMemories(serviceFilter, categoryFilter, 200)
+	memories, err := s.db.ListMemories(serviceFilter, categoryFilter, 200, 0)
 	if err != nil {
 		log.Printf("handleMemories: %v", err)
 		http.Error(w, "database error", http.StatusInternalServerError)

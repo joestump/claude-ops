@@ -9,13 +9,22 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"regexp"
 	"time"
 
+	"github.com/joestump/claude-ops/api"
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 )
+
+// eventBadgeRe matches [EVENT:level] and [EVENT:level:service] markers in rendered HTML.
+// Message capture stops before the next bracket marker or HTML tag.
+var eventBadgeRe = regexp.MustCompile(`\[EVENT:(info|warning|critical)(?::([a-zA-Z0-9_-]+))?\]\s*([^\[<]+)`)
+
+// memoryBadgeRe matches [MEMORY:category] and [MEMORY:category:service] markers in rendered HTML.
+var memoryBadgeRe = regexp.MustCompile(`\[MEMORY:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*([^\[<]+)`)
 
 //go:embed templates/*.html
 var templateFS embed.FS
@@ -105,7 +114,7 @@ func (s *Server) parseTemplates() {
 			switch status {
 			case "healthy", "completed":
 				return "status-healthy"
-			case "degraded":
+			case "degraded", "escalated":
 				return "status-degraded"
 			case "down", "failed", "timed_out":
 				return "status-down"
@@ -119,7 +128,7 @@ func (s *Server) parseTemplates() {
 			switch status {
 			case "healthy", "completed":
 				return "dot-healthy"
-			case "degraded":
+			case "degraded", "escalated":
 				return "dot-degraded"
 			case "down", "failed", "timed_out":
 				return "dot-down"
@@ -166,7 +175,34 @@ func (s *Server) parseTemplates() {
 			if err := gm.Convert([]byte(md), &buf); err != nil {
 				return template.HTML(template.HTMLEscapeString(md))
 			}
-			return template.HTML(buf.String())
+			// Replace [EVENT:level] and [EVENT:level:service] markers with dashboard badges.
+			html := eventBadgeRe.ReplaceAllStringFunc(buf.String(), func(match string) string {
+				m := eventBadgeRe.FindStringSubmatch(match)
+				level, service, msg := m[1], m[2], m[3]
+				cls := "level-info"
+				switch level {
+				case "warning":
+					cls = "level-warning"
+				case "critical":
+					cls = "level-critical"
+				}
+				badge := `<span class="badge-pill ` + cls + `">` + level + `</span>`
+				if service != "" {
+					badge += ` <span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">` + template.HTMLEscapeString(service) + `</span>`
+				}
+				return badge + ` ` + msg
+			})
+			// Replace [MEMORY:category] and [MEMORY:category:service] markers with brain badges.
+			html = memoryBadgeRe.ReplaceAllStringFunc(html, func(match string) string {
+				m := memoryBadgeRe.FindStringSubmatch(match)
+				category, service, msg := m[1], m[2], m[3]
+				badge := `<span class="badge-pill level-memory">🧠 ` + template.HTMLEscapeString(category) + `</span>`
+				if service != "" {
+					badge += ` <span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">` + template.HTMLEscapeString(service) + `</span>`
+				}
+				return badge + ` ` + msg
+			})
+			return template.HTML(html)
 		},
 		"levelClass": func(level string) string {
 			switch level {
@@ -244,6 +280,25 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /config", s.handleConfigGet)
 	s.mux.HandleFunc("POST /config", s.handleConfigPost)
 	s.mux.HandleFunc("POST /sessions/trigger", s.handleTriggerSession)
+
+	// API v1
+	s.mux.HandleFunc("GET /api/v1/health", s.handleAPIHealth)
+	s.mux.HandleFunc("GET /api/v1/sessions", s.handleAPIListSessions)
+	s.mux.HandleFunc("GET /api/v1/sessions/{id}", s.handleAPIGetSession)
+	s.mux.HandleFunc("POST /api/v1/sessions/trigger", s.handleAPITriggerSession)
+	s.mux.HandleFunc("GET /api/v1/events", s.handleAPIListEvents)
+	s.mux.HandleFunc("GET /api/v1/memories", s.handleAPIListMemories)
+	s.mux.HandleFunc("POST /api/v1/memories", s.handleAPICreateMemory)
+	s.mux.HandleFunc("PUT /api/v1/memories/{id}", s.handleAPIUpdateMemory)
+	s.mux.HandleFunc("DELETE /api/v1/memories/{id}", s.handleAPIDeleteMemory)
+	s.mux.HandleFunc("GET /api/v1/cooldowns", s.handleAPIListCooldowns)
+	s.mux.HandleFunc("GET /api/v1/config", s.handleAPIGetConfig)
+	s.mux.HandleFunc("PUT /api/v1/config", s.handleAPIUpdateConfig)
+
+	// OpenAPI spec and Swagger UI
+	s.mux.HandleFunc("GET /api/openapi.yaml", s.handleOpenAPISpec)
+	swaggerSub, _ := fs.Sub(api.SwaggerUIFS, "swagger-ui")
+	s.mux.Handle("GET /api/docs/", http.StripPrefix("/api/docs/", http.FileServer(http.FS(swaggerSub))))
 }
 
 // render executes a template. If HX-Request header is set, render just the
@@ -260,7 +315,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 	}
 
 	if r.Header.Get("HX-Request") != "" {
-		w.Write(buf.Bytes())
+		_, _ = w.Write(buf.Bytes())
 		return
 	}
 
@@ -275,4 +330,9 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 		log.Printf("layout+%s: %v", name, err)
 		http.Error(w, "template error", http.StatusInternalServerError)
 	}
+}
+
+func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/yaml")
+	_, _ = w.Write(api.OpenAPISpec)
 }

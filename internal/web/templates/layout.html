@@ -25,7 +25,7 @@
                     <a href="/"
                        class="nav-link{{if eq .Page "index.html"}} nav-active{{end}}"
                        hx-get="/" hx-target="#main" hx-push-url="true">
-                        <span class="nav-icon">&#9632;</span>
+                        <span class="nav-icon">📊</span>
                         Overview
                     </a>
                 </li>
@@ -33,7 +33,7 @@
                     <a href="/sessions"
                        class="nav-link{{if or (eq .Page "sessions.html") (eq .Page "session.html")}} nav-active{{end}}"
                        hx-get="/sessions" hx-target="#main" hx-push-url="true">
-                        <span class="nav-icon">&#9654;</span>
+                        <span class="nav-icon">▶️</span>
                         Sessions
                     </a>
                 </li>
@@ -41,7 +41,7 @@
                     <a href="/events"
                        class="nav-link{{if eq .Page "events.html"}} nav-active{{end}}"
                        hx-get="/events" hx-target="#main" hx-push-url="true">
-                        <span class="nav-icon">&#9733;</span>
+                        <span class="nav-icon">⚡</span>
                         Events
                     </a>
                 </li>
@@ -49,7 +49,7 @@
                     <a href="/memories"
                        class="nav-link{{if eq .Page "memories.html"}} nav-active{{end}}"
                        hx-get="/memories" hx-target="#main" hx-push-url="true">
-                        <span class="nav-icon">&#9679;</span>
+                        <span class="nav-icon">🧠</span>
                         Memories
                     </a>
                 </li>
@@ -57,7 +57,7 @@
                     <a href="/cooldowns"
                        class="nav-link{{if eq .Page "cooldowns.html"}} nav-active{{end}}"
                        hx-get="/cooldowns" hx-target="#main" hx-push-url="true">
-                        <span class="nav-icon">&#9201;</span>
+                        <span class="nav-icon">⏱️</span>
                         Cooldowns
                     </a>
                 </li>
@@ -65,8 +65,15 @@
                     <a href="/config"
                        class="nav-link{{if eq .Page "config.html"}} nav-active{{end}}"
                        hx-get="/config" hx-target="#main" hx-push-url="true">
-                        <span class="nav-icon">&#9881;</span>
+                        <span class="nav-icon">⚙️</span>
                         Config
+                    </a>
+                </li>
+                <li>
+                    <a href="/api/docs/" target="_blank" rel="noopener"
+                       class="nav-link">
+                        <span class="nav-icon">&#128268;</span>
+                        API
                     </a>
                 </li>
             </ul>
@@ -89,7 +96,7 @@
         </nav>
 
         {{/* Main content area */}}
-        <main id="main" class="flex-1 p-8 overflow-y-auto">
+        <main id="main" class="flex-1 p-8 overflow-y-auto" hx-history-elt>
             {{.Content}}
         </main>
     </div>
@@ -169,6 +176,16 @@
             var isActive = (href === path) || (href === '/' && path === '/');
             link.classList.toggle('nav-active', isActive);
         });
+    });
+
+    // If HTMX swaps a full-page response (e.g. history restore without cache),
+    // the full layout lands inside #main. Detect and do a hard reload.
+    document.body.addEventListener('htmx:beforeSwap', function(e) {
+        var text = e.detail.xhr && e.detail.xhr.responseText;
+        if (text && text.indexOf('<!DOCTYPE') !== -1) {
+            e.detail.shouldSwap = false;
+            window.location.reload();
+        }
     });
     </script>
 </body>

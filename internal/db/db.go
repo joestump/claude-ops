@@ -19,7 +19,7 @@ type Session struct {
 	Tier       int
 	Model      string
 	PromptFile string
-	Status     string // running, completed, failed, timed_out
+	Status     string // running, completed, failed, timed_out, escalated
 	StartedAt  string
 	EndedAt    *string
 	ExitCode   *int
@@ -158,12 +158,12 @@ func (d *DB) migrate() error {
 		}
 
 		if err := m.fn(tx); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("migration %d: %w", m.version, err)
 		}
 
 		if _, err := tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", m.version); err != nil {
-			tx.Rollback()
+			_ = tx.Rollback()
 			return fmt.Errorf("record migration %d: %w", m.version, err)
 		}
 
@@ -334,6 +334,15 @@ func (d *DB) UpdateSession(id int64, status string, endedAt *string, exitCode *i
 	return nil
 }
 
+// UpdateSessionStatus updates only the status of a session (e.g. to "escalated").
+func (d *DB) UpdateSessionStatus(id int64, status string) error {
+	_, err := d.conn.Exec(`UPDATE sessions SET status = ? WHERE id = ?`, status, id)
+	if err != nil {
+		return fmt.Errorf("update session status %d: %w", id, err)
+	}
+	return nil
+}
+
 // UpdateSessionResult stores the final response and metadata from a completed session.
 func (d *DB) UpdateSessionResult(id int64, response string, costUSD float64, numTurns int, durationMs int64) error {
 	_, err := d.conn.Exec(
@@ -358,10 +367,10 @@ func (d *DB) GetSession(id int64) (*Session, error) {
 	return s, nil
 }
 
-// ListSessions returns sessions ordered by started_at descending, with a limit.
-func (d *DB) ListSessions(limit int) ([]Session, error) {
+// ListSessions returns sessions ordered by started_at descending, with a limit and offset.
+func (d *DB) ListSessions(limit, offset int) ([]Session, error) {
 	rows, err := d.conn.Query(
-		`SELECT `+sessionColumns+` FROM sessions ORDER BY started_at DESC LIMIT ?`, limit,
+		`SELECT `+sessionColumns+` FROM sessions ORDER BY started_at DESC LIMIT ? OFFSET ?`, limit, offset,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
@@ -435,12 +444,23 @@ func (d *DB) InsertEvent(e *Event) (int64, error) {
 	return res.LastInsertId()
 }
 
-// ListEvents returns events ordered by created_at descending, with a limit.
-func (d *DB) ListEvents(limit int) ([]Event, error) {
-	rows, err := d.conn.Query(
-		`SELECT id, session_id, level, service, message, created_at
-		 FROM events ORDER BY created_at DESC LIMIT ?`, limit,
-	)
+// ListEvents returns events ordered by created_at descending, with a limit, offset,
+// and optional level/service filters.
+func (d *DB) ListEvents(limit, offset int, level, service *string) ([]Event, error) {
+	query := `SELECT id, session_id, level, service, message, created_at FROM events WHERE 1=1`
+	var args []any
+	if level != nil {
+		query += ` AND level = ?`
+		args = append(args, *level)
+	}
+	if service != nil {
+		query += ` AND service = ?`
+		args = append(args, *service)
+	}
+	query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
+
+	rows, err := d.conn.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("list events: %w", err)
 	}
@@ -765,7 +785,7 @@ func (d *DB) DeleteMemory(id int64) error {
 
 // ListMemories returns memories with optional service and category filters,
 // ordered by confidence descending.
-func (d *DB) ListMemories(service *string, category *string, limit int) ([]Memory, error) {
+func (d *DB) ListMemories(service *string, category *string, limit, offset int) ([]Memory, error) {
 	query := `SELECT id, service, category, observation, confidence, active, created_at, updated_at, session_id, tier FROM memories WHERE 1=1`
 	var args []any
 
@@ -777,8 +797,8 @@ func (d *DB) ListMemories(service *string, category *string, limit int) ([]Memor
 		query += ` AND category = ?`
 		args = append(args, *category)
 	}
-	query += ` ORDER BY confidence DESC LIMIT ?`
-	args = append(args, limit)
+	query += ` ORDER BY confidence DESC LIMIT ? OFFSET ?`
+	args = append(args, limit, offset)
 
 	rows, err := d.conn.Query(query, args...)
 	if err != nil {

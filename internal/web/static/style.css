@@ -176,6 +176,11 @@
     color: var(--red);
 }
 
+.level-memory {
+    background-color: var(--blue-bg);
+    color: var(--blue);
+}
+
 /* ---- Terminal output ---- */
 .terminal {
     background-color: var(--terminal-bg);
