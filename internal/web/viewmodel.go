@@ -32,6 +32,8 @@ type SessionView struct {
 	ChainCost       float64
 	IsChainRoot     bool
 	ChainLength     int
+	HasChildren     bool   // session escalated to a child above
+	IsChainTip      bool   // top session of an escalation chain
 }
 
 // HealthCheckView is a template-friendly representation of a db.HealthCheck with parsed times.

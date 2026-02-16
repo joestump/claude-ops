@@ -75,6 +75,16 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Annotate chain membership: HasChildren (escalated up) and IsChainTip (top of chain).
+	for i := range views {
+		if parentIDs[views[i].ID] {
+			views[i].HasChildren = true
+		}
+		if views[i].ParentSessionID != nil && !parentIDs[views[i].ID] {
+			views[i].IsChainTip = true
+		}
+	}
+
 	// Annotate chain roots and compute chain cost/length by walking descendants.
 	for i := range views {
 		if views[i].ParentSessionID == nil && !parentIDs[views[i].ID] {

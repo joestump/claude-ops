@@ -368,6 +368,10 @@
     background-color: var(--accent-hover);
 }
 
+/* ---- Escalation arrows ---- */
+.esc-t2 { color: var(--yellow); font-weight: 600; }
+.esc-t3 { color: var(--red); font-weight: 600; }
+
 /* ---- Table tweaks ---- */
 table {
     border-collapse: collapse;
