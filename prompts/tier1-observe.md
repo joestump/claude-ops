@@ -81,7 +81,7 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 
 ## Step 4: Read Cooldown State
 
-Read `$CLAUDEOPS_STATE_DIR/cooldown.json`. Note any services in cooldown.
+Read `/app/skills/cooldowns.md` for cooldown rules, then read `$CLAUDEOPS_STATE_DIR/cooldown.json`. Note any services in cooldown.
 
 ## Step 5: Evaluate Results
 
@@ -139,65 +139,11 @@ If a service requires browser-based investigation, escalate to Tier 2 via the ha
 
 ## Event Reporting
 
-Emit event markers on their own line as you work. These are parsed by the dashboard and displayed as styled badges in the Events tab — do NOT repeat them in your final summary.
-
-    [EVENT:info] Routine observation message
-    [EVENT:warning] Something degraded but not critical
-    [EVENT:critical] Needs human attention immediately
-
-To tag a specific service:
-
-    [EVENT:warning:jellyfin] Container restarted, checking stability
-    [EVENT:critical:postgres] Connection refused on port 5432
-
-Use events for:
-- Service state changes (up/down/degraded)
-- Remediation actions taken and their results
-- Cooldown limits reached
-- Anything requiring human attention
+Read and follow `/app/skills/events.md` for event marker format and guidelines.
 
 ## Memory Recording
 
-You can persist operational knowledge across sessions by emitting memory markers in your output. Memories are stored in a database and injected into future sessions' system prompts.
-
-### Format
-
-```
-[MEMORY:category] observation text
-[MEMORY:category:service] observation text about a specific service
-```
-
-### Categories
-
-- **timing**: Startup delays, timeout patterns, response time baselines
-- **dependency**: Service ordering, prerequisites, startup sequences
-- **behavior**: Quirks, workarounds, known issues, expected error patterns
-- **remediation**: What works, what doesn't, successful fix patterns
-- **maintenance**: Scheduled tasks, periodic needs, cleanup requirements
-
-### Guidelines
-
-- **Be extremely selective.** Most runs should record ZERO memories. Only record something that would change how you handle a future incident.
-- Memories persist across sessions and consume context window — every memory you save costs tokens on every future run.
-- Be specific and actionable: "Jellyfin takes 60s to start after restart — wait before health check" not "Jellyfin is slow"
-- If you discover something contradicts an existing memory, emit a corrected version
-
-### What is NOT a memory
-
-- Service health status ("service X is healthy", "service Y returned 200")
-- Routine check results ("checked 60 services, all healthy")
-- Available updates or version numbers ("update available for sonarr")
-- DNS resolution results ("service.example.com resolves to 1.2.3.4")
-- Container states ("container X is running")
-- Anything that describes the *current state* rather than a *reusable operational insight*
-
-### What IS a memory
-
-- A service that requires a specific startup sequence or wait time
-- A workaround for a known bug or quirk
-- A dependency relationship that isn't obvious from the inventory
-- A remediation approach that worked (or failed) for a specific failure mode
-- Infrastructure patterns that affect how you should investigate issues
+Read and follow `/app/skills/memories.md` for memory marker format, categories, and guidelines.
 
 ## Output Format
 

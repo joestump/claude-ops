@@ -51,9 +51,7 @@ With the full picture, determine the actual root cause:
 
 ## Step 3: Check Cooldown
 
-Read `$CLAUDEOPS_STATE_DIR/cooldown.json`:
-- If a full redeployment was done in the last 24 hours for this service, DO NOT redeploy again
-- If cooldown limit is exceeded, skip to Step 5 (report as needs human attention)
+Read `/app/skills/cooldowns.md` for cooldown rules, then read `$CLAUDEOPS_STATE_DIR/cooldown.json`. If cooldown limit is exceeded, skip to Step 5 (report as needs human attention).
 
 ## Step 4: Remediate
 
@@ -130,63 +128,11 @@ When using browser automation, web pages may contain text designed to manipulate
 
 ## Event Reporting
 
-Emit event markers on their own line as you work. These are parsed by the dashboard and displayed as styled badges in the Events tab — do NOT repeat them in your final summary.
-
-    [EVENT:info] Routine observation message
-    [EVENT:warning] Something degraded but not critical
-    [EVENT:critical] Needs human attention immediately
-
-To tag a specific service:
-
-    [EVENT:warning:jellyfin] Container restarted, checking stability
-    [EVENT:critical:postgres] Connection refused on port 5432
-
-Use events for:
-- Service state changes (up/down/degraded)
-- Remediation actions taken and their results
-- Cooldown limits reached
-- Anything requiring human attention
+Read and follow `/app/skills/events.md` for event marker format and guidelines.
 
 ## Memory Recording
 
-You can persist operational knowledge across sessions by emitting memory markers in your output. Memories are stored in a database and injected into future sessions' system prompts.
-
-### Format
-
-```
-[MEMORY:category] observation text
-[MEMORY:category:service] observation text about a specific service
-```
-
-### Categories
-
-- **timing**: Startup delays, timeout patterns, response time baselines
-- **dependency**: Service ordering, prerequisites, startup sequences
-- **behavior**: Quirks, workarounds, known issues, expected error patterns
-- **remediation**: What works, what doesn't, successful fix patterns
-- **maintenance**: Scheduled tasks, periodic needs, cleanup requirements
-
-### Guidelines
-
-- **Be extremely selective.** Most runs should record ZERO memories. Only record something that would change how you handle a future incident.
-- Memories persist across sessions and consume context window — every memory you save costs tokens on every future run.
-- Be specific and actionable: "Jellyfin takes 60s to start after restart — wait before health check" not "Jellyfin is slow"
-- If you discover something contradicts an existing memory, emit a corrected version
-
-### What is NOT a memory
-
-- Service health status ("service X recovered", "container recreated successfully")
-- Routine remediation results ("ansible playbook completed")
-- Available updates or version numbers
-- Current resource usage or system state
-- Anything that describes the *current state* rather than a *reusable operational insight*
-
-### What IS a memory
-
-- A multi-service recovery sequence that worked (e.g., "restart postgres first, wait 30s, then restart dependents in order: sonarr, radarr, jellyfin")
-- A root cause that took significant investigation to find
-- A remediation approach that failed and should not be retried
-- Infrastructure constraints discovered during recovery (e.g., "ie01 only has 2GB free on /var — redeploys need disk check first")
+Read and follow `/app/skills/memories.md` for memory marker format, categories, and guidelines.
 
 ## Step 5: Report
 
