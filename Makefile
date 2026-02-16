@@ -1,9 +1,10 @@
 .PHONY: build test clean dev dev-up dev-down dev-logs dev-rebuild
 
 BINARY := claudeops
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 build:
-	go build -o $(BINARY) ./cmd/claudeops
+	go build -ldflags "-X github.com/joestump/claude-ops/internal/config.Version=$(VERSION)" -o $(BINARY) ./cmd/claudeops
 
 test:
 	go test ./internal/...

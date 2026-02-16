@@ -322,9 +322,11 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 	layoutData := struct {
 		Page    string
 		Content template.HTML
+		Version string
 	}{
 		Page:    name,
 		Content: template.HTML(buf.String()),
+		Version: config.Version,
 	}
 	if err := s.tmpl.ExecuteTemplate(w, "layout.html", layoutData); err != nil {
 		log.Printf("layout+%s: %v", name, err)

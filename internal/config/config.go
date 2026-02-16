@@ -2,6 +2,9 @@ package config
 
 import "github.com/spf13/viper"
 
+// Version is set at build time via -ldflags.
+var Version = "dev"
+
 // Config holds all runtime configuration for Claude Ops.
 type Config struct {
 	Interval      int

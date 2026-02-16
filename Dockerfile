@@ -1,13 +1,15 @@
 # Build stage: compile Go binary
 FROM golang:1.24-alpine AS builder
 
+ARG VERSION=dev
+
 WORKDIR /build
 COPY go.mod go.sum ./
 RUN go mod download
 COPY cmd/ cmd/
 COPY internal/ internal/
 COPY api/ api/
-RUN CGO_ENABLED=0 go build -o /claudeops ./cmd/claudeops
+RUN CGO_ENABLED=0 go build -ldflags "-X github.com/joestump/claude-ops/internal/config.Version=${VERSION}" -o /claudeops ./cmd/claudeops
 
 # Runtime stage
 FROM node:22-slim

@@ -93,7 +93,7 @@ func main() {
 func run(cmd *cobra.Command, args []string) error {
 	cfg := config.Load()
 
-	fmt.Println("Claude Ops starting")
+	fmt.Printf("Claude Ops %s starting\n", config.Version)
 	fmt.Printf("  Tier 1 model: %s\n", cfg.Tier1Model)
 	fmt.Printf("  Interval: %ds\n", cfg.Interval)
 	fmt.Printf("  Prompt: %s\n", cfg.Prompt)
