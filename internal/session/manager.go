@@ -83,7 +83,7 @@ func (m *Manager) IsRunning() bool {
 // finished (or been killed after the grace period).
 func (m *Manager) Run(ctx context.Context) error {
 	for {
-		m.runEscalationChain(ctx, "scheduled")
+		m.runEscalationChain(ctx, "scheduled", nil)
 
 		fmt.Printf("[%s] Sleeping %ds until next run...\n\n",
 			time.Now().UTC().Format(time.RFC3339), m.cfg.Interval)
@@ -98,18 +98,16 @@ func (m *Manager) Run(ctx context.Context) error {
 	}
 }
 
-// runAdHoc handles a manually triggered session (no escalation chain).
+// runAdHoc handles a manually triggered session with full escalation support.
 func (m *Manager) runAdHoc(ctx context.Context, prompt string) {
-	_, err := m.runTier(ctx, 1, m.cfg.Tier1Model, "", nil, "", "manual", &prompt)
-	if err != nil {
-		fmt.Printf("[%s] ERROR: ad-hoc session failed: %v\n",
-			time.Now().UTC().Format(time.RFC3339), err)
-	}
+	m.runEscalationChain(ctx, "manual", &prompt)
 }
 
 // runEscalationChain runs Tier 1 and escalates to higher tiers if the agent
-// writes a handoff file requesting it.
-func (m *Manager) runEscalationChain(ctx context.Context, trigger string) {
+// writes a handoff file requesting it. promptOverride is used for ad-hoc
+// sessions where the first tier uses a custom prompt instead of the standard
+// prompt file.
+func (m *Manager) runEscalationChain(ctx context.Context, trigger string, promptOverride *string) {
 	// Decay stale memories before each escalation chain.
 	if err := m.db.DecayStaleMemories(30, 0.1); err != nil {
 		fmt.Fprintf(os.Stderr, "decay stale memories: %v\n", err)
@@ -134,12 +132,19 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string) {
 	var parentSessionID *int64
 	currentTier := 1
 	handoffContext := ""
+	currentTrigger := trigger
 
 	for currentTier <= m.cfg.MaxTier {
 		model := tierModels[currentTier]
 		promptFile := tierPrompts[currentTier]
 
-		sessionID, err := m.runTier(ctx, currentTier, model, promptFile, parentSessionID, handoffContext, trigger, nil)
+		// Only use the prompt override for the first tier in the chain.
+		var po *string
+		if currentTier == 1 && promptOverride != nil {
+			po = promptOverride
+		}
+
+		sessionID, err := m.runTier(ctx, currentTier, model, promptFile, parentSessionID, handoffContext, currentTrigger, po)
 		if err != nil {
 			fmt.Printf("[%s] ERROR: tier %d session failed: %v\n",
 				time.Now().UTC().Format(time.RFC3339), currentTier, err)
@@ -176,10 +181,16 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string) {
 			break
 		}
 
+		// Mark the parent session as escalated.
+		if err := m.db.UpdateSessionStatus(sessionID, "escalated"); err != nil {
+			fmt.Fprintf(os.Stderr, "update escalated status for session %d: %v\n", sessionID, err)
+		}
+
 		// Prepare for next tier.
 		handoffContext = buildHandoffContext(h)
 		parentSessionID = &sessionID
 		currentTier = h.RecommendedTier
+		currentTrigger = "escalation" // child sessions are triggered by escalation
 
 		// Delete the handoff file now that we've consumed it.
 		if err := DeleteHandoff(m.cfg.StateDir); err != nil {
@@ -334,7 +345,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 							for _, pe := range parseEventMarkers(block.Text) {
 								sid := sessionID
 								now := time.Now().UTC().Format(time.RFC3339)
-								m.db.InsertEvent(&db.Event{
+								_, _ = m.db.InsertEvent(&db.Event{
 									SessionID: &sid,
 									Level:     pe.Level,
 									Service:   pe.Service,

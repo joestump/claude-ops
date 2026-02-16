@@ -11,7 +11,9 @@ func TestMergeConfigs_SavesBaseline(t *testing.T) {
 	tmpDir := t.TempDir()
 	mcpPath := filepath.Join(tmpDir, "mcp.json")
 	reposDir := filepath.Join(tmpDir, "repos")
-	os.MkdirAll(reposDir, 0755)
+	if err := os.MkdirAll(reposDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	baseline := map[string]any{
 		"mcpServers": map[string]any{
@@ -45,7 +47,9 @@ func TestMergeConfigs_RestoresBaselineEachRun(t *testing.T) {
 
 	// Create a repo with an extra server.
 	repoDir := filepath.Join(reposDir, "my-repo", ".claude-ops")
-	os.MkdirAll(repoDir, 0755)
+	if err := os.MkdirAll(repoDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	writeTestJSON(t, filepath.Join(repoDir, "mcp.json"), map[string]any{
 		"mcpServers": map[string]any{
 			"custom": map[string]any{"command": "custom-mcp"},
@@ -94,7 +98,9 @@ func TestMergeConfigs_RepoOverridesBaseline(t *testing.T) {
 	reposDir := filepath.Join(tmpDir, "repos")
 
 	repoDir := filepath.Join(reposDir, "override-repo", ".claude-ops")
-	os.MkdirAll(repoDir, 0755)
+	if err := os.MkdirAll(repoDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	writeTestJSON(t, filepath.Join(repoDir, "mcp.json"), map[string]any{
 		"mcpServers": map[string]any{
 			"docker": map[string]any{"command": "custom-docker-mcp"},
@@ -134,7 +140,9 @@ func TestMergeConfigs_MultipleRepos(t *testing.T) {
 		{"repo-b", "server-b", "cmd-b"},
 	} {
 		dir := filepath.Join(reposDir, repo.name, ".claude-ops")
-		os.MkdirAll(dir, 0755)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
 		writeTestJSON(t, filepath.Join(dir, "mcp.json"), map[string]any{
 			"mcpServers": map[string]any{
 				repo.server: map[string]any{"command": repo.cmd},
@@ -167,7 +175,9 @@ func TestMergeConfigs_NoRepos(t *testing.T) {
 	tmpDir := t.TempDir()
 	mcpPath := filepath.Join(tmpDir, "mcp.json")
 	reposDir := filepath.Join(tmpDir, "repos")
-	os.MkdirAll(reposDir, 0755)
+	if err := os.MkdirAll(reposDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 
 	baseline := map[string]any{
 		"mcpServers": map[string]any{
@@ -193,7 +203,9 @@ func TestMergeConfigs_NoMcpServersKeyInRepo(t *testing.T) {
 	reposDir := filepath.Join(tmpDir, "repos")
 
 	repoDir := filepath.Join(reposDir, "empty-repo", ".claude-ops")
-	os.MkdirAll(repoDir, 0755)
+	if err := os.MkdirAll(repoDir, 0755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
 	// Repo config has no mcpServers key.
 	writeTestJSON(t, filepath.Join(repoDir, "mcp.json"), map[string]any{
 		"someOtherKey": "value",

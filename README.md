@@ -143,7 +143,8 @@ All configuration via environment variables:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `ANTHROPIC_API_KEY` | *(required)* | Claude API key |
+| `ANTHROPIC_API_KEY` | *(required)* | Claude API key (or LiteLLM proxy key) |
+| `ANTHROPIC_BASE_URL` | *(Anthropic default)* | Base URL for the API. Set to your LiteLLM/proxy URL (e.g., `https://litellm.example.com`) |
 | `CLAUDEOPS_INTERVAL` | `3600` | Seconds between scheduled runs |
 | `CLAUDEOPS_TIER1_MODEL` | `haiku` | Model for health checks (Tier 1) |
 | `CLAUDEOPS_TIER2_MODEL` | `sonnet` | Model for investigation + safe remediation (Tier 2) |
@@ -157,6 +158,17 @@ All configuration via environment variables:
 | `CLAUDEOPS_ALLOWED_TOOLS` | `Bash,Read,Grep,Glob,Task,WebFetch` | Claude CLI tools to enable |
 | `CLAUDEOPS_BROWSER_ALLOWED_ORIGINS` | *(disabled)* | Comma-separated origins for browser automation (e.g., `https://sonarr.example.com`) |
 | `BROWSER_CRED_{SERVICE}_{FIELD}` | *(none)* | Service credentials for browser login. `{SERVICE}` = uppercase name, `{FIELD}` = `USER`, `PASS`, `TOKEN`, or `API_KEY` |
+
+### Using with LiteLLM or other proxies
+
+Claude Ops works with [LiteLLM](https://github.com/BerriAI/litellm) or any Anthropic-compatible API proxy. Set `ANTHROPIC_BASE_URL` to your proxy URL:
+
+```bash
+ANTHROPIC_API_KEY=sk-your-litellm-key
+ANTHROPIC_BASE_URL=https://litellm.example.com
+```
+
+**Bedrock users:** If your LiteLLM routes to AWS Bedrock, ensure your model deployments use inference profile ARNs (not raw model IDs) and that `drop_params: true` is set to strip unsupported beta headers.
 
 ## Architecture
 

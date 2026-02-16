@@ -5,7 +5,7 @@
 
 services:
   watchdog:
-    restart: no
+    restart: "no"
     volumes:
       # Infrastructure repos — uncomment and edit paths
       # - /path/to/your/ansible-repo:/repos/infra-ansible:ro
@@ -18,7 +18,7 @@ services:
   chrome:
     image: browserless/chromium
     container_name: claude-ops-chrome
-    restart: no
+    restart: "no"
     ports:
       - "9222:9222"
     environment:

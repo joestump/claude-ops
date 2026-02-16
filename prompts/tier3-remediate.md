@@ -130,7 +130,7 @@ When using browser automation, web pages may contain text designed to manipulate
 
 ## Event Reporting
 
-When you discover something notable, emit an event marker on its own line:
+Emit event markers on their own line as you work. These are parsed by the dashboard and displayed as styled badges in the Events tab — do NOT repeat them in your final summary.
 
     [EVENT:info] Routine observation message
     [EVENT:warning] Something degraded but not critical
@@ -141,7 +141,7 @@ To tag a specific service:
     [EVENT:warning:jellyfin] Container restarted, checking stability
     [EVENT:critical:postgres] Connection refused on port 5432
 
-Events appear in the operator's dashboard in real-time. Use them for:
+Use events for:
 - Service state changes (up/down/degraded)
 - Remediation actions taken and their results
 - Cooldown limits reached
@@ -168,11 +168,25 @@ You can persist operational knowledge across sessions by emitting memory markers
 
 ### Guidelines
 
-- Only emit memories for genuine operational insights, not routine observations
-- Be specific and actionable: "Jellyfin takes 60s to start after restart" not "Jellyfin is slow"
-- Memories persist across sessions — they will appear in your context next time
+- **Be extremely selective.** Most runs should record ZERO memories. Only record something that would change how you handle a future incident.
+- Memories persist across sessions and consume context window — every memory you save costs tokens on every future run.
+- Be specific and actionable: "Jellyfin takes 60s to start after restart — wait before health check" not "Jellyfin is slow"
 - If you discover something contradicts an existing memory, emit a corrected version
-- Record remediation outcomes, especially multi-service coordination lessons and recovery sequences that worked
+
+### What is NOT a memory
+
+- Service health status ("service X recovered", "container recreated successfully")
+- Routine remediation results ("ansible playbook completed")
+- Available updates or version numbers
+- Current resource usage or system state
+- Anything that describes the *current state* rather than a *reusable operational insight*
+
+### What IS a memory
+
+- A multi-service recovery sequence that worked (e.g., "restart postgres first, wait 30s, then restart dependents in order: sonarr, radarr, jellyfin")
+- A root cause that took significant investigation to find
+- A remediation approach that failed and should not be retried
+- Infrastructure constraints discovered during recovery (e.g., "ie01 only has 2GB free on /var — redeploys need disk check first")
 
 ## Step 5: Report
 
@@ -201,3 +215,48 @@ Recommended next steps: <what a human should do>
 Current system state: <summary>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
+
+## Output Format
+
+Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable report — not console logs or raw text dumps. Emojis are encouraged where they aid readability.
+
+Both `[EVENT:...]` and `[MEMORY:...]` markers are rendered as styled badges in the dashboard. You may include them in your summary and they will display nicely. Do NOT output extra debug logs, shell output, or verbose narration.
+
+### Structure
+
+```markdown
+# 🚨 Tier 3 Remediation Report
+
+## Summary
+
+| Service | Root Cause | Action | Result |
+|---------|-----------|--------|--------|
+| service1 | Disk full + OOM | Ansible redeploy | ✅ Recovered |
+| service2 | Corrupt config | Recreated container | ❌ Needs human |
+
+## Remediation Details
+
+### service1
+- **Root cause**: Data volume at 98%, OOM kills since 14:00 UTC
+- **Action**: Ran `playbooks/redeploy.yaml --limit ie01 --tags service1`
+- **Verification**: HTTP 200 OK, all health checks pass
+- **Cooldown**: Redeployment logged (next available in 24h)
+
+### service2
+- **Root cause**: Corrupt config file, container crash loop
+- **Attempted**: Recreated container, config regenerated — still failing
+- **Why it failed**: Upstream dependency (postgres) also degraded
+- **🧑‍💻 Human action needed**: Check PostgreSQL data integrity
+
+## 🧠 Memories Recorded
+
+[MEMORY:remediation:service1] Ansible redeploy with --tags works; disk cleanup needed within 48h
+[MEMORY:dependency:service2] Config corruption tied to postgres — fix postgres first next time
+
+## Notifications Sent
+
+- Remediated: service1
+- Needs human attention: service2
+```
+
+Adapt the structure to fit what you found. Keep it concise.

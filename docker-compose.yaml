@@ -21,6 +21,12 @@ services:
     volumes:
       - ./state:/state
       - ./results:/results
+      # Mount SSH keys for remote host access (container inspection, logs, remediation)
+      # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
+      # - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      # Mount infrastructure repos for service discovery
+      # - /path/to/home-cluster:/repos/ansible:ro
+      # - /path/to/docker-mirror:/repos/docker-mirror:ro
 
   # Headless Chrome sidecar for browser automation (credential rotation, web UI checks).
   # Only starts when using: docker compose --profile browser up -d

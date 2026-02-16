@@ -10,8 +10,6 @@ import (
 	"github.com/joestump/claude-ops/internal/hub"
 )
 
-func strPtr(s string) *string { return &s }
-
 func testManagerWithDB(t *testing.T) (*Manager, *db.DB) {
 	t.Helper()
 	cfg := &config.Config{
@@ -137,18 +135,24 @@ func TestBuildMemoryContext(t *testing.T) {
 	svc2 := "caddy"
 	now := "2026-02-15T10:00:00Z"
 
-	database.InsertMemory(&db.Memory{
+	if _, err := database.InsertMemory(&db.Memory{
 		Service: &svc1, Category: "timing", Observation: "Takes 60s to start after restart",
 		Confidence: 0.9, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2,
-	})
-	database.InsertMemory(&db.Memory{
+	}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+	if _, err := database.InsertMemory(&db.Memory{
 		Service: &svc1, Category: "behavior", Observation: "First restart fails due to DB lock",
 		Confidence: 0.8, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 2,
-	})
-	database.InsertMemory(&db.Memory{
+	}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
+	if _, err := database.InsertMemory(&db.Memory{
 		Service: &svc2, Category: "dependency", Observation: "Must start after WireGuard",
 		Confidence: 0.95, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 3,
-	})
+	}); err != nil {
+		t.Fatalf("InsertMemory: %v", err)
+	}
 	database.InsertMemory(&db.Memory{
 		Service: nil, Category: "remediation", Observation: "DNS checks fail transiently during WireGuard reconnects",
 		Confidence: 0.6, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1,

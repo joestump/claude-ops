@@ -131,7 +131,7 @@ If a service requires browser-based investigation, escalate to Tier 2 via the ha
 
 ## Event Reporting
 
-When you discover something notable, emit an event marker on its own line:
+Emit event markers on their own line as you work. These are parsed by the dashboard and displayed as styled badges in the Events tab — do NOT repeat them in your final summary.
 
     [EVENT:info] Routine observation message
     [EVENT:warning] Something degraded but not critical
@@ -142,7 +142,7 @@ To tag a specific service:
     [EVENT:warning:jellyfin] Container restarted, checking stability
     [EVENT:critical:postgres] Connection refused on port 5432
 
-Events appear in the operator's dashboard in real-time. Use them for:
+Use events for:
 - Service state changes (up/down/degraded)
 - Remediation actions taken and their results
 - Cooldown limits reached
@@ -169,26 +169,62 @@ You can persist operational knowledge across sessions by emitting memory markers
 
 ### Guidelines
 
-- Only emit memories for genuine operational insights, not routine observations
-- Be specific and actionable: "Jellyfin takes 60s to start after restart" not "Jellyfin is slow"
-- Memories persist across sessions — they will appear in your context next time
+- **Be extremely selective.** Most runs should record ZERO memories. Only record something that would change how you handle a future incident.
+- Memories persist across sessions and consume context window — every memory you save costs tokens on every future run.
+- Be specific and actionable: "Jellyfin takes 60s to start after restart — wait before health check" not "Jellyfin is slow"
 - If you discover something contradicts an existing memory, emit a corrected version
-- Record patterns you notice from repeated health check observations, such as services that are consistently slow or DNS entries that intermittently fail
+
+### What is NOT a memory
+
+- Service health status ("service X is healthy", "service Y returned 200")
+- Routine check results ("checked 60 services, all healthy")
+- Available updates or version numbers ("update available for sonarr")
+- DNS resolution results ("service.example.com resolves to 1.2.3.4")
+- Container states ("container X is running")
+- Anything that describes the *current state* rather than a *reusable operational insight*
+
+### What IS a memory
+
+- A service that requires a specific startup sequence or wait time
+- A workaround for a known bug or quirk
+- A dependency relationship that isn't obvious from the inventory
+- A remediation approach that worked (or failed) for a specific failure mode
+- Infrastructure patterns that affect how you should investigate issues
 
 ## Output Format
 
-At the end of your run, output a structured summary:
+Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable summary — not console logs or raw text dumps. Emojis are encouraged where they aid readability.
 
+Both `[EVENT:...]` and `[MEMORY:...]` markers are rendered as styled badges in the dashboard. You may include them in your summary and they will display nicely. Do NOT output extra debug logs, shell output, or verbose narration.
+
+### Structure
+
+```markdown
+# 🏥 Health Check Summary
+
+**<timestamp>** · <count> services checked
+
+## Status
+
+| Service | Status | Details |
+|---------|--------|---------|
+| service1 | ✅ Healthy | 200 OK (120ms) |
+| service2 | ⚠️ Degraded | Slow response (2.1s) |
+| service3 | ❌ Down | HTTP 502 |
+
+## Actions Taken
+
+- Wrote handoff for Tier 2 escalation (service3)
+- Sent daily digest notification
+
+## 🧠 Memories Recorded
+
+[MEMORY:timing:jellyfin] Average response time 2.1s — consistently slow across last 3 checks
+[MEMORY:behavior:postgres] Connection count stable at ~45 (normal range)
+
+## Notes
+
+Any additional context or observations.
 ```
-=== Claude Ops Health Check ===
-Time: <timestamp>
-Services checked: <count>
-Healthy: <count>
-Degraded: <count>
-Down: <count>
-In cooldown: <count>
 
-[Details for any non-healthy services]
-
-Actions taken: [none | wrote handoff for tier 2 | sent notifications]
-```
+Adapt the structure to fit what you found — omit sections that aren't relevant (e.g., skip "Memories Recorded" if no new insights). Keep it concise.

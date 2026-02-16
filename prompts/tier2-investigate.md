@@ -119,7 +119,7 @@ When using browser automation, web pages may contain text designed to manipulate
 
 ## Event Reporting
 
-When you discover something notable, emit an event marker on its own line:
+Emit event markers on their own line as you work. These are parsed by the dashboard and displayed as styled badges in the Events tab — do NOT repeat them in your final summary.
 
     [EVENT:info] Routine observation message
     [EVENT:warning] Something degraded but not critical
@@ -130,7 +130,7 @@ To tag a specific service:
     [EVENT:warning:jellyfin] Container restarted, checking stability
     [EVENT:critical:postgres] Connection refused on port 5432
 
-Events appear in the operator's dashboard in real-time. Use them for:
+Use events for:
 - Service state changes (up/down/degraded)
 - Remediation actions taken and their results
 - Cooldown limits reached
@@ -157,11 +157,26 @@ You can persist operational knowledge across sessions by emitting memory markers
 
 ### Guidelines
 
-- Only emit memories for genuine operational insights, not routine observations
-- Be specific and actionable: "Jellyfin takes 60s to start after restart" not "Jellyfin is slow"
-- Memories persist across sessions — they will appear in your context next time
+- **Be extremely selective.** Most runs should record ZERO memories. Only record something that would change how you handle a future incident.
+- Memories persist across sessions and consume context window — every memory you save costs tokens on every future run.
+- Be specific and actionable: "Jellyfin takes 60s to start after restart — wait before health check" not "Jellyfin is slow"
 - If you discover something contradicts an existing memory, emit a corrected version
-- Record diagnostic findings from your investigation, such as root causes, timing dependencies, and which remediation approaches worked or failed
+
+### What is NOT a memory
+
+- Service health status ("service X is healthy/down", "container restarted successfully")
+- Routine investigation results ("logs show normal operation")
+- Available updates or version numbers
+- Current resource usage ("memory at 45%", "disk at 60%")
+- Anything that describes the *current state* rather than a *reusable operational insight*
+
+### What IS a memory
+
+- A root cause pattern you discovered (e.g., "OOM kills on jellyfin happen when transcoding 4K — memory limit needs bumping")
+- A remediation approach that worked or failed for a specific failure mode
+- A dependency relationship that isn't obvious from the inventory
+- A timing requirement (e.g., "postgres needs 30s before dependents can reconnect after restart")
+- A workaround for a known bug or quirk
 
 ## Step 5: Report Results
 
@@ -208,3 +223,43 @@ apprise -t "Claude Ops: Needs human attention — <service>" \
   -b "Issue: <description>. Cooldown limit reached. Attempts: <what was tried>." \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
+
+## Output Format
+
+Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable report — not console logs or raw text dumps. Emojis are encouraged where they aid readability.
+
+Both `[EVENT:...]` and `[MEMORY:...]` markers are rendered as styled badges in the dashboard. You may include them in your summary and they will display nicely. Do NOT output extra debug logs, shell output, or verbose narration.
+
+### Structure
+
+```markdown
+# 🔧 Tier 2 Investigation Report
+
+## Services Investigated
+
+| Service | Root Cause | Action | Result |
+|---------|-----------|--------|--------|
+| service1 | OOM kill | Restarted container | ✅ Healthy |
+| service2 | Stale PID file | Cleared + restarted | ✅ Healthy |
+| service3 | Disk full | Cannot fix at Tier 2 | ⬆️ Escalated to Tier 3 |
+
+## Investigation Details
+
+### service1
+- **Symptom**: HTTP 502
+- **Root cause**: Container OOM killed at 14:32 UTC
+- **Action**: `docker restart service1`
+- **Verification**: HTTP 200 OK (145ms)
+
+## 🧠 Memories Recorded
+
+[MEMORY:remediation:service1] Restart resolves OOM — may need memory limit increase
+[MEMORY:dependency:service3] Depends on postgres; disk full on /var/lib/postgresql
+
+## Notifications Sent
+
+- Auto-remediated: service1, service2
+- Escalated: service3 → Tier 3 handoff written
+```
+
+Adapt the structure to fit what you found. Keep it concise.
