@@ -29,14 +29,22 @@ Find the inventory from whichever repo has `service-discovery` capability. **Onl
 
 ## Step 2: Service Discovery
 
-From the inventory (whatever format it's in — Ansible YAML, JSON, TOML, etc.):
+**Use `CLAUDE-OPS.md` as the authoritative source for hostnames, URLs, and SSH targets.** The manifest's Hosts table and Service Inventory tables contain the curated, routable hostnames for all services. Do NOT extract hostnames from raw inventory files (Ansible YAML, Helm values, etc.) — those may contain internal DNS zones, Jinja templates, or variables that are not directly routable from this container.
 
-1. Extract all services/applications that are enabled or deployed
-2. For each service, note: name, hostname/URL, expected ports, health check endpoints
-3. Identify the **target hosts** from the inventory — these are the remote machines where services run (NOT localhost, NOT the machine Claude Ops is running on)
-4. Build a checklist of what to verify
+You may read the raw inventory to discover:
+- Which services exist and whether they are enabled/disabled
+- Service configuration details (ports, database names, environment variables)
+- Dependencies between services
 
-**CRITICAL: All health checks target remote hosts defined in the inventory. You are NOT monitoring the local machine. Do not run `docker ps`, `docker inspect`, or any local container commands unless the CLAUDE-OPS.md manifest explicitly says the services run on localhost. The repos tell you WHERE services are — check them THERE.**
+But for **where to reach services** (hostnames, URLs, SSH targets), always prefer the `CLAUDE-OPS.md` manifest.
+
+1. From `CLAUDE-OPS.md`, extract the Hosts table and Service Inventory tables
+2. For each service, note: name, URL (from the manifest), expected ports, health check endpoints
+3. Identify the **target hosts** from the manifest's Hosts table — these are the remote machines where services run (NOT localhost, NOT the machine Claude Ops is running on)
+4. Optionally cross-reference with the raw inventory for enabled/disabled status and service config details
+5. Build a checklist of what to verify
+
+**CRITICAL: All health checks target remote hosts defined in the CLAUDE-OPS.md manifest. You are NOT monitoring the local machine. Do not run `docker ps`, `docker inspect`, or any local container commands unless the CLAUDE-OPS.md manifest explicitly says the services run on localhost. The manifest tells you WHERE services are — check them THERE.**
 
 ## Step 3: Health Checks
 
