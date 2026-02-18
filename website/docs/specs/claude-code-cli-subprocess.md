@@ -301,9 +301,9 @@ And no custom code is needed to implement any of these features
 
 ## References
 
-- [ADR-0010: Claude Code CLI Subprocess](/docs/adrs/ADR-0010-claude-code-cli-subprocess.md)
-- [ADR-0001: Tiered Model Escalation](/docs/adrs/ADR-0001-tiered-model-escalation.md)
-- [ADR-0002: Markdown Executable Instructions](/docs/adrs/ADR-0002-markdown-executable-instructions.md)
+- [ADR-0010: Claude Code CLI Subprocess](../adrs/adr-0010)
+- [ADR-0001: Tiered Model Escalation](../adrs/adr-0001)
+- [ADR-0002: Markdown Executable Instructions](../adrs/adr-0002)
 - [Claude Code CLI Documentation](https://docs.anthropic.com/en/docs/claude-code)
 
 ---

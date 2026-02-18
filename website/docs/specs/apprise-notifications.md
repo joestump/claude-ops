@@ -280,7 +280,7 @@ And the agent does not retry the command
 
 ## References
 
-- [ADR-0004: Apprise Notification Abstraction](../../adrs/ADR-0004-apprise-notification-abstraction.md)
+- [ADR-0004: Apprise Notification Abstraction](../adrs/adr-0004)
 - [Apprise Documentation](https://github.com/caronc/apprise)
 - [Apprise URL Schemes](https://github.com/caronc/apprise/wiki)
 

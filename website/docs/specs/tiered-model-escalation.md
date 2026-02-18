@@ -314,9 +314,9 @@ And the agent MUST report the issue as needing human attention
 
 ## References
 
-- [ADR-0001: Use Tiered Claude Model Escalation for Cost-Optimized Monitoring](../../adrs/ADR-0001-tiered-model-escalation.md)
-- [ADR-0002: Use Markdown Documents as Executable Instructions](../../adrs/ADR-0002-markdown-as-executable-instructions.md)
-- [ADR-0003: Prompt-Based Permissions](../../adrs/ADR-0003-prompt-based-permission-tiers.md)
+- [ADR-0001: Use Tiered Claude Model Escalation for Cost-Optimized Monitoring](../adrs/adr-0001)
+- [ADR-0002: Use Markdown Documents as Executable Instructions](../adrs/adr-0002)
+- [ADR-0003: Prompt-Based Permissions](../adrs/adr-0003)
 
 ---
 

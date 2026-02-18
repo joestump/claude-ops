@@ -329,8 +329,8 @@ And logging enables post-hoc detection of any deviation
 
 ## References
 
-- [ADR-0003: Prompt-Based Permission Enforcement](../../adrs/ADR-0003-prompt-based-permission-enforcement.md)
-- [ADR-0001: Tiered Model Escalation](../../adrs/ADR-0001-tiered-model-escalation.md)
+- [ADR-0003: Prompt-Based Permission Enforcement](../adrs/adr-0003)
+- [ADR-0001: Tiered Model Escalation](../adrs/adr-0001)
 - Claude Code CLI `--allowedTools` documentation
 
 ---

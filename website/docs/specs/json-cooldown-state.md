@@ -285,9 +285,9 @@ And after performing the action MUST update the cooldown state with the result
 
 ## References
 
-- [ADR-0007: Persist Cooldown State in a JSON File on Mounted Volume](/docs/adrs/ADR-0007-json-file-cooldown-state.md)
-- [ADR-0001: Tiered Model Escalation](/docs/adrs/ADR-0001-tiered-model-escalation.md)
-- [ADR-0004: Apprise Notification Abstraction](/docs/adrs/ADR-0004-apprise-notification-abstraction.md)
+- [ADR-0007: Persist Cooldown State in a JSON File on Mounted Volume](../adrs/adr-0007)
+- [ADR-0001: Tiered Model Escalation](../adrs/adr-0001)
+- [ADR-0004: Apprise Notification Abstraction](../adrs/adr-0004)
 
 ---
 

@@ -337,11 +337,11 @@ And the file format MUST match the current entrypoint output format
 
 ## References
 
-- [ADR-0008: Build a Go/HTMX/DaisyUI Web Dashboard](/docs/adrs/ADR-0008-go-htmx-web-dashboard.md)
-- [ADR-0007: Persist Cooldown State in JSON File](/docs/adrs/ADR-0007-json-file-cooldown-state.md) -- the JSON cooldown state that SQLite will replace
-- [ADR-0010: Claude Code CLI Subprocess Execution](/docs/adrs/ADR-0010-claude-code-cli-subprocess.md) -- related subprocess management decisions
-- [entrypoint.sh](/entrypoint.sh) -- the bash entrypoint that the Go binary replaces
-- [CLAUDE.md](/CLAUDE.md) -- execution flow, permission tiers, and cooldown rules
+- [ADR-0008: Build a Go/HTMX/DaisyUI Web Dashboard](../adrs/adr-0008)
+- [ADR-0007: Persist Cooldown State in JSON File](../adrs/adr-0007) -- the JSON cooldown state that SQLite will replace
+- [ADR-0010: Claude Code CLI Subprocess Execution](../adrs/adr-0010) -- related subprocess management decisions
+- `entrypoint.sh` -- the bash entrypoint that the Go binary replaces
+- `CLAUDE.md` -- execution flow, permission tiers, and cooldown rules
 - [HTMX Documentation](https://htmx.org/docs/)
 - [DaisyUI Components](https://daisyui.com/components/)
 - [modernc.org/sqlite](https://pkg.go.dev/modernc.org/sqlite) -- pure-Go SQLite driver

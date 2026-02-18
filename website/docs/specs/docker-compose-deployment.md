@@ -262,8 +262,8 @@ And the key file is mounted read-only to prevent modification
 
 ## References
 
-- [ADR-0009: Docker Compose Deployment](/docs/adrs/ADR-0009-docker-compose-deployment.md)
-- [ADR-0001: Tiered Model Escalation](/docs/adrs/ADR-0001-tiered-model-escalation.md)
+- [ADR-0009: Docker Compose Deployment](../adrs/adr-0009)
+- [ADR-0001: Tiered Model Escalation](../adrs/adr-0001)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
 - [Docker Compose Profiles](https://docs.docker.com/compose/profiles/)
 

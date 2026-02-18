@@ -263,9 +263,9 @@ And the playbook's minimum tier requirement MUST be treated as a floor, not a ce
 
 ## References
 
-- [ADR-0002: Use Markdown Documents as Executable Instructions](../../adrs/ADR-0002-markdown-as-executable-instructions.md)
-- [ADR-0001: Use Tiered Claude Model Escalation for Cost-Optimized Monitoring](../../adrs/ADR-0001-tiered-model-escalation.md)
-- [ADR-0005: Mounted Repo Extensions](../../adrs/ADR-0005-mounted-repo-extensions.md)
+- [ADR-0002: Use Markdown Documents as Executable Instructions](../adrs/adr-0002)
+- [ADR-0001: Use Tiered Claude Model Escalation for Cost-Optimized Monitoring](../adrs/adr-0001)
+- [ADR-0005: Mounted Repo Extensions](../adrs/adr-0005)
 
 ---
 

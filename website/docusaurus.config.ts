@@ -19,7 +19,6 @@ const config: Config = {
   projectName: 'claude-ops',
 
   onBrokenLinks: 'warn',
-  onBrokenMarkdownLinks: 'warn',
 
   i18n: {
     defaultLocale: 'en',
@@ -29,6 +28,9 @@ const config: Config = {
   markdown: {
     format: 'md',
     mermaid: true,
+    hooks: {
+      onBrokenMarkdownLinks: 'warn',
+    },
   },
 
   themes: ['@docusaurus/theme-mermaid', 'docusaurus-theme-openapi-docs'],
@@ -119,7 +121,7 @@ const config: Config = {
             },
             {
               label: 'API Reference',
-              to: '/docs/api',
+              to: '/docs/api/claude-ops-api',
             },
           ],
         },

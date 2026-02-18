@@ -239,8 +239,8 @@ Then the baseline is restored (without `old-infra`'s servers) and only currently
 
 ## References
 
-- [ADR-0006: Use MCP Servers as Primary Infrastructure Access Layer](../../adrs/ADR-0006-mcp-infrastructure-bridge.md)
-- [SPEC-0005: Mounted Repo Extension Model](../mounted-repo-extensions/spec.md) (for MCP config merging semantics)
+- [ADR-0006: Use MCP Servers as Primary Infrastructure Access Layer](../adrs/adr-0006)
+- [SPEC-0005: Mounted Repo Extension Model](./mounted-repo-extensions) (for MCP config merging semantics)
 - [Model Context Protocol specification](https://modelcontextprotocol.io/)
 
 ---

@@ -278,9 +278,9 @@ Then the appropriate playbook from each repo is available for the corresponding 
 
 ## References
 
-- [ADR-0005: Allow Mounted Repos to Extend the Agent via Convention-Based Discovery](../../adrs/ADR-0005-mounted-repo-extension-model.md)
-- [Repo Mounting Guide](../../repo-mounting.md)
-- [ADR-0006: Use MCP Servers as Primary Infrastructure Access Layer](../../adrs/ADR-0006-mcp-infrastructure-bridge.md) (for MCP config merging details)
+- [ADR-0005: Allow Mounted Repos to Extend the Agent via Convention-Based Discovery](../adrs/adr-0005)
+- [Repo Mounting Guide](../usage/repo-mounting)
+- [ADR-0006: Use MCP Servers as Primary Infrastructure Access Layer](../adrs/adr-0006) (for MCP config merging details)
 
 ---
 
