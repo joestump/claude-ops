@@ -75,6 +75,10 @@ const config: Config = {
     },
     navbar: {
       title: 'Claude Ops',
+      logo: {
+        alt: 'Claude Ops Logo',
+        src: 'img/logo.svg',
+      },
       items: [
         {
           type: 'docSidebar',
