@@ -75,7 +75,7 @@ func TestMergeConfigs_RestoresBaselineEachRun(t *testing.T) {
 	}
 
 	// Remove the repo config.
-	os.RemoveAll(filepath.Join(reposDir, "my-repo"))
+	_ = os.RemoveAll(filepath.Join(reposDir, "my-repo"))
 
 	// Second run: should restore baseline, "custom" should be gone.
 	if err := MergeConfigs(mcpPath, reposDir); err != nil {

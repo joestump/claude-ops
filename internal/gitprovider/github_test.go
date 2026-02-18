@@ -21,7 +21,7 @@ func TestGitHubProvider_AuthHeader(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -41,7 +41,7 @@ func TestGitHubProvider_AcceptHeader(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotAccept = r.Header.Get("Accept")
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -61,19 +61,19 @@ func TestGitHubProvider_CreateBranch_Success(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/refs/heads/main"):
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"object": map[string]string{"sha": "abc123"},
 			})
 		case r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/git/refs"):
 			var body map[string]string
-			json.NewDecoder(r.Body).Decode(&body)
+			_ = json.NewDecoder(r.Body).Decode(&body)
 			createdRef = body["ref"]
 			createdSHA = body["sha"]
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 		default:
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message":"not found"}`))
+			_, _ = w.Write([]byte(`{"message":"not found"}`))
 		}
 	}))
 	defer srv.Close()
@@ -96,7 +96,7 @@ func TestGitHubProvider_CreateBranch_Success(t *testing.T) {
 func TestGitHubProvider_CreateBranch_BaseNotFound(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -120,18 +120,18 @@ func TestGitHubProvider_CommitFiles_Create(t *testing.T) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
 			// File doesn't exist yet.
 			w.WriteHeader(http.StatusNotFound)
-			w.Write([]byte(`{"message":"not found"}`))
+			_, _ = w.Write([]byte(`{"message":"not found"}`))
 			return
 		}
 		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/contents/") {
 			putPath = r.URL.Path
-			json.NewDecoder(r.Body).Decode(&putBody)
+			_ = json.NewDecoder(r.Body).Decode(&putBody)
 			w.WriteHeader(http.StatusCreated)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -166,17 +166,17 @@ func TestGitHubProvider_CommitFiles_Update(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
 			// File exists.
-			json.NewEncoder(w).Encode(map[string]string{"sha": "existing-sha-123"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"sha": "existing-sha-123"})
 			return
 		}
 		if r.Method == http.MethodPut && strings.Contains(r.URL.Path, "/contents/") {
-			json.NewDecoder(r.Body).Decode(&putBody)
+			_ = json.NewDecoder(r.Body).Decode(&putBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -201,18 +201,18 @@ func TestGitHubProvider_CommitFiles_Delete(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/contents/") {
-			json.NewEncoder(w).Encode(map[string]string{"sha": "del-sha-456"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"sha": "del-sha-456"})
 			return
 		}
 		if r.Method == http.MethodDelete && strings.Contains(r.URL.Path, "/contents/") {
 			gotDelete = true
-			json.NewDecoder(r.Body).Decode(&deleteBody)
+			_ = json.NewDecoder(r.Body).Decode(&deleteBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{}`))
+			_, _ = w.Write([]byte(`{}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -244,9 +244,9 @@ func TestGitHubProvider_CreatePR_Success(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/pulls") {
-			json.NewDecoder(r.Body).Decode(&prBody)
+			_ = json.NewDecoder(r.Body).Decode(&prBody)
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"number":   42,
 				"html_url": "https://github.com/joe/repo/pull/42",
 			})
@@ -254,13 +254,13 @@ func TestGitHubProvider_CreatePR_Success(t *testing.T) {
 		}
 		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/issues/42/labels") {
 			gotLabelsURL = r.URL.Path
-			json.NewDecoder(r.Body).Decode(&labelBody)
+			_ = json.NewDecoder(r.Body).Decode(&labelBody)
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`[]`))
+			_, _ = w.Write([]byte(`[]`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -306,7 +306,7 @@ func TestGitHubProvider_CreatePR_NoLabels(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/pulls") {
 			w.WriteHeader(http.StatusCreated)
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"number":   1,
 				"html_url": "https://github.com/joe/repo/pull/1",
 			})
@@ -316,7 +316,7 @@ func TestGitHubProvider_CreatePR_NoLabels(t *testing.T) {
 			labelsCalled = true
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -340,7 +340,7 @@ func TestGitHubProvider_GetPRStatus_Open(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/pulls/10") {
 			mergeable := true
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"number":    10,
 				"state":     "open",
 				"merged":    false,
@@ -349,7 +349,7 @@ func TestGitHubProvider_GetPRStatus_Open(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/pulls/10/reviews") {
-			json.NewEncoder(w).Encode([]map[string]any{
+			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{
 					"user":  map[string]string{"login": "reviewer1"},
 					"state": "APPROVED",
@@ -359,7 +359,7 @@ func TestGitHubProvider_GetPRStatus_Open(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -390,7 +390,7 @@ func TestGitHubProvider_GetPRStatus_Open(t *testing.T) {
 func TestGitHubProvider_GetPRStatus_Merged(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/pulls/5") {
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"number":    5,
 				"state":     "closed",
 				"merged":    true,
@@ -399,11 +399,11 @@ func TestGitHubProvider_GetPRStatus_Merged(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/pulls/5/reviews") {
-			json.NewEncoder(w).Encode([]any{})
+			_ = json.NewEncoder(w).Encode([]any{})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -422,7 +422,7 @@ func TestGitHubProvider_GetPRStatus_Merged(t *testing.T) {
 func TestGitHubProvider_GetPRStatus_Closed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/pulls/7") {
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"number": 7,
 				"state":  "closed",
 				"merged": false,
@@ -430,11 +430,11 @@ func TestGitHubProvider_GetPRStatus_Closed(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/pulls/7/reviews") {
-			json.NewEncoder(w).Encode([]any{})
+			_ = json.NewEncoder(w).Encode([]any{})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -453,7 +453,7 @@ func TestGitHubProvider_GetPRStatus_Closed(t *testing.T) {
 func TestGitHubProvider_ListOpenPRs_NoFilter(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/pulls") {
-			json.NewEncoder(w).Encode([]map[string]any{
+			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{
 					"number": 1,
 					"title":  "Fix config",
@@ -470,20 +470,20 @@ func TestGitHubProvider_ListOpenPRs_NoFilter(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/pulls/1/files") {
-			json.NewEncoder(w).Encode([]map[string]string{
+			_ = json.NewEncoder(w).Encode([]map[string]string{
 				{"filename": "config.yaml"},
 			})
 			return
 		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/pulls/2/files") {
-			json.NewEncoder(w).Encode([]map[string]string{
+			_ = json.NewEncoder(w).Encode([]map[string]string{
 				{"filename": "README.md"},
 				{"filename": "docs/guide.md"},
 			})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -511,7 +511,7 @@ func TestGitHubProvider_ListOpenPRs_NoFilter(t *testing.T) {
 func TestGitHubProvider_ListOpenPRs_FilterByAuthor(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/pulls") {
-			json.NewEncoder(w).Encode([]map[string]any{
+			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{
 					"number": 1,
 					"title":  "Bot PR",
@@ -528,11 +528,11 @@ func TestGitHubProvider_ListOpenPRs_FilterByAuthor(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/pulls/1/files") {
-			json.NewEncoder(w).Encode([]map[string]string{{"filename": "a.txt"}})
+			_ = json.NewEncoder(w).Encode([]map[string]string{{"filename": "a.txt"}})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -554,7 +554,7 @@ func TestGitHubProvider_ListOpenPRs_FilterByAuthor(t *testing.T) {
 func TestGitHubProvider_ListOpenPRs_FilterByLabels(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.HasSuffix(r.URL.Path, "/pulls") {
-			json.NewEncoder(w).Encode([]map[string]any{
+			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{
 					"number": 1,
 					"title":  "Labeled PR",
@@ -571,11 +571,11 @@ func TestGitHubProvider_ListOpenPRs_FilterByLabels(t *testing.T) {
 			return
 		}
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/pulls/1/files") {
-			json.NewEncoder(w).Encode([]map[string]string{{"filename": "x.txt"}})
+			_ = json.NewEncoder(w).Encode([]map[string]string{{"filename": "x.txt"}})
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"message":"not found"}`))
+		_, _ = w.Write([]byte(`{"message":"not found"}`))
 	}))
 	defer srv.Close()
 
@@ -597,7 +597,7 @@ func TestGitHubProvider_ListOpenPRs_FilterByLabels(t *testing.T) {
 func TestGitHubProvider_ErrorHandling_401(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte(`{"message":"Bad credentials"}`))
+		_, _ = w.Write([]byte(`{"message":"Bad credentials"}`))
 	}))
 	defer srv.Close()
 
@@ -619,14 +619,14 @@ func TestGitHubProvider_ErrorHandling_422(t *testing.T) {
 		callCount++
 		if callCount == 1 {
 			// First call: return base ref.
-			json.NewEncoder(w).Encode(map[string]any{
+			_ = json.NewEncoder(w).Encode(map[string]any{
 				"object": map[string]string{"sha": "abc123"},
 			})
 			return
 		}
 		// Second call: branch already exists.
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		w.Write([]byte(`{"message":"Reference already exists"}`))
+		_, _ = w.Write([]byte(`{"message":"Reference already exists"}`))
 	}))
 	defer srv.Close()
 
@@ -645,7 +645,7 @@ func TestGitHubProvider_ErrorHandling_422(t *testing.T) {
 func TestGitHubProvider_ErrorHandling_ServerError(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(`{"message":"Internal Server Error"}`))
+		_, _ = w.Write([]byte(`{"message":"Internal Server Error"}`))
 	}))
 	defer srv.Close()
 

@@ -39,7 +39,7 @@ func testManager(t *testing.T) (*Manager, *config.Config) {
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
-	t.Cleanup(func() { database.Close() })
+	t.Cleanup(func() { _ = database.Close() })
 	h := hub.New()
 	return New(cfg, database, h, &CLIRunner{}), cfg
 }

@@ -1,6 +1,7 @@
 package gitprovider
 
 import (
+	"context"
 	"strings"
 	"testing"
 )
@@ -90,7 +91,7 @@ func TestRegistry_DisabledProviderReturnsError(t *testing.T) {
 		t.Fatalf("expected disabled provider to resolve, got error: %v", err)
 	}
 
-	err = p.CreateBranch(nil, RepoRef{}, "branch", "main")
+	err = p.CreateBranch(context.Background(), RepoRef{}, "branch", "main")
 	if err == nil {
 		t.Fatal("expected disabled provider to return error, but got nil")
 	}

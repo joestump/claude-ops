@@ -13,7 +13,7 @@ func openTestDB(t *testing.T) *DB {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	t.Cleanup(func() { d.Close() })
+	t.Cleanup(func() { _ = d.Close() })
 	return d
 }
 
@@ -259,13 +259,13 @@ func TestMigrateIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("first Open: %v", err)
 	}
-	d1.Close()
+	_ = d1.Close()
 
 	d2, err := Open(path)
 	if err != nil {
 		t.Fatalf("second Open: %v", err)
 	}
-	d2.Close()
+	_ = d2.Close()
 }
 
 func TestUpdateSessionResult(t *testing.T) {

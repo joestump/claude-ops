@@ -40,7 +40,7 @@ func (g *GiteaProvider) CreateBranch(ctx context.Context, repo RepoRef, branch s
 	if err != nil {
 		return fmt.Errorf("gitea: create branch: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusCreated {
 		return fmt.Errorf("gitea: create branch: unexpected status %d", resp.StatusCode)
 	}
@@ -70,7 +70,7 @@ func (g *GiteaProvider) commitFile(ctx context.Context, repo RepoRef, branch str
 		if err != nil {
 			return fmt.Errorf("gitea: create file %s: %w", f.Path, err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode != http.StatusCreated {
 			return fmt.Errorf("gitea: create file %s: unexpected status %d", f.Path, resp.StatusCode)
 		}
@@ -90,7 +90,7 @@ func (g *GiteaProvider) commitFile(ctx context.Context, repo RepoRef, branch str
 		if err != nil {
 			return fmt.Errorf("gitea: update file %s: %w", f.Path, err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("gitea: update file %s: unexpected status %d", f.Path, resp.StatusCode)
 		}
@@ -109,7 +109,7 @@ func (g *GiteaProvider) commitFile(ctx context.Context, repo RepoRef, branch str
 		if err != nil {
 			return fmt.Errorf("gitea: delete file %s: %w", f.Path, err)
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode != http.StatusOK {
 			return fmt.Errorf("gitea: delete file %s: unexpected status %d", f.Path, resp.StatusCode)
 		}
@@ -126,7 +126,7 @@ func (g *GiteaProvider) getFileSHA(ctx context.Context, repo RepoRef, branch str
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("file not found: status %d", resp.StatusCode)
 	}
@@ -151,7 +151,7 @@ func (g *GiteaProvider) CreatePR(ctx context.Context, repo RepoRef, pr PRRequest
 	if err != nil {
 		return nil, fmt.Errorf("gitea: create pr: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusCreated {
 		return nil, fmt.Errorf("gitea: create pr: unexpected status %d", resp.StatusCode)
 	}
@@ -179,7 +179,7 @@ func (g *GiteaProvider) GetPRStatus(ctx context.Context, repo RepoRef, prNumber 
 	if err != nil {
 		return nil, fmt.Errorf("gitea: get pr status: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("gitea: get pr status: unexpected status %d", resp.StatusCode)
 	}
@@ -218,7 +218,7 @@ func (g *GiteaProvider) getPRReviews(ctx context.Context, repo RepoRef, prNumber
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
 	}
@@ -262,7 +262,7 @@ func (g *GiteaProvider) ListOpenPRs(ctx context.Context, repo RepoRef, filter PR
 	if err != nil {
 		return nil, fmt.Errorf("gitea: list open prs: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("gitea: list open prs: unexpected status %d", resp.StatusCode)
 	}

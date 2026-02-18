@@ -239,7 +239,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	if err != nil {
 		return 0, fmt.Errorf("create log file: %w", err)
 	}
-	defer logFile.Close()
+	defer logFile.Close() //nolint:errcheck
 
 	// Insert session record into DB.
 	startedAt := time.Now().UTC().Format(time.RFC3339)
@@ -318,7 +318,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 			ts := time.Now().UTC()
 
 			// Write timestamped JSON to log file for forensic analysis.
-			fmt.Fprintf(logFile, "%s\t%s\n", ts.Format(time.RFC3339Nano), raw)
+			_, _ = fmt.Fprintf(logFile, "%s\t%s\n", ts.Format(time.RFC3339Nano), raw)
 
 			// Plain text for container stdout logs.
 			plainText := FormatStreamEvent(raw)
@@ -361,7 +361,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 				}
 			}
 
-			fmt.Fprintln(os.Stdout, plainText)
+			_, _ = fmt.Fprintln(os.Stdout, plainText)
 
 			// Color-coded HTML for browser SSE stream, wrapped with line number + timestamp.
 			htmlLine := FormatStreamEventHTML(raw)

@@ -30,9 +30,9 @@ func TestGiteaProvider_CreateBranch(t *testing.T) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/repos/joe/home-cluster/branches" {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer srv.Close()
 
@@ -72,9 +72,9 @@ func TestGiteaProvider_CommitFiles_Create(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotMethod = r.Method
 		gotPath = r.URL.Path
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer srv.Close()
 
@@ -106,19 +106,19 @@ func TestGiteaProvider_CommitFiles_Update(t *testing.T) {
 		if r.Method == http.MethodGet {
 			// Return existing file with SHA
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"sha": "abc123"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"sha": "abc123"})
 			return
 		}
 		if r.Method != http.MethodPut {
 			t.Errorf("expected PUT for update, got %s", r.Method)
 		}
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body["sha"] != "abc123" {
 			t.Errorf("sha = %q, want %q", body["sha"], "abc123")
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer srv.Close()
 
@@ -140,19 +140,19 @@ func TestGiteaProvider_CommitFiles_Delete(t *testing.T) {
 		callCount++
 		if r.Method == http.MethodGet {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]string{"sha": "def456"})
+			_ = json.NewEncoder(w).Encode(map[string]string{"sha": "def456"})
 			return
 		}
 		if r.Method != http.MethodDelete {
 			t.Errorf("expected DELETE, got %s", r.Method)
 		}
 		var body map[string]string
-		json.NewDecoder(r.Body).Decode(&body)
+		_ = json.NewDecoder(r.Body).Decode(&body)
 		if body["sha"] != "def456" {
 			t.Errorf("sha = %q, want %q", body["sha"], "def456")
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer srv.Close()
 
@@ -181,9 +181,9 @@ func TestGiteaProvider_CreatePR(t *testing.T) {
 		if r.Method != http.MethodPost || r.URL.Path != "/api/v1/repos/joe/repo/pulls" {
 			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
 		}
-		json.NewDecoder(r.Body).Decode(&gotBody)
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"number":   42,
 			"html_url": "https://gitea.example.com/joe/repo/pulls/42",
 		})
@@ -232,11 +232,11 @@ func TestGiteaProvider_GetPRStatus_Open(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/repos/joe/repo/pulls/10/reviews" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode([]map[string]any{})
+			_ = json.NewEncoder(w).Encode([]map[string]any{})
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"number":    10,
 			"state":     "open",
 			"merged":    false,
@@ -262,13 +262,13 @@ func TestGiteaProvider_GetPRStatus_Merged(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/repos/joe/repo/pulls/5/reviews" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode([]map[string]any{
+			_ = json.NewEncoder(w).Encode([]map[string]any{
 				{"user": map[string]string{"login": "reviewer"}, "state": "APPROVED", "body": "lgtm"},
 			})
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"number":    5,
 			"state":     "closed",
 			"merged":    true,
@@ -300,11 +300,11 @@ func TestGiteaProvider_GetPRStatus_Closed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/api/v1/repos/joe/repo/pulls/7/reviews" {
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode([]map[string]any{})
+			_ = json.NewEncoder(w).Encode([]map[string]any{})
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]any{
+		_ = json.NewEncoder(w).Encode(map[string]any{
 			"number":    7,
 			"state":     "closed",
 			"merged":    false,
@@ -332,7 +332,7 @@ func TestGiteaProvider_ListOpenPRs(t *testing.T) {
 			t.Errorf("state query = %q, want %q", r.URL.Query().Get("state"), "open")
 		}
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode([]map[string]any{
+		_ = json.NewEncoder(w).Encode([]map[string]any{
 			{
 				"number": 1,
 				"title":  "PR one",
@@ -403,7 +403,7 @@ func TestGiteaProvider_AuthHeader(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotHeaders = r.Header
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer srv.Close()
 
@@ -426,7 +426,7 @@ func TestGiteaProvider_BaseURLUsed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotURL = r.URL.String()
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte(`{}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer srv.Close()
 

@@ -92,13 +92,13 @@ func Open(path string) (*DB, error) {
 	conn.SetMaxOpenConns(1)
 
 	if err := conn.Ping(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
 
 	d := &DB{conn: conn}
 	if err := d.migrate(); err != nil {
-		conn.Close()
+		_ = conn.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
 
@@ -375,7 +375,7 @@ func (d *DB) ListSessions(limit, offset int) ([]Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list sessions: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var sessions []Session
 	for rows.Next() {
@@ -416,7 +416,7 @@ func (d *DB) QueryHealthChecks(service string, since, until string, limit int) (
 	if err != nil {
 		return nil, fmt.Errorf("query health checks: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var checks []HealthCheck
 	for rows.Next() {
@@ -464,7 +464,7 @@ func (d *DB) ListEvents(limit, offset int, level, service *string) ([]Event, err
 	if err != nil {
 		return nil, fmt.Errorf("list events: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var events []Event
 	for rows.Next() {
@@ -593,7 +593,7 @@ func (d *DB) ListServiceStatuses() ([]ServiceStatus, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list service statuses: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var statuses []ServiceStatus
 	for rows.Next() {
@@ -627,7 +627,7 @@ func (d *DB) ListRecentCooldowns(window time.Duration) ([]RecentCooldown, error)
 	if err != nil {
 		return nil, fmt.Errorf("list recent cooldowns: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var cooldowns []RecentCooldown
 	for rows.Next() {
@@ -669,7 +669,7 @@ func (d *DB) GetEscalationChain(sessionID int64) ([]Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get escalation chain: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var sessions []Session
 	for rows.Next() {
@@ -690,7 +690,7 @@ func (d *DB) GetChildSessions(sessionID int64) ([]Session, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get child sessions: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var sessions []Session
 	for rows.Next() {
@@ -804,7 +804,7 @@ func (d *DB) ListMemories(service *string, category *string, limit, offset int) 
 	if err != nil {
 		return nil, fmt.Errorf("list memories: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var memories []Memory
 	for rows.Next() {
@@ -830,7 +830,7 @@ func (d *DB) GetActiveMemories(limit int) ([]Memory, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get active memories: %w", err)
 	}
-	defer rows.Close()
+	defer rows.Close() //nolint:errcheck
 
 	var memories []Memory
 	for rows.Next() {

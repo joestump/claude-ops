@@ -120,7 +120,7 @@ func copyFile(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	defer in.Close()
+	defer in.Close() //nolint:errcheck
 
 	info, err := in.Stat()
 	if err != nil {

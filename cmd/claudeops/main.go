@@ -138,7 +138,7 @@ func run(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
 	}
-	defer database.Close()
+	defer database.Close() //nolint:errcheck
 
 	// Create SSE hub.
 	sseHub := hub.New()

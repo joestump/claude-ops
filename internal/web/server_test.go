@@ -49,7 +49,7 @@ func newTestEnvWithTrigger(t *testing.T, trigger *mockTrigger) *testEnv {
 	if err != nil {
 		t.Fatalf("open test db: %v", err)
 	}
-	t.Cleanup(func() { database.Close() })
+	t.Cleanup(func() { _ = database.Close() })
 
 	cfg := &config.Config{
 		Interval:      3600,

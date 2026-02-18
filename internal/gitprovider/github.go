@@ -294,7 +294,7 @@ func (g *GitHubProvider) doJSON(ctx context.Context, method, url string, reqBody
 	if err != nil {
 		return fmt.Errorf("http request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer resp.Body.Close() //nolint:errcheck
 
 	respData, err := io.ReadAll(resp.Body)
 	if err != nil {

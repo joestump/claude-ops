@@ -244,7 +244,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 					lines = append(lines, session.WrapLogLine(lineNum, tsStr, formatted))
 				}
 			}
-			f.Close()
+			_ = f.Close()
 			output = strings.Join(lines, "\n")
 		} else {
 			output = fmt.Sprintf("[error reading log: %v]", err)
@@ -283,7 +283,7 @@ func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("X-Accel-Buffering", "no")
 
 	if s.hub == nil {
-		fmt.Fprintf(w, "data: [session %d] SSE hub not connected\n\n", id)
+		_, _ = fmt.Fprintf(w, "data: [session %d] SSE hub not connected\n\n", id)
 		flusher.Flush()
 		return
 	}
@@ -298,11 +298,11 @@ func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 			return
 		case line, ok := <-ch:
 			if !ok {
-				fmt.Fprintf(w, "event: done\ndata: session complete\n\n")
+				_, _ = fmt.Fprintf(w, "event: done\ndata: session complete\n\n")
 				flusher.Flush()
 				return
 			}
-			fmt.Fprintf(w, "data: %s\n\n", line)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", line)
 			flusher.Flush()
 		}
 	}
