@@ -368,9 +368,12 @@
     background-color: var(--accent-hover);
 }
 
-/* ---- Escalation arrows ---- */
-.esc-t2 { color: var(--yellow); font-weight: 600; }
-.esc-t3 { color: var(--red); font-weight: 600; }
+/* ---- Escalation chain borders ---- */
+.chain-dot-healthy  { border-left: 3px solid var(--green); }
+.chain-dot-degraded { border-left: 3px solid var(--yellow); }
+.chain-dot-down     { border-left: 3px solid var(--red); }
+.chain-dot-running  { border-left: 3px solid var(--blue); }
+.chain-dot-unknown  { border-left: 3px solid var(--muted); }
 
 /* ---- Table tweaks ---- */
 table {

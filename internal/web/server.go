@@ -15,6 +15,7 @@ import (
 	"github.com/joestump/claude-ops/api"
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
+	"github.com/joestump/claude-ops/internal/gitprovider"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 )
@@ -45,23 +46,25 @@ type SessionTrigger interface {
 
 // Server is the HTTP server for the Claude Ops dashboard.
 type Server struct {
-	cfg    *config.Config
-	hub    SSEHub
-	db     *db.DB
-	mgr    SessionTrigger
-	mux    *http.ServeMux
-	tmpl   *template.Template
-	server *http.Server
+	cfg      *config.Config
+	hub      SSEHub
+	db       *db.DB
+	mgr      SessionTrigger
+	registry *gitprovider.Registry
+	mux      *http.ServeMux
+	tmpl     *template.Template
+	server   *http.Server
 }
 
 // New creates a new web server. Pass nil for hub if SSE streaming is not yet available.
-func New(cfg *config.Config, hub SSEHub, database *db.DB, mgr SessionTrigger) *Server {
+func New(cfg *config.Config, hub SSEHub, database *db.DB, mgr SessionTrigger, registry *gitprovider.Registry) *Server {
 	s := &Server{
-		cfg: cfg,
-		hub: hub,
-		db:  database,
-		mgr: mgr,
-		mux: http.NewServeMux(),
+		cfg:      cfg,
+		hub:      hub,
+		db:       database,
+		mgr:      mgr,
+		registry: registry,
+		mux:      http.NewServeMux(),
 	}
 
 	s.parseTemplates()
@@ -294,6 +297,8 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /api/v1/cooldowns", s.handleAPIListCooldowns)
 	s.mux.HandleFunc("GET /api/v1/config", s.handleAPIGetConfig)
 	s.mux.HandleFunc("PUT /api/v1/config", s.handleAPIUpdateConfig)
+	s.mux.HandleFunc("POST /api/v1/prs", s.handleAPICreatePR)
+	s.mux.HandleFunc("GET /api/v1/prs", s.handleAPIListPRs)
 
 	// OpenAPI spec and Swagger UI
 	s.mux.HandleFunc("GET /api/openapi.yaml", s.handleOpenAPISpec)

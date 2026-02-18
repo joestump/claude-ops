@@ -117,6 +117,27 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Pass 4: propagate chain tip status to all chain members for left-border coloring.
+	viewIdx := make(map[int64]int, len(views))
+	for i, v := range views {
+		viewIdx[v.ID] = i
+	}
+	for i := range views {
+		if views[i].IsChainTip {
+			status := views[i].Status
+			views[i].ChainOutcome = status
+			pid := views[i].ParentSessionID
+			for pid != nil {
+				if idx, ok := viewIdx[*pid]; ok {
+					views[idx].ChainOutcome = status
+					pid = views[idx].ParentSessionID
+				} else {
+					break
+				}
+			}
+		}
+	}
+
 	data := struct {
 		Sessions []SessionView
 	}{

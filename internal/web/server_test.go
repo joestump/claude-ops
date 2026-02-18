@@ -13,6 +13,7 @@ import (
 
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
+	"github.com/joestump/claude-ops/internal/gitprovider"
 	"github.com/joestump/claude-ops/internal/hub"
 )
 
@@ -63,8 +64,9 @@ func newTestEnvWithTrigger(t *testing.T, trigger *mockTrigger) *testEnv {
 	}
 
 	h := hub.New()
+	registry := gitprovider.NewRegistry()
 	return &testEnv{
-		srv:     New(cfg, h, database, trigger),
+		srv:     New(cfg, h, database, trigger, registry),
 		hub:     h,
 		trigger: trigger,
 	}
@@ -683,9 +685,14 @@ func TestSessionsListShowsChainIndicator(t *testing.T) {
 		t.Error("chain root should show chain length indicator")
 	}
 
-	// Child session should show indent arrow.
-	if !strings.Contains(body, "&#x2514;") {
-		t.Error("child session should show indent arrow")
+	// Parent session should show escalation arrow.
+	if !strings.Contains(body, "&#x2191;") {
+		t.Error("parent session should show escalation arrow")
+	}
+
+	// Chain members should have a colored left border class.
+	if !strings.Contains(body, "chain-dot-") {
+		t.Error("chain members should have chain border class for visual grouping")
 	}
 }
 

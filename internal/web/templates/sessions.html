@@ -24,10 +24,10 @@
                     <tr><td colspan="10" class="py-8 text-center text-sm text-muted">No sessions recorded yet. Sessions will appear after the first health check run or when you trigger one manually with the Run Now button.</td></tr>
                     {{end}}
                     {{range .Sessions}}
-                    <tr class="tbody-row">
+                    <tr class="tbody-row{{if .ChainOutcome}} chain-{{statusDot .ChainOutcome}}{{end}}">
                         <td class="py-3 pr-4">
                             {{if .IsChainTip}}<span class="dot {{statusDot .Status}} mr-1" title="Chain outcome: {{.Status}}"></span>{{end}}
-                            {{if .HasChildren}}<span class="text-xs mr-1 {{if eq .Tier 1}}esc-t2{{else}}esc-t3{{end}}" title="Escalated to tier {{if eq .Tier 1}}2{{else}}3{{end}}">&#x2191;</span>{{end}}
+                            {{if .HasChildren}}<span class="text-xs text-muted mr-1" title="Escalated to tier {{if eq .Tier 1}}2{{else}}3{{end}}">&#x2191;</span>{{end}}
                             <a href="/sessions/{{.ID}}" class="text-accent hover:underline font-mono">{{.ID}}</a>
                             {{if .IsChainRoot}}<span class="text-xs text-muted ml-1" title="Escalation chain root">(chain: {{.ChainLength}})</span>{{end}}
                         </td>

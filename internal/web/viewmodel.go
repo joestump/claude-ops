@@ -34,6 +34,7 @@ type SessionView struct {
 	ChainLength     int
 	HasChildren     bool   // session escalated to a child above
 	IsChainTip      bool   // top session of an escalation chain
+	ChainOutcome    string // status of the chain tip (set on all chain members)
 }
 
 // HealthCheckView is a template-friendly representation of a db.HealthCheck with parsed times.

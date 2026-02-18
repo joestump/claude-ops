@@ -25,6 +25,19 @@
       "type": "stdio",
       "command": "npx",
       "args": ["-y", "@anthropic-ai/mcp-fetch"]
+    },
+    "claudeops": {
+      "type": "stdio",
+      "command": "/app/claudeops",
+      "args": ["mcp-server"],
+      "env": {
+        "GITHUB_TOKEN": "${GITHUB_TOKEN}",
+        "GITEA_URL": "${GITEA_URL}",
+        "GITEA_TOKEN": "${GITEA_TOKEN}",
+        "CLAUDEOPS_TIER": "${CLAUDEOPS_TIER}",
+        "CLAUDEOPS_DRY_RUN": "${CLAUDEOPS_DRY_RUN}",
+        "CLAUDEOPS_PR_ENABLED": "${CLAUDEOPS_PR_ENABLED}"
+      }
     }
   }
 }
