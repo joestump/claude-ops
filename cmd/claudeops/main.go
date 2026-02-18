@@ -16,8 +16,10 @@ import (
 
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
+	"github.com/joestump/claude-ops/internal/gitprovider"
 	"github.com/joestump/claude-ops/internal/hub"
 	"github.com/joestump/claude-ops/internal/mcp"
+	"github.com/joestump/claude-ops/internal/mcpserver"
 	"github.com/joestump/claude-ops/internal/session"
 	"github.com/joestump/claude-ops/internal/web"
 )
@@ -50,6 +52,7 @@ func main() {
 	f.String("tier3-prompt", "/app/prompts/tier3-remediate.md", "path to Tier 3 prompt file")
 	f.Int("memory-budget", 2000, "max tokens for memory context injection")
 	f.String("browser-allowed-origins", "", "comma-separated allowed origins for browser navigation")
+	f.Bool("pr-enabled", false, "enable PR creation via MCP and REST API (default: disabled)")
 
 	// Bind flags to viper. Viper keys use underscores (tier1_model) so they
 	// match the env var suffix after stripping the CLAUDEOPS_ prefix.
@@ -75,6 +78,7 @@ func main() {
 	bindFlag("tier3_prompt", "tier3-prompt")
 	bindFlag("memory_budget", "memory-budget")
 	bindFlag("browser_allowed_origins", "browser-allowed-origins")
+	bindFlag("pr_enabled", "pr-enabled")
 
 	// Bind CLAUDEOPS_* environment variables. AutomaticEnv with the prefix
 	// maps CLAUDEOPS_INTERVAL -> "interval", CLAUDEOPS_TIER1_MODEL -> "tier1_model", etc.
@@ -84,6 +88,16 @@ func main() {
 	// underscores, so the default replacer is fine. But flag names use hyphens,
 	// so we need the replacer for any edge cases.
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+
+	// MCP server subcommand: speaks JSON-RPC over stdio for git provider tools.
+	mcpServerCmd := &cobra.Command{
+		Use:   "mcp-server",
+		Short: "Start MCP server for git provider tools (stdio)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return mcpserver.Run()
+		},
+	}
+	rootCmd.AddCommand(mcpServerCmd)
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
@@ -136,8 +150,11 @@ func run(cmd *cobra.Command, args []string) error {
 		return mcp.MergeConfigs(cfg.MCPConfig, cfg.ReposDir)
 	}
 
+	// Create git provider registry.
+	registry := gitprovider.NewRegistry()
+
 	// Create and start web server (needs mgr for ad-hoc session triggers).
-	webServer := web.New(&cfg, sseHub, database, mgr)
+	webServer := web.New(&cfg, sseHub, database, mgr, registry)
 	go func() {
 		if err := webServer.Start(); err != nil {
 			log.Printf("web server error: %v", err)

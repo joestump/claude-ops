@@ -28,14 +28,23 @@ Read the failure summary provided by Tier 1. For each failed service, note:
 - Error details
 - Current cooldown state
 
+## Remote Host Access
+
+**Always use SSH** for all remote host operations:
+```bash
+ssh root@<host> <command>
+```
+
+Do NOT probe for or use alternative remote access methods (Docker TCP API on port 2375, REST APIs, etc.) — SSH is the only authorized remote access protocol. If SSH is not available, report the access issue rather than attempting alternative protocols.
+
 ## Step 2: Investigate
 
 For each failed service, dig deeper:
 
 ### Container issues
-- Read container logs: `docker logs --tail 100 <container>`
-- Check resource usage: `docker stats --no-stream <container>`
-- Inspect container config: Docker MCP inspect
+- Read container logs: `ssh root@<host> docker logs --tail 100 <container>`
+- Check resource usage: `ssh root@<host> docker stats --no-stream <container>`
+- Inspect container config: `ssh root@<host> docker inspect <container>`
 
 ### Application issues
 - Check service-specific logs (paths from inventory/config)
@@ -48,21 +57,21 @@ For each failed service, dig deeper:
 
 ## Step 3: Check Cooldown
 
-Read `/app/skills/cooldowns.md` for cooldown rules, then read `$CLAUDEOPS_STATE_DIR/cooldown.json` before any remediation. If cooldown limit is exceeded, skip to Step 5 (Notify).
+Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json` before any remediation. If cooldown limit is exceeded, skip to Step 5 (Notify).
 
 ## Step 4: Remediate
 
 Apply the appropriate remediation from `/app/playbooks/`. Common patterns:
 
 ### Container restart
-1. `docker restart <container>`
+1. `ssh root@<host> docker restart <container>`
 2. Wait 15-30 seconds
 3. Re-run the health check that originally failed
 4. If healthy: update cooldown state (increment restart count, update timestamp)
 5. If still unhealthy: continue to next remediation or escalate
 
 ### Docker Compose up
-1. `docker compose -f <compose-file> up -d <service>`
+1. `ssh root@<host> "cd <compose-dir> && docker compose up -d <service>"`
 2. Wait for container to be healthy
 3. Verify health check passes
 
@@ -134,7 +143,7 @@ apprise -t "Claude Ops: Auto-remediated <service>" \
 ```
 
 ### Cannot fix (needs Tier 3)
-Write a structured handoff file to `$CLAUDEOPS_STATE_DIR/handoff.json` with the following schema:
+Write a structured handoff file to `/state/handoff.json` with the following schema:
 
 ```json
 {

@@ -198,7 +198,7 @@ func TestLogFileNameFormat(t *testing.T) {
 		// Extract timestamp portion: run-YYYYMMDD-HHMMSS.log
 		ts := strings.TrimPrefix(name, "run-")
 		ts = strings.TrimSuffix(ts, ".log")
-		parsed, err := time.Parse("20060102-150405", ts)
+		parsed, err := time.ParseInLocation("20060102-150405", ts, time.Local)
 		if err != nil {
 			t.Errorf("log file name %q has unparseable timestamp: %v", name, err)
 			continue

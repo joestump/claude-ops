@@ -4,18 +4,20 @@ You are Claude Ops running a scheduled health check. Your job is to discover ser
 
 ## Step 0: Environment
 
-Read the following environment variables from the system prompt:
-- `CLAUDEOPS_REPOS_DIR` — where infrastructure repos are mounted
-- `CLAUDEOPS_STATE_DIR` — where cooldown state lives
-- `CLAUDEOPS_DRY_RUN` — if true, observe only
-- `CLAUDEOPS_APPRISE_URLS` — Apprise notification URLs (optional)
+Use these paths (hardcoded defaults — do NOT rely on environment variable expansion in bash commands):
+- **Repos directory**: `/repos` — where infrastructure repos are mounted
+- **State directory**: `/state` — where cooldown state lives
+- **Dry run**: `$CLAUDEOPS_DRY_RUN` — if `true`, observe only
+- **Apprise URLs**: `$CLAUDEOPS_APPRISE_URLS` — notification URLs (optional)
+
+**IMPORTANT**: Always use literal paths (`/repos`, `/state`, `/results`) in your bash commands — never `"$CLAUDEOPS_REPOS_DIR"` or similar variable expansions. The env vars may not be set in all environments, causing empty-string expansion and silent failures.
 
 ## Step 1: Discover Infrastructure Repos
 
-Scan `$CLAUDEOPS_REPOS_DIR` (default `/repos`) for mounted repositories:
+Scan `/repos` for mounted repositories:
 
-1. List subdirectories under the repos directory
-2. **If the repos directory is empty or does not exist, output "No repos found — nothing to check" and EXIT IMMEDIATELY. Do NOT fall back to scanning the local system, running docker ps, or checking any services not defined in a mounted repo.**
+1. List subdirectories: `ls /repos/`
+2. **If `/repos` is empty or does not exist, output "No repos found — nothing to check" and EXIT IMMEDIATELY. Do NOT fall back to scanning the local system, running docker ps, or checking any services not defined in a mounted repo.**
 3. For each subdirectory, check for a `CLAUDE-OPS.md` manifest
 4. If present, read it to understand the repo's purpose and capabilities
 5. If absent, read top-level files to infer what it is
@@ -59,10 +61,12 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 - For services with DNS names: `dig +short <hostname>`
 - Verify it resolves to the expected IP/CNAME
 
-### Container State (Remote Only)
-- **Only if** the repo provides SSH access or a remote Docker MCP for the target host
+### Container State (Remote Only via SSH)
+- **Only if** the repo provides SSH access to the target host
+- **Always use SSH** for remote host access: `ssh root@<host> docker ps`
+- Do NOT probe for or use alternative remote access methods (Docker TCP API on port 2375, REST APIs, etc.) — SSH is the only authorized remote access protocol
 - Do NOT run `docker ps` against the local Docker daemon — that shows containers on YOUR machine, not the monitored infrastructure
-- If no remote access is available, skip container checks and rely on HTTP/DNS checks
+- If SSH is not available (connection refused, host key verification failed), skip container checks and rely on HTTP/DNS checks — do NOT fall back to Docker TCP or other protocols
 
 ### Database Health
 - If database MCPs are configured for remote hosts, check connectivity and basic stats
@@ -81,7 +85,7 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 
 ## Step 4: Read Cooldown State
 
-Read `/app/skills/cooldowns.md` for cooldown rules, then read `$CLAUDEOPS_STATE_DIR/cooldown.json`. Note any services in cooldown.
+Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. Note any services in cooldown.
 
 ## Step 5: Evaluate Results
 
@@ -109,7 +113,7 @@ If a service requires browser-based investigation, escalate to Tier 2 via the ha
 
 ### Issues found
 - Summarize all failures: which services, what checks failed, error details
-- Write a structured handoff file to `$CLAUDEOPS_STATE_DIR/handoff.json` with the following schema:
+- Write a structured handoff file to `/state/handoff.json` with the following schema:
 
 ```json
 {

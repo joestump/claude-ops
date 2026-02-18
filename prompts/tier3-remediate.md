@@ -51,7 +51,16 @@ With the full picture, determine the actual root cause:
 
 ## Step 3: Check Cooldown
 
-Read `/app/skills/cooldowns.md` for cooldown rules, then read `$CLAUDEOPS_STATE_DIR/cooldown.json`. If cooldown limit is exceeded, skip to Step 5 (report as needs human attention).
+Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. If cooldown limit is exceeded, skip to Step 5 (report as needs human attention).
+
+## Remote Host Access
+
+**Always use SSH** for all remote host operations:
+```bash
+ssh root@<host> <command>
+```
+
+Do NOT probe for or use alternative remote access methods (Docker TCP API on port 2375, REST APIs, etc.) — SSH is the only authorized remote access protocol. If SSH is not available, report the access issue rather than attempting alternative protocols.
 
 ## Step 4: Remediate
 
@@ -70,9 +79,9 @@ Read `/app/skills/cooldowns.md` for cooldown rules, then read `$CLAUDEOPS_STATE_
 5. Update cooldown state
 
 ### Container recreation
-1. `docker compose -f <file> down <service>`
-2. `docker compose -f <file> pull <service>`
-3. `docker compose -f <file> up -d <service>`
+1. `ssh root@<host> "cd <compose-dir> && docker compose down <service>"`
+2. `ssh root@<host> "cd <compose-dir> && docker compose pull <service>"`
+3. `ssh root@<host> "cd <compose-dir> && docker compose up -d <service>"`
 4. Wait for healthy state
 5. Verify health checks pass
 6. Update cooldown state

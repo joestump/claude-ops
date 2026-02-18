@@ -25,6 +25,7 @@ type Config struct {
 	Tier3Prompt   string
 	MemoryBudget          int
 	BrowserAllowedOrigins string
+	PREnabled             bool
 }
 
 // Load reads configuration from viper, which merges flag values, env vars,
@@ -49,5 +50,6 @@ func Load() Config {
 		Tier3Prompt:   viper.GetString("tier3_prompt"),
 		MemoryBudget:          viper.GetInt("memory_budget"),
 		BrowserAllowedOrigins: viper.GetString("browser_allowed_origins"),
+		PREnabled:             viper.GetBool("pr_enabled"),
 	}
 }
