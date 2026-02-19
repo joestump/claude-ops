@@ -28,10 +28,14 @@ You can persist operational knowledge across sessions by emitting memory markers
 
 - Service health status ("service X is healthy/down", "container restarted successfully")
 - Routine check or investigation results ("checked 60 services, all healthy", "logs show normal operation")
+- Baseline performance confirmations ("all services responding within timeout", "no performance degradation", "response times normal")
+- Timeout or parameter adjustments that produced expected results ("extended timeout to 10s, services confirmed healthy")
 - Available updates or version numbers
 - DNS resolution results or container states
 - Current resource usage ("memory at 45%", "disk at 60%")
 - Anything that describes the *current state* rather than a *reusable operational insight*
+
+**Rule of thumb**: If the observation is "everything is fine" or "I adjusted a check parameter and things worked," that is not a memory. Only record insights that would change your *approach* to a future incident — not confirmations that the current approach worked.
 
 ## What IS a Memory
 
