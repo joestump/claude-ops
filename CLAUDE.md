@@ -27,7 +27,26 @@ make test         # run tests
 
 Requires a `.env` file with at minimum `ANTHROPIC_API_KEY=sk-ant-...`. See README.md for all env vars.
 
-CI/CD: GitHub Actions (`.github/workflows/release.yaml`) builds and pushes the Docker image to GHCR on push to `main` or version tags.
+CI/CD: GitHub Actions (`.github/workflows/ci.yaml`) runs lint → test → build sequentially, then pushes the Docker image to GHCR on push to `main` or version tags.
+
+## Pre-Push Requirements
+
+You MUST pass lint and tests locally before pushing. Do NOT waste GitHub Actions credits by pushing code that fails basic checks.
+
+```bash
+# 1. Lint (must pass)
+go vet ./...
+golangci-lint run
+
+# 2. Test (must pass)
+go test ./... -count=1 -race
+```
+
+If either step fails, fix the issues before pushing. No exceptions.
+
+## Releases
+
+Use the `/release` skill (`.claude/skills/release.md`) to create tagged releases. Releases are created with `gh release create` — never through the GitHub UI. The skill handles version bumping, release note generation, and pre-flight checks.
 
 ## Architecture
 
