@@ -131,6 +131,15 @@ Read and follow `/app/skills/events.md` for event marker format and guidelines.
 
 Read and follow `/app/skills/memories.md` for memory marker format, categories, and guidelines.
 
+## Cooldown Tracking
+
+After every remediation attempt (restart or redeployment), emit a `[COOLDOWN:...]` marker so the dashboard can track it. Read `/app/skills/cooldowns.md` for the full format. Example:
+
+```
+[COOLDOWN:restart:jellyfin] success — Restarted container, HTTP 200 after 45s
+[COOLDOWN:restart:sonarr] failure — Restarted but OOM killed again within 2 minutes
+```
+
 ## Step 5: Report Results
 
 ### Fixed

@@ -1,6 +1,7 @@
 package session
 
 import (
+	"regexp"
 	"strings"
 	"testing"
 )
@@ -523,5 +524,506 @@ func TestTruncateString_WhitespaceCollapseBeforeTruncation(t *testing.T) {
 	got := truncateString(s, 300)
 	if strings.HasSuffix(got, "...") {
 		t.Error("collapsed whitespace string should not be truncated if under limit")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parseEventMarkers
+// ---------------------------------------------------------------------------
+
+func TestParseEventMarkers_InfoNoService(t *testing.T) {
+	text := "[EVENT:info] All services healthy"
+	got := parseEventMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].Level != "info" {
+		t.Errorf("level = %q, want %q", got[0].Level, "info")
+	}
+	if got[0].Service != nil {
+		t.Errorf("service = %v, want nil", got[0].Service)
+	}
+	if got[0].Message != "All services healthy" {
+		t.Errorf("message = %q, want %q", got[0].Message, "All services healthy")
+	}
+}
+
+func TestParseEventMarkers_WarningWithService(t *testing.T) {
+	text := "[EVENT:warning:caddy] High latency detected"
+	got := parseEventMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].Level != "warning" {
+		t.Errorf("level = %q, want %q", got[0].Level, "warning")
+	}
+	if got[0].Service == nil || *got[0].Service != "caddy" {
+		t.Errorf("service = %v, want %q", got[0].Service, "caddy")
+	}
+	if got[0].Message != "High latency detected" {
+		t.Errorf("message = %q", got[0].Message)
+	}
+}
+
+func TestParseEventMarkers_CriticalWithService(t *testing.T) {
+	text := "[EVENT:critical:postgres] Database unreachable"
+	got := parseEventMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].Level != "critical" {
+		t.Errorf("level = %q, want %q", got[0].Level, "critical")
+	}
+	if got[0].Service == nil || *got[0].Service != "postgres" {
+		t.Errorf("service = %v, want %q", got[0].Service, "postgres")
+	}
+}
+
+func TestParseEventMarkers_MultipleLines(t *testing.T) {
+	text := `Some preamble
+[EVENT:info:caddy] Caddy is healthy
+Some middle text
+[EVENT:critical:postgres] Database connection refused
+Trailing text`
+	got := parseEventMarkers(text)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 markers, got %d", len(got))
+	}
+	if got[0].Level != "info" {
+		t.Errorf("first level = %q, want %q", got[0].Level, "info")
+	}
+	if got[1].Level != "critical" {
+		t.Errorf("second level = %q, want %q", got[1].Level, "critical")
+	}
+}
+
+func TestParseEventMarkers_ServiceWithHyphen(t *testing.T) {
+	text := "[EVENT:warning:adguard-home] DNS resolution slow"
+	got := parseEventMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].Service == nil || *got[0].Service != "adguard-home" {
+		t.Errorf("service = %v, want %q", got[0].Service, "adguard-home")
+	}
+}
+
+func TestParseEventMarkers_ServiceWithUnderscore(t *testing.T) {
+	text := "[EVENT:info:my_service] Running fine"
+	got := parseEventMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].Service == nil || *got[0].Service != "my_service" {
+		t.Errorf("service = %v, want %q", got[0].Service, "my_service")
+	}
+}
+
+func TestParseEventMarkers_Invalid(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+	}{
+		{"invalid level", "[EVENT:debug] Some message"},
+		{"missing message", "[EVENT:info]"},
+		{"missing message with service", "[EVENT:info:svc]"},
+		{"no brackets", "EVENT:info some message"},
+		{"wrong prefix", "[MEMORY:info] not an event"},
+		{"empty text", ""},
+		{"uppercase level", "[EVENT:INFO] some message"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseEventMarkers(tc.text)
+			if len(got) != 0 {
+				t.Errorf("expected 0 markers for %q, got %d", tc.text, len(got))
+			}
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// FormatStreamEventHTML – event/memory/cooldown badge rendering
+// ---------------------------------------------------------------------------
+
+func TestFormatStreamEventHTML_SystemInit(t *testing.T) {
+	raw := `{"type":"system","subtype":"init"}`
+	got := FormatStreamEventHTML(raw)
+	if !strings.Contains(got, "term-separator") {
+		t.Error("expected term-separator class")
+	}
+	if !strings.Contains(got, "session started") {
+		t.Error("expected 'session started' text")
+	}
+}
+
+func TestFormatStreamEventHTML_AssistantText(t *testing.T) {
+	raw := `{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world"}]}}`
+	got := FormatStreamEventHTML(raw)
+	if !strings.Contains(got, "term-assistant") {
+		t.Error("expected term-assistant class")
+	}
+	if !strings.Contains(got, "Hello world") {
+		t.Error("expected text content")
+	}
+}
+
+func TestFormatStreamEventHTML_ToolUse(t *testing.T) {
+	raw := `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"docker ps"}}]}}`
+	got := FormatStreamEventHTML(raw)
+	if !strings.Contains(got, "term-tool-badge") {
+		t.Error("expected term-tool-badge class")
+	}
+	if !strings.Contains(got, "Bash") {
+		t.Error("expected tool name 'Bash'")
+	}
+}
+
+func TestFormatStreamEventHTML_ResultComplete(t *testing.T) {
+	raw := `{"type":"result","is_error":false,"result":"done","num_turns":3,"total_cost_usd":0.05,"duration_ms":12000}`
+	got := FormatStreamEventHTML(raw)
+	if !strings.Contains(got, "term-marker") {
+		t.Error("expected term-marker class")
+	}
+	if !strings.Contains(got, "session complete") {
+		t.Error("expected 'session complete'")
+	}
+	if !strings.Contains(got, "$0.0500") {
+		t.Error("expected formatted cost")
+	}
+}
+
+func TestFormatStreamEventHTML_ResultError(t *testing.T) {
+	raw := `{"type":"result","is_error":true,"result":"failed","num_turns":1,"total_cost_usd":0.001,"duration_ms":500}`
+	got := FormatStreamEventHTML(raw)
+	if !strings.Contains(got, "term-marker-error") {
+		t.Error("expected term-marker-error class for error result")
+	}
+	if !strings.Contains(got, "session error") {
+		t.Error("expected 'session error'")
+	}
+}
+
+func TestFormatStreamEventHTML_ToolResult(t *testing.T) {
+	raw := `{"type":"user","message":{"content":[{"type":"tool_result","content":"CONTAINER ID  IMAGE  STATUS"}]}}`
+	got := FormatStreamEventHTML(raw)
+	if !strings.Contains(got, "term-result-content") {
+		t.Error("expected term-result-content class")
+	}
+	if !strings.Contains(got, "CONTAINER ID") {
+		t.Error("expected tool result content")
+	}
+}
+
+func TestFormatStreamEventHTML_UnknownType(t *testing.T) {
+	raw := `{"type":"ping"}`
+	got := FormatStreamEventHTML(raw)
+	if got != "" {
+		t.Errorf("expected empty for unknown type, got %q", got)
+	}
+}
+
+func TestFormatStreamEventHTML_HTMLEscaping(t *testing.T) {
+	raw := `{"type":"assistant","message":{"content":[{"type":"text","text":"<script>alert('xss')</script>"}]}}`
+	got := FormatStreamEventHTML(raw)
+	if strings.Contains(got, "<script>") {
+		t.Error("HTML should be escaped, found raw <script> tag")
+	}
+	if !strings.Contains(got, "&lt;script&gt;") {
+		t.Error("expected escaped script tag")
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parseMarkers (generic DRY parser)
+// ---------------------------------------------------------------------------
+
+func TestParseMarkers_SingleMatch(t *testing.T) {
+	re := regexp.MustCompile(`\[TEST:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+	text := "[TEST:alpha:svc1] some message"
+	got := parseMarkers(re, text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(got))
+	}
+	if got[0].Field1 != "alpha" {
+		t.Errorf("Field1 = %q, want %q", got[0].Field1, "alpha")
+	}
+	if got[0].Service != "svc1" {
+		t.Errorf("Service = %q, want %q", got[0].Service, "svc1")
+	}
+	if got[0].Tail != "some message" {
+		t.Errorf("Tail = %q, want %q", got[0].Tail, "some message")
+	}
+}
+
+func TestParseMarkers_NoService(t *testing.T) {
+	re := regexp.MustCompile(`\[TEST:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+	text := "[TEST:beta] message without service"
+	got := parseMarkers(re, text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(got))
+	}
+	if got[0].Service != "" {
+		t.Errorf("Service = %q, want empty", got[0].Service)
+	}
+}
+
+func TestParseMarkers_MultipleLines(t *testing.T) {
+	re := regexp.MustCompile(`\[TEST:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+	text := "preamble\n[TEST:a:x] msg1\nmiddle\n[TEST:b:y] msg2\ntrailing"
+	got := parseMarkers(re, text)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 matches, got %d", len(got))
+	}
+	if got[0].Field1 != "a" || got[1].Field1 != "b" {
+		t.Errorf("fields: got %q, %q", got[0].Field1, got[1].Field1)
+	}
+}
+
+func TestParseMarkers_NoMatch(t *testing.T) {
+	re := regexp.MustCompile(`\[TEST:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+	text := "no markers here"
+	got := parseMarkers(re, text)
+	if len(got) != 0 {
+		t.Errorf("expected 0 matches, got %d", len(got))
+	}
+}
+
+func TestParseMarkers_EmptyText(t *testing.T) {
+	re := regexp.MustCompile(`\[TEST:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+	got := parseMarkers(re, "")
+	if len(got) != 0 {
+		t.Errorf("expected 0 matches, got %d", len(got))
+	}
+}
+
+func TestParseMarkers_LeadingWhitespace(t *testing.T) {
+	re := regexp.MustCompile(`\[TEST:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+	text := "   [TEST:alpha:svc] trimmed"
+	got := parseMarkers(re, text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 match, got %d", len(got))
+	}
+	if got[0].Field1 != "alpha" {
+		t.Errorf("Field1 = %q", got[0].Field1)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// parseCooldownMarkers
+// ---------------------------------------------------------------------------
+
+func TestParseCooldownMarkers_RestartSuccess(t *testing.T) {
+	text := "[COOLDOWN:restart:jellyfin] success — Container restarted and healthy"
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].ActionType != "restart" {
+		t.Errorf("ActionType = %q, want %q", got[0].ActionType, "restart")
+	}
+	if got[0].Service != "jellyfin" {
+		t.Errorf("Service = %q, want %q", got[0].Service, "jellyfin")
+	}
+	if !got[0].Success {
+		t.Error("Success = false, want true")
+	}
+	if got[0].Message != "Container restarted and healthy" {
+		t.Errorf("Message = %q, want %q", got[0].Message, "Container restarted and healthy")
+	}
+}
+
+func TestParseCooldownMarkers_RestartFailure(t *testing.T) {
+	text := "[COOLDOWN:restart:caddy] failure — Container failed to start"
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].ActionType != "restart" {
+		t.Errorf("ActionType = %q, want %q", got[0].ActionType, "restart")
+	}
+	if got[0].Service != "caddy" {
+		t.Errorf("Service = %q, want %q", got[0].Service, "caddy")
+	}
+	if got[0].Success {
+		t.Error("Success = true, want false")
+	}
+	if got[0].Message != "Container failed to start" {
+		t.Errorf("Message = %q", got[0].Message)
+	}
+}
+
+func TestParseCooldownMarkers_RedeploymentSuccess(t *testing.T) {
+	text := "[COOLDOWN:redeployment:postgres] success — Full redeployment via Ansible completed"
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].ActionType != "redeployment" {
+		t.Errorf("ActionType = %q, want %q", got[0].ActionType, "redeployment")
+	}
+	if !got[0].Success {
+		t.Error("Success = false, want true")
+	}
+}
+
+func TestParseCooldownMarkers_RedeploymentFailure(t *testing.T) {
+	text := "[COOLDOWN:redeployment:redis] failure — Ansible playbook failed with exit code 2"
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].ActionType != "redeployment" {
+		t.Errorf("ActionType = %q, want %q", got[0].ActionType, "redeployment")
+	}
+	if got[0].Success {
+		t.Error("Success = true, want false")
+	}
+	if got[0].Message != "Ansible playbook failed with exit code 2" {
+		t.Errorf("Message = %q", got[0].Message)
+	}
+}
+
+func TestParseCooldownMarkers_EmDashSeparator(t *testing.T) {
+	text := "[COOLDOWN:restart:jellyfin] success\u2014Container restarted" // em-dash U+2014
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker with em-dash, got %d", len(got))
+	}
+	if !got[0].Success {
+		t.Error("expected success=true with em-dash separator")
+	}
+	if got[0].Message != "Container restarted" {
+		t.Errorf("Message = %q", got[0].Message)
+	}
+}
+
+func TestParseCooldownMarkers_EnDashSeparator(t *testing.T) {
+	text := "[COOLDOWN:restart:jellyfin] success\u2013Container restarted" // en-dash U+2013
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker with en-dash, got %d", len(got))
+	}
+	if !got[0].Success {
+		t.Error("expected success=true with en-dash separator")
+	}
+}
+
+func TestParseCooldownMarkers_HyphenSeparator(t *testing.T) {
+	text := "[COOLDOWN:restart:jellyfin] success - Container restarted"
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker with hyphen, got %d", len(got))
+	}
+	if !got[0].Success {
+		t.Error("expected success=true with hyphen separator")
+	}
+}
+
+func TestParseCooldownMarkers_ServiceWithHyphen(t *testing.T) {
+	text := "[COOLDOWN:restart:adguard-home] success — Restarted after DNS failure"
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].Service != "adguard-home" {
+		t.Errorf("Service = %q, want %q", got[0].Service, "adguard-home")
+	}
+}
+
+func TestParseCooldownMarkers_ServiceWithUnderscore(t *testing.T) {
+	text := "[COOLDOWN:restart:my_service] success — OK"
+	got := parseCooldownMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d", len(got))
+	}
+	if got[0].Service != "my_service" {
+		t.Errorf("Service = %q, want %q", got[0].Service, "my_service")
+	}
+}
+
+func TestParseCooldownMarkers_MultipleMarkers(t *testing.T) {
+	text := `Some context text
+[COOLDOWN:restart:jellyfin] success — Container restarted
+[COOLDOWN:restart:caddy] failure — Timed out waiting for health check
+More text`
+	got := parseCooldownMarkers(text)
+	if len(got) != 2 {
+		t.Fatalf("expected 2 markers, got %d", len(got))
+	}
+	if got[0].Service != "jellyfin" || !got[0].Success {
+		t.Errorf("first marker: service=%q, success=%v", got[0].Service, got[0].Success)
+	}
+	if got[1].Service != "caddy" || got[1].Success {
+		t.Errorf("second marker: service=%q, success=%v", got[1].Service, got[1].Success)
+	}
+}
+
+func TestParseCooldownMarkers_Invalid(t *testing.T) {
+	cases := []struct {
+		name string
+		text string
+	}{
+		{"invalid action", "[COOLDOWN:delete:jellyfin] success — removed"},
+		{"missing service", "[COOLDOWN:restart] success — did something"},
+		{"missing result", "[COOLDOWN:restart:jellyfin] Container restarted"},
+		{"missing message", "[COOLDOWN:restart:jellyfin] success —"},
+		{"empty text", ""},
+		{"wrong prefix", "[EVENT:info] not a cooldown"},
+		{"no brackets", "COOLDOWN:restart:jellyfin success — test"},
+		{"uppercase action", "[COOLDOWN:RESTART:jellyfin] success — test"},
+		{"missing dash separator", "[COOLDOWN:restart:jellyfin] success Container restarted"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseCooldownMarkers(tc.text)
+			if len(got) != 0 {
+				t.Errorf("expected 0 markers for %q, got %d", tc.text, len(got))
+			}
+		})
+	}
+}
+
+func TestParseCooldownMarkers_MixedWithEventAndMemory(t *testing.T) {
+	text := `[EVENT:info:jellyfin] Service was unhealthy
+[COOLDOWN:restart:jellyfin] success — Container restarted and healthy
+[MEMORY:timing:jellyfin] Takes 60s to start after restart`
+
+	cooldowns := parseCooldownMarkers(text)
+	events := parseEventMarkers(text)
+	memories := parseMemoryMarkers(text)
+
+	if len(cooldowns) != 1 {
+		t.Errorf("expected 1 cooldown, got %d", len(cooldowns))
+	}
+	if len(events) != 1 {
+		t.Errorf("expected 1 event, got %d", len(events))
+	}
+	if len(memories) != 1 {
+		t.Errorf("expected 1 memory, got %d", len(memories))
+	}
+}
+
+func TestParseCooldownMarkers_SpacingAroundDash(t *testing.T) {
+	// Various spacing around the dash separator.
+	cases := []struct {
+		name string
+		text string
+	}{
+		{"space-dash-space", "[COOLDOWN:restart:svc] success - msg"},
+		{"space-emdash-space", "[COOLDOWN:restart:svc] success \u2014 msg"},
+		{"no-space-emdash-no-space", "[COOLDOWN:restart:svc] success\u2014msg"},
+		{"space-emdash-no-space", "[COOLDOWN:restart:svc] success \u2014msg"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseCooldownMarkers(tc.text)
+			if len(got) != 1 {
+				t.Fatalf("expected 1 marker for %q, got %d", tc.text, len(got))
+			}
+			if got[0].Message != "msg" {
+				t.Errorf("Message = %q, want %q", got[0].Message, "msg")
+			}
+		})
 	}
 }

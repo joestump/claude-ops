@@ -356,6 +356,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 							for _, pm := range parseMemoryMarkers(block.Text) {
 								m.upsertMemory(sessionID, tier, pm)
 							}
+							for _, pc := range parseCooldownMarkers(block.Text) {
+								m.insertCooldown(sessionID, tier, pc)
+							}
 						}
 					}
 				}
@@ -746,28 +749,41 @@ func htmlEscape(s string) string {
 	return s
 }
 
-// eventMarkerRe matches [EVENT:level] or [EVENT:level:service] markers in assistant text.
-var eventMarkerRe = regexp.MustCompile(`\[EVENT:(info|warning|critical)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+// --- Generic marker parsing ---
 
-// parseEventMarkers scans text for event markers and returns parsed events.
-func parseEventMarkers(text string) []parsedEvent {
-	var events []parsedEvent
+// markerMatch holds the captured groups from a marker regex match.
+// Every marker regex is expected to have 3 capture groups:
+//   group 1: primary field (level, category, action_type)
+//   group 2: optional service name (may be empty)
+//   group 3: trailing text (message, observation, result+message)
+type markerMatch struct {
+	Field1  string
+	Service string // empty when not present
+	Tail    string
+}
+
+// parseMarkers scans text line-by-line for regex matches and returns the
+// captured groups. The regex MUST have exactly 3 capture groups.
+func parseMarkers(re *regexp.Regexp, text string) []markerMatch {
+	var results []markerMatch
 	for _, line := range strings.Split(text, "\n") {
-		matches := eventMarkerRe.FindStringSubmatch(strings.TrimSpace(line))
+		matches := re.FindStringSubmatch(strings.TrimSpace(line))
 		if matches == nil {
 			continue
 		}
-		e := parsedEvent{
-			Level:   matches[1],
-			Message: matches[3],
-		}
-		if matches[2] != "" {
-			e.Service = &matches[2]
-		}
-		events = append(events, e)
+		results = append(results, markerMatch{
+			Field1:  matches[1],
+			Service: matches[2],
+			Tail:    matches[3],
+		})
 	}
-	return events
+	return results
 }
+
+// --- Event markers ---
+
+// eventMarkerRe matches [EVENT:level] or [EVENT:level:service] markers in assistant text.
+var eventMarkerRe = regexp.MustCompile(`\[EVENT:(info|warning|critical)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
 
 type parsedEvent struct {
 	Level   string
@@ -775,33 +791,79 @@ type parsedEvent struct {
 	Message string
 }
 
+// parseEventMarkers scans text for event markers and returns parsed events.
+func parseEventMarkers(text string) []parsedEvent {
+	var events []parsedEvent
+	for _, mm := range parseMarkers(eventMarkerRe, text) {
+		e := parsedEvent{
+			Level:   mm.Field1,
+			Message: mm.Tail,
+		}
+		if mm.Service != "" {
+			svc := mm.Service
+			e.Service = &svc
+		}
+		events = append(events, e)
+	}
+	return events
+}
+
+// --- Memory markers ---
+
 // memoryMarkerRe matches [MEMORY:category] or [MEMORY:category:service] markers in assistant text.
 var memoryMarkerRe = regexp.MustCompile(`\[MEMORY:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+
+type parsedMemory struct {
+	Category    string
+	Service     *string
+	Observation string
+}
 
 // parseMemoryMarkers scans text for memory markers and returns parsed memories.
 func parseMemoryMarkers(text string) []parsedMemory {
 	var memories []parsedMemory
-	for _, line := range strings.Split(text, "\n") {
-		matches := memoryMarkerRe.FindStringSubmatch(strings.TrimSpace(line))
-		if matches == nil {
-			continue
-		}
+	for _, mm := range parseMarkers(memoryMarkerRe, text) {
 		pm := parsedMemory{
-			Category:    matches[1],
-			Observation: matches[3],
+			Category:    mm.Field1,
+			Observation: mm.Tail,
 		}
-		if matches[2] != "" {
-			pm.Service = &matches[2]
+		if mm.Service != "" {
+			svc := mm.Service
+			pm.Service = &svc
 		}
 		memories = append(memories, pm)
 	}
 	return memories
 }
 
-type parsedMemory struct {
-	Category    string
-	Service     *string
-	Observation string
+// --- Cooldown markers ---
+
+// cooldownMarkerRe matches [COOLDOWN:action_type:service] result — message markers in assistant text.
+var cooldownMarkerRe = regexp.MustCompile(`\[COOLDOWN:(restart|redeployment):([a-zA-Z0-9_-]+)\]\s*(success|failure)\s*[—–-]\s*(.+)`)
+
+type parsedCooldown struct {
+	ActionType string
+	Service    string
+	Success    bool
+	Message    string
+}
+
+// parseCooldownMarkers scans text for cooldown markers and returns parsed cooldowns.
+func parseCooldownMarkers(text string) []parsedCooldown {
+	var cooldowns []parsedCooldown
+	for _, line := range strings.Split(text, "\n") {
+		matches := cooldownMarkerRe.FindStringSubmatch(strings.TrimSpace(line))
+		if matches == nil {
+			continue
+		}
+		cooldowns = append(cooldowns, parsedCooldown{
+			ActionType: matches[1],
+			Service:    matches[2],
+			Success:    matches[3] == "success",
+			Message:    matches[4],
+		})
+	}
+	return cooldowns
 }
 
 // WrapLogLine wraps formatted HTML content with a line number, timestamp, and anchor.
@@ -926,6 +988,28 @@ func (m *Manager) upsertMemory(sessionID int64, tier int, pm parsedMemory) {
 	}
 	if _, err := m.db.InsertMemory(mem); err != nil {
 		fmt.Fprintf(os.Stderr, "insert memory: %v\n", err)
+	}
+}
+
+// insertCooldown records a parsed cooldown marker as a CooldownAction in the database.
+func (m *Manager) insertCooldown(sessionID int64, tier int, pc parsedCooldown) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	var errMsg *string
+	if !pc.Success {
+		msg := pc.Message
+		errMsg = &msg
+	}
+	a := &db.CooldownAction{
+		Service:    pc.Service,
+		ActionType: pc.ActionType,
+		Timestamp:  now,
+		Success:    pc.Success,
+		Tier:       tier,
+		Error:      errMsg,
+		SessionID:  &sessionID,
+	}
+	if _, err := m.db.InsertCooldownAction(a); err != nil {
+		fmt.Fprintf(os.Stderr, "insert cooldown action: %v\n", err)
 	}
 }
 

@@ -47,6 +47,31 @@ Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` before taki
 - Increment redeploy count and update `last_redeploy` after each redeployment
 - May also restart containers (same 2-per-4h limit applies)
 
+## Cooldown Markers
+
+After every remediation attempt, emit a cooldown marker on its own line so the dashboard can track it. The marker is parsed automatically and stored in the database.
+
+### Format
+
+```
+[COOLDOWN:restart:service-name] success — Restarted container, now healthy
+[COOLDOWN:restart:service-name] failure — Restarted but still unhealthy
+[COOLDOWN:redeployment:service-name] success — Ansible redeploy completed, service recovered
+[COOLDOWN:redeployment:service-name] failure — Redeploy failed, OOM kill persists
+```
+
+- **Action type**: `restart` or `redeployment`
+- **Service name**: alphanumeric, hyphens, underscores (e.g. `jellyfin`, `adguard-home`)
+- **Result**: `success` or `failure`
+- **Message**: free-text description after the dash separator (`—`, `–`, or `-`)
+
+### When to Emit
+
+- After every `docker restart` attempt
+- After every `docker compose up -d` attempt
+- After every Ansible playbook or Helm upgrade
+- Always include the outcome and a brief explanation
+
 ## When Cooldown is Exceeded
 
 - Do NOT retry the remediation

@@ -20,6 +20,8 @@
     --red-bg:     #FBEEEE;
     --blue:       #5B7EA1;
     --blue-bg:    #EEF3F8;
+    --teal:       #4A9E8E;
+    --teal-bg:    #ECF6F3;
 
     --terminal-bg:   #1A1A2E;
     --terminal-text: #D4D4D8;
@@ -186,6 +188,11 @@
 .level-memory {
     background-color: var(--blue-bg);
     color: var(--blue);
+}
+
+.level-cooldown {
+    background-color: var(--teal-bg);
+    color: var(--teal);
 }
 
 /* ---- Terminal output ---- */

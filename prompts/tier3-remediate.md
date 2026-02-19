@@ -143,6 +143,15 @@ Read and follow `/app/skills/events.md` for event marker format and guidelines.
 
 Read and follow `/app/skills/memories.md` for memory marker format, categories, and guidelines.
 
+## Cooldown Tracking
+
+After every remediation attempt (restart, redeployment, Ansible playbook, Helm upgrade), emit a `[COOLDOWN:...]` marker so the dashboard can track it. Read `/app/skills/cooldowns.md` for the full format. Example:
+
+```
+[COOLDOWN:redeployment:jellyfin] success — Ansible redeploy completed, service recovered
+[COOLDOWN:restart:postgres] failure — Restarted but connection refused persists
+```
+
 ## Step 5: Report
 
 ALWAYS send a detailed report via Apprise, regardless of outcome.

@@ -27,6 +27,10 @@ var eventBadgeRe = regexp.MustCompile(`\[EVENT:(info|warning|critical)(?::([a-zA
 // memoryBadgeRe matches [MEMORY:category] and [MEMORY:category:service] markers in rendered HTML.
 var memoryBadgeRe = regexp.MustCompile(`\[MEMORY:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*([^\[<]+)`)
 
+// cooldownBadgeRe matches [COOLDOWN:action:service] result — message markers in rendered HTML.
+// action is "restart" or "redeployment", service is required, result is "success" or "failure".
+var cooldownBadgeRe = regexp.MustCompile(`\[COOLDOWN:(restart|redeployment):([a-zA-Z0-9_-]+)\]\s*(success|failure)\s*[—–-]\s*([^\[<]+)`)
+
 //go:embed templates/*.html
 var templateFS embed.FS
 
@@ -204,6 +208,19 @@ func (s *Server) parseTemplates() {
 					badge += ` <span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">` + template.HTMLEscapeString(service) + `</span>`
 				}
 				return `<div class="badge-line">` + badge + ` ` + msg + `</div>`
+			})
+			// Replace [COOLDOWN:action:service] markers with cooldown badges.
+			html = cooldownBadgeRe.ReplaceAllStringFunc(html, func(match string) string {
+				m := cooldownBadgeRe.FindStringSubmatch(match)
+				action, service, result, msg := m[1], m[2], m[3], m[4]
+				cls := "level-cooldown"
+				if result == "failure" {
+					cls = "level-critical"
+				}
+				badge := `<span class="badge-pill ` + cls + `">` + template.HTMLEscapeString(action) + `</span>`
+				badge += ` <span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">` + template.HTMLEscapeString(service) + `</span>`
+				resultBadge := `<span class="badge-pill ` + cls + ` text-xs">` + result + `</span>`
+				return `<div class="badge-line">` + badge + ` ` + resultBadge + ` ` + msg + `</div>`
 			})
 			return template.HTML(html)
 		},

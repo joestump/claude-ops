@@ -924,3 +924,261 @@ func TestStandaloneSessionNoChainIndicator(t *testing.T) {
 		t.Error("standalone session should not show indent arrow")
 	}
 }
+
+// ---------------------------------------------------------------------------
+// Cooldown badge rendering in markdown
+// ---------------------------------------------------------------------------
+
+func TestCooldownBadgeRendersInMarkdown(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	md := "## Report\n\n[COOLDOWN:restart:jellyfin] success — Container restarted and healthy\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.01, 2, 5000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Badge should be rendered with level-cooldown class.
+	if !strings.Contains(body, "level-cooldown") {
+		t.Error("expected level-cooldown class in rendered cooldown badge")
+	}
+	// Action should appear as badge text.
+	if !strings.Contains(body, "restart") {
+		t.Error("expected 'restart' action in cooldown badge")
+	}
+	// Service should appear as a service tag.
+	if !strings.Contains(body, "jellyfin") {
+		t.Error("expected 'jellyfin' service in cooldown badge")
+	}
+	// Success result badge should appear.
+	if !strings.Contains(body, "success") {
+		t.Error("expected 'success' result badge")
+	}
+	// Message should appear.
+	if !strings.Contains(body, "Container restarted and healthy") {
+		t.Error("expected message text in cooldown badge")
+	}
+	// Raw marker should NOT appear.
+	if strings.Contains(body, "[COOLDOWN:") {
+		t.Error("raw [COOLDOWN:...] marker should not appear in rendered output")
+	}
+}
+
+func TestCooldownBadgeRedeploymentAction(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	md := "[COOLDOWN:redeployment:caddy] success — Full redeployment via Ansible\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.05, 5, 30000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	if !strings.Contains(body, "level-cooldown") {
+		t.Error("expected level-cooldown class for redeployment badge")
+	}
+	if !strings.Contains(body, "redeployment") {
+		t.Error("expected 'redeployment' action in badge")
+	}
+	if !strings.Contains(body, "caddy") {
+		t.Error("expected 'caddy' service in badge")
+	}
+}
+
+func TestCooldownBadgeFailureUsesRedStyling(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	md := "[COOLDOWN:restart:postgres] failure — Container failed health check\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.01, 1, 3000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	// Failure badges should use level-critical (red) instead of level-cooldown (teal).
+	if !strings.Contains(body, "level-critical") {
+		t.Error("failure cooldown badge should use level-critical class")
+	}
+	if !strings.Contains(body, "failure") {
+		t.Error("expected 'failure' result in badge")
+	}
+	if !strings.Contains(body, "Container failed health check") {
+		t.Error("expected failure message text")
+	}
+}
+
+func TestCooldownBadgeMultipleInResponse(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	md := "## Recovery\n\n[COOLDOWN:restart:jellyfin] success — Restarted container\n\n[COOLDOWN:restart:caddy] failure — Timed out\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.02, 3, 8000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	// Both services should render.
+	if !strings.Contains(body, "jellyfin") {
+		t.Error("expected jellyfin cooldown badge")
+	}
+	if !strings.Contains(body, "caddy") {
+		t.Error("expected caddy cooldown badge")
+	}
+
+	// Success badge should use level-cooldown, failure should use level-critical.
+	if !strings.Contains(body, "level-cooldown") {
+		t.Error("expected level-cooldown for success badge")
+	}
+	if !strings.Contains(body, "level-critical") {
+		t.Error("expected level-critical for failure badge")
+	}
+}
+
+func TestCooldownBadgeServiceWithHyphen(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	md := "[COOLDOWN:restart:adguard-home] success — Restarted after DNS failure\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.01, 1, 2000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	if !strings.Contains(body, "adguard-home") {
+		t.Error("expected hyphenated service name in cooldown badge")
+	}
+	if !strings.Contains(body, "level-cooldown") {
+		t.Error("expected level-cooldown class")
+	}
+}
+
+func TestCooldownBadgeCoexistsWithEventAndMemory(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	md := "[EVENT:info:jellyfin] Service was unhealthy\n\n[COOLDOWN:restart:jellyfin] success — Container restarted\n\n[MEMORY:timing:jellyfin] Takes 60s to start after restart\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.03, 4, 15000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	// All three badge types should render.
+	if !strings.Contains(body, "level-info") {
+		t.Error("expected event badge with level-info")
+	}
+	if !strings.Contains(body, "level-cooldown") {
+		t.Error("expected cooldown badge with level-cooldown")
+	}
+	if !strings.Contains(body, "level-memory") {
+		t.Error("expected memory badge with level-memory")
+	}
+
+	// No raw markers should remain.
+	if strings.Contains(body, "[EVENT:") {
+		t.Error("raw [EVENT:...] marker should not appear")
+	}
+	if strings.Contains(body, "[COOLDOWN:") {
+		t.Error("raw [COOLDOWN:...] marker should not appear")
+	}
+	if strings.Contains(body, "[MEMORY:") {
+		t.Error("raw [MEMORY:...] marker should not appear")
+	}
+}
+
+func TestCooldownBadgeInvalidActionNotRendered(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	// "delete" is not a valid cooldown action — should NOT be converted to a badge.
+	md := "[COOLDOWN:delete:jellyfin] success — Deleted container\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.01, 1, 1000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	if strings.Contains(body, "level-cooldown") {
+		t.Error("invalid action 'delete' should not produce a cooldown badge")
+	}
+}
+
+func TestCooldownBadgeMissingServiceNotRendered(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	// No service field — cooldown markers require a service.
+	md := "[COOLDOWN:restart] success — Restarted something\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.01, 1, 1000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	if strings.Contains(body, "level-cooldown") {
+		t.Error("cooldown marker without service should not produce a badge")
+	}
+}
+
+func TestCooldownBadgeMissingResultNotRendered(t *testing.T) {
+	e := newTestEnv(t)
+	id := insertTestSession(t, e, "completed")
+
+	// No success/failure result — should not match.
+	md := "[COOLDOWN:restart:jellyfin] Container restarted\n"
+	if err := e.srv.db.UpdateSessionResult(id, md, 0.01, 1, 1000); err != nil {
+		t.Fatalf("update session result: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", fmt.Sprintf("/sessions/%d", id), nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	body := w.Body.String()
+
+	if strings.Contains(body, "level-cooldown") {
+		t.Error("cooldown marker without success/failure result should not produce a badge")
+	}
+}
