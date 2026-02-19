@@ -2,11 +2,12 @@
  * Docusaurus plugin that syncs ADRs and OpenSpec specs from the project's
  * canonical source directories into the website docs tree at build time.
  *
- * Source:  docs/adrs/ADR-XXXX-*.md           → website/docs/adrs/adr-XXXX.md
- * Source:  docs/openspec/specs/{name}/spec.md → website/docs/specs/{name}.md
- *          docs/openspec/specs/{name}/design.md   (appended after ---)
+ * Source:  docs/adrs/ADR-XXXX-*.md             → website/docs/adrs/adr-XXXX.md
+ * Source:  docs/openspec/specs/{name}/spec.md   → website/docs/specs/{name}/spec.md
+ *          docs/openspec/specs/{name}/design.md → website/docs/specs/{name}/design.md
  *
- * Index files (index.md) for both sections are auto-generated.
+ * Each spec gets an expandable sidebar category with separate Spec and Design pages.
+ * Index files for both sections are auto-generated.
  * Generated files are .gitignored — only this plugin is committed.
  */
 
@@ -130,32 +131,55 @@ function syncSpecs(siteDir) {
     const label = deriveSidebarLabel(specTitle);
     const strippedSpec = stripFrontmatter(specContent);
 
-    let combined = strippedSpec;
-    if (fs.existsSync(designPath)) {
-      const designContent = fs.readFileSync(designPath, 'utf-8');
-      const strippedDesign = stripFrontmatter(designContent);
-      combined = strippedSpec.trimEnd() + '\n\n---\n\n' + strippedDesign;
-    }
-
     position++;
-    const destFile = `${dir}.md`;
+    const specDestDir = path.join(destDir, dir);
+    fs.mkdirSync(specDestDir, {recursive: true});
 
-    const output = [
+    // _category_.json controls the expandable sidebar category
+    fs.writeFileSync(path.join(specDestDir, '_category_.json'), JSON.stringify({
+      label,
+      position,
+      collapsible: true,
+      collapsed: true,
+    }, null, 2));
+
+    // spec.md — the requirements document
+    const specOutput = [
       '---',
-      `sidebar_position: ${position}`,
-      `sidebar_label: "${label}"`,
+      'sidebar_position: 1',
+      'sidebar_label: Specification',
       '---',
       '',
-      combined,
+      strippedSpec,
     ].join('\n');
+    fs.writeFileSync(path.join(specDestDir, 'spec.md'), specOutput);
 
-    fs.writeFileSync(path.join(destDir, destFile), output);
-    entries.push({dir, label, destFile: dir});
+    // design.md — the architecture/design document (if it exists)
+    const hasDesign = fs.existsSync(designPath);
+    if (hasDesign) {
+      const designContent = fs.readFileSync(designPath, 'utf-8');
+      const strippedDesign = stripFrontmatter(designContent);
+      const designOutput = [
+        '---',
+        'sidebar_position: 2',
+        'sidebar_label: Design',
+        '---',
+        '',
+        strippedDesign,
+      ].join('\n');
+      fs.writeFileSync(path.join(specDestDir, 'design.md'), designOutput);
+    }
+
+    entries.push({dir, label, hasDesign});
   }
 
-  // Generate index.md
+  // Generate top-level index.md
   const indexRows = entries
-    .map(e => `| [${e.label}](${e.destFile}) | ${e.label} |`)
+    .map(e => {
+      const specLink = `[Spec](${e.dir}/spec)`;
+      const designLink = e.hasDesign ? ` / [Design](${e.dir}/design)` : '';
+      return `| ${e.label} | ${specLink}${designLink} |`;
+    })
     .join('\n');
 
   const index = [
@@ -168,8 +192,8 @@ function syncSpecs(siteDir) {
     '',
     'OpenSpec specifications define the detailed requirements and design for each component of Claude Ops. Each spec includes an RFC 2119 requirements document and an architecture design document.',
     '',
-    '| Spec | Component |',
-    '|------|-----------|',
+    '| Component | Documents |',
+    '|-----------|-----------|',
     indexRows,
     '',
   ].join('\n');
