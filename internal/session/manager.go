@@ -376,15 +376,13 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		}
 	}()
 
-	// Wait for the process to finish.
-	done := make(chan error, 1)
-	go func() {
-		done <- waitFn()
-	}()
-
+	// Wait for all stdout to be consumed BEFORE calling cmd.Wait().
+	// cmd.Wait() closes the stdout pipe; calling it first can discard
+	// buffered data (including the result event with cost/turns metadata).
 	select {
-	case err := <-done:
-		<-streamDone // ensure all output is parsed before finalizing
+	case <-streamDone:
+		// Pipe fully drained — now safe to call Wait.
+		err := waitFn()
 		runEnd := time.Now().UTC().Format(time.RFC3339)
 		fmt.Printf("[%s] Tier %d run complete.\n", runEnd, tier)
 
@@ -401,7 +399,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		m.finalizeSession(sessionID, status, &exitCode, &logPath)
 
 		// Store the final response and metadata from the result event.
-		if resultResponse != "" {
+		if resultResponse != "" || resultCostUSD > 0 || resultNumTurns > 0 {
 			if dbErr := m.db.UpdateSessionResult(sessionID, resultResponse, resultCostUSD, resultNumTurns, resultDurationMs); dbErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to store session result %d: %v\n", sessionID, dbErr)
 			}

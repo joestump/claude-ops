@@ -145,6 +145,20 @@ func (s *Server) parseTemplates() {
 				return "dot-unknown"
 			}
 		},
+		"statusText": func(status string) string {
+			switch status {
+			case "healthy", "completed":
+				return "text-green"
+			case "degraded", "escalated":
+				return "text-yellow"
+			case "down", "failed", "timed_out":
+				return "text-red"
+			case "running":
+				return "text-blue"
+			default:
+				return "text-muted"
+			}
+		},
 		"tierLabel": func(tier int) string {
 			switch tier {
 			case 1:
@@ -241,6 +255,16 @@ func (s *Server) parseTemplates() {
 				return "--"
 			}
 			return fmt.Sprintf("$%.4f", *p)
+		},
+		"chainCostDiffers": func(chainCost float64, costUSD *float64) bool {
+			if costUSD == nil {
+				return chainCost > 0
+			}
+			diff := chainCost - *costUSD
+			if diff < 0 {
+				diff = -diff
+			}
+			return diff > 0.0001
 		},
 		"fmtFloat": func(v float64) string {
 			return fmt.Sprintf("$%.4f", v)

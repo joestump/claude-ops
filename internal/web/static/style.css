@@ -375,12 +375,24 @@
     background-color: var(--accent-hover);
 }
 
+/* ---- Status text color utilities ---- */
+.text-green  { color: var(--green); }
+.text-yellow { color: var(--yellow); }
+.text-red    { color: var(--red); }
+.text-blue   { color: var(--blue); }
+
 /* ---- Escalation chain borders ---- */
 .chain-dot-healthy  { border-left: 3px solid var(--green); }
 .chain-dot-degraded { border-left: 3px solid var(--yellow); }
 .chain-dot-down     { border-left: 3px solid var(--red); }
 .chain-dot-running  { border-left: 3px solid var(--blue); }
 .chain-dot-unknown  { border-left: 3px solid var(--muted); }
+
+.chain-dot-healthy > td:first-child,
+.chain-dot-degraded > td:first-child,
+.chain-dot-down > td:first-child,
+.chain-dot-running > td:first-child,
+.chain-dot-unknown > td:first-child { padding-left: 0.5rem; }
 
 /* ---- Table tweaks ---- */
 table {

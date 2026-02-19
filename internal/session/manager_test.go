@@ -2,9 +2,12 @@ package session
 
 import (
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -315,5 +318,197 @@ func TestResultsDirUsed(t *testing.T) {
 	}
 	if !found {
 		t.Error("log file not created in custom results dir")
+	}
+}
+
+// pipeRunner uses os.Pipe to simulate the real CLI subprocess pipe behavior.
+// The Wait function closes the read end of the pipe (matching exec.Cmd.Wait
+// behavior), which in the past caused a race condition where the result event
+// was lost if Wait closed the pipe before the scanner read the last line.
+type pipeRunner struct {
+	events    []string
+	resultIdx int // index of the result event (-1 if none)
+
+	// mu guards waitCalled so the test can verify ordering.
+	mu         sync.Mutex
+	waitCalled bool
+}
+
+func (p *pipeRunner) Start(_ context.Context, _ string, _ string, _ string, _ string) (io.ReadCloser, func() error, error) {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	writerDone := make(chan struct{})
+	go func() {
+		defer close(writerDone)
+		for i, event := range p.events {
+			// Add a yield gap before the result event to widen the race window.
+			// Without the pipe-drain-before-Wait fix, this gap allows Wait()
+			// to close the pipe before the scanner reads the result.
+			if i == p.resultIdx {
+				time.Sleep(5 * time.Millisecond)
+			}
+			_, _ = fmt.Fprintln(pw, event)
+		}
+		_ = pw.Close()
+	}()
+
+	waitFn := func() error {
+		<-writerDone // block until "process" finishes writing
+		p.mu.Lock()
+		p.waitCalled = true
+		p.mu.Unlock()
+		// Simulate exec.Cmd.Wait closing the read end of stdout pipe.
+		// This is what caused the original bug: if the scanner hadn't
+		// consumed the result event yet, this Close() discarded it.
+		return pr.Close()
+	}
+
+	return pr, waitFn, nil
+}
+
+// TestResultEventCapturedFromPipe verifies that the result event (the last
+// event emitted by the CLI, containing cost/turns/response metadata) is
+// always captured and saved to the database.
+//
+// Regression test for: cmd.Wait() closing the stdout pipe before the scanner
+// goroutine finished reading, causing the result event to be silently lost.
+// The fix ensures the pipe is fully drained before Wait() is called.
+func TestResultEventCapturedFromPipe(t *testing.T) {
+	m, cfg := testManager(t)
+
+	events := []string{
+		`{"type":"system","subtype":"init"}`,
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"Checking services..."}]}}`,
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"All services healthy."}]}}`,
+		`{"type":"result","result":"Health check complete. All 6 services operational.","is_error":false,"total_cost_usd":0.0542,"num_turns":7,"duration_ms":45000}`,
+	}
+
+	runner := &pipeRunner{
+		events:    events,
+		resultIdx: 3, // result is the last event
+	}
+	m.runner = runner
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	err := m.runOnce(ctx, "", "scheduled")
+	if err != nil {
+		t.Fatalf("runOnce: %v", err)
+	}
+
+	// Verify Wait was called (sanity check that the runner worked).
+	runner.mu.Lock()
+	if !runner.waitCalled {
+		t.Error("waitFn was never called")
+	}
+	runner.mu.Unlock()
+
+	// Find the session in the database and check result metadata.
+	sessions, err := m.db.ListSessions(10, 0)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) == 0 {
+		t.Fatal("no sessions in DB after runOnce")
+	}
+
+	sess := sessions[0]
+
+	if sess.CostUSD == nil {
+		t.Fatal("CostUSD is nil — result event was not captured (pipe race regression)")
+	}
+	if *sess.CostUSD < 0.054 || *sess.CostUSD > 0.055 {
+		t.Errorf("CostUSD = %f, want ~0.0542", *sess.CostUSD)
+	}
+
+	if sess.NumTurns == nil || *sess.NumTurns != 7 {
+		t.Errorf("NumTurns = %v, want 7", sess.NumTurns)
+	}
+
+	if sess.DurationMs == nil || *sess.DurationMs != 45000 {
+		t.Errorf("DurationMs = %v, want 45000", sess.DurationMs)
+	}
+
+	if sess.Response == nil || !strings.Contains(*sess.Response, "All 6 services") {
+		t.Errorf("Response not captured; got %v", sess.Response)
+	}
+
+	// Verify the session completed successfully.
+	if sess.Status != "completed" {
+		t.Errorf("Status = %q, want completed", sess.Status)
+	}
+
+	// Verify log file was written and contains the result event.
+	entries, _ := os.ReadDir(cfg.ResultsDir)
+	for _, e := range entries {
+		if !strings.HasPrefix(e.Name(), "run-") || !strings.HasSuffix(e.Name(), ".log") {
+			continue
+		}
+		data, _ := os.ReadFile(filepath.Join(cfg.ResultsDir, e.Name()))
+		if !strings.Contains(string(data), "total_cost_usd") {
+			t.Error("log file should contain the result event JSON")
+		}
+	}
+}
+
+// TestResultEventCapturedUnderContention runs the pipe-drain test multiple
+// times to increase confidence that the result event is never lost, even
+// under goroutine scheduling pressure. Before the fix (draining the pipe
+// before calling Wait), this test would intermittently fail.
+func TestResultEventCapturedUnderContention(t *testing.T) {
+	for i := 0; i < 20; i++ {
+		t.Run(fmt.Sprintf("iteration_%d", i), func(t *testing.T) {
+			t.Parallel()
+
+			cfg := testConfig(t)
+			database, err := db.Open(filepath.Join(cfg.StateDir, "test.db"))
+			if err != nil {
+				t.Fatalf("open test db: %v", err)
+			}
+			t.Cleanup(func() { _ = database.Close() })
+			h := hub.New()
+			m := New(cfg, database, h, &CLIRunner{})
+
+			events := []string{
+				`{"type":"system","subtype":"init"}`,
+				`{"type":"assistant","message":{"content":[{"type":"text","text":"Investigating issue..."}]}}`,
+				`{"type":"result","result":"Fixed.","is_error":false,"total_cost_usd":0.123,"num_turns":4,"duration_ms":8000}`,
+			}
+
+			m.runner = &pipeRunner{
+				events:    events,
+				resultIdx: 2,
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			if err := m.runOnce(ctx, "", "scheduled"); err != nil {
+				t.Fatalf("runOnce: %v", err)
+			}
+
+			sessions, err := m.db.ListSessions(1, 0)
+			if err != nil {
+				t.Fatalf("ListSessions: %v", err)
+			}
+			if len(sessions) == 0 {
+				t.Fatal("no session found")
+			}
+
+			s := sessions[0]
+			if s.CostUSD == nil {
+				t.Fatal("CostUSD is nil — result event lost (pipe race regression)")
+			}
+			if *s.CostUSD < 0.122 || *s.CostUSD > 0.124 {
+				t.Errorf("CostUSD = %f, want ~0.123", *s.CostUSD)
+			}
+			if s.NumTurns == nil || *s.NumTurns != 4 {
+				t.Errorf("NumTurns = %v, want 4", s.NumTurns)
+			}
+		})
 	}
 }

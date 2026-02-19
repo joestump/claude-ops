@@ -24,12 +24,11 @@
                     <tr><td colspan="10" class="py-8 text-center text-sm text-muted">No sessions recorded yet. Sessions will appear after the first health check run or when you trigger one manually with the Run Now button.</td></tr>
                     {{end}}
                     {{range .Sessions}}
-                    <tr class="tbody-row{{if .ChainOutcome}} chain-{{statusDot .ChainOutcome}}{{end}}">
+                    <tr class="tbody-row{{if .ChainOutcome}} chain-{{statusDot .Status}}{{end}}">
                         <td class="py-3 pr-4">
-                            {{if .IsChainTip}}<span class="dot {{statusDot .Status}} mr-1" title="Chain outcome: {{.Status}}"></span>{{end}}
-                            {{if .HasChildren}}<span class="text-xs text-muted mr-1" title="Escalated to tier {{if eq .Tier 1}}2{{else}}3{{end}}">&#x2191;</span>{{end}}
+                            {{if .IsChainTip}}<span class="dot {{statusDot .Status}} mr-1" title="Chain tip: {{.Status}}"></span>{{end}}
+                            {{if .HasChildren}}<span class="text-xs {{statusText .Status}} mr-1" title="Escalated to tier {{if eq .Tier 1}}2{{else}}3{{end}}">&#x2191;</span>{{end}}
                             <a href="/sessions/{{.ID}}" class="text-accent hover:underline font-mono">{{.ID}}</a>
-                            {{if .IsChainRoot}}<span class="text-xs text-muted ml-1" title="Escalation chain root">(chain: {{.ChainLength}})</span>{{end}}
                         </td>
                         <td class="py-3 pr-4 text-muted font-mono text-xs">{{fmtTime .StartedAt}}</td>
                         <td class="py-3 pr-4">
@@ -44,7 +43,7 @@
                             <span class="text-xs {{if eq .Trigger "manual"}}text-accent font-medium{{else}}text-muted{{end}}">{{.Trigger}}</span>
                         </td>
                         <td class="py-3 pr-4 font-mono text-xs text-muted">{{fmtDuration .StartedAt .EndedAt}}</td>
-                        <td class="py-3 pr-4 font-mono text-xs text-muted">{{fmtCost .CostUSD}}{{if and .IsChainRoot (gt .ChainCost 0.0)}} <span class="text-accent" title="Total chain cost">({{fmtFloat .ChainCost}})</span>{{end}}</td>
+                        <td class="py-3 pr-4 font-mono text-xs text-muted">{{fmtCost .CostUSD}}{{if and .IsChainRoot (chainCostDiffers .ChainCost .CostUSD)}} <span class="text-accent" title="Total chain cost">({{fmtFloat .ChainCost}})</span>{{end}}</td>
                         <td class="py-3 pr-4 font-mono text-xs text-muted">{{if .NumTurns}}{{intVal .NumTurns}}{{else}}--{{end}}</td>
                         <td class="py-3 font-mono text-xs">{{intVal .ExitCode}}</td>
                     </tr>

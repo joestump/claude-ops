@@ -680,11 +680,6 @@ func TestSessionsListShowsChainIndicator(t *testing.T) {
 
 	body := w.Body.String()
 
-	// Chain root should show chain indicator.
-	if !strings.Contains(body, "(chain:") {
-		t.Error("chain root should show chain length indicator")
-	}
-
 	// Parent session should show escalation arrow.
 	if !strings.Contains(body, "&#x2191;") {
 		t.Error("parent session should show escalation arrow")
