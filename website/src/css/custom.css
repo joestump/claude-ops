@@ -31,6 +31,14 @@
   --ifm-color-primary-lighter: #F1BCA8;
   --ifm-color-primary-lightest: #F7D3C4;
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
+  --ifm-background-color: #1b1b1d;
+  --ifm-font-color-base: #e3e3e3;
+  --ifm-font-color-secondary: #b0b0b0;
+  --ifm-navbar-background-color: #242526;
+  --ifm-navbar-link-color: #e3e3e3;
+  --ifm-menu-color: #d4d4d4;
+  --ifm-menu-color-active: #E89B78;
+  --ifm-menu-color-background-active: rgba(232, 155, 120, 0.1);
 }
 
 h1, h2, h3, h4, h5, h6 {

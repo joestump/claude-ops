@@ -26,7 +26,7 @@ const config: Config = {
   },
 
   markdown: {
-    format: 'md',
+    format: 'detect',
     mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: 'warn',
@@ -53,6 +53,7 @@ const config: Config = {
   ],
 
   plugins: [
+    require.resolve('./plugins/sync-design-docs'),
     [
       'docusaurus-plugin-openapi-docs',
       {
