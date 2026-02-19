@@ -28,12 +28,16 @@ Read the failure summary provided by Tier 1. For each failed service, note:
 - Error details
 - Current cooldown state
 
+Read the **SSH host access map** from the handoff file. The map tells you which user and method (`root`, `sudo`, `limited`, `unreachable`) to use for each host. If the handoff includes an `ssh_access_map` field, use it directly — do NOT re-probe SSH access. If the map is missing, read `/app/skills/ssh-discovery.md` and run the discovery routine before proceeding.
+
 ## Remote Host Access
 
-**Always use SSH** for all remote host operations:
-```bash
-ssh root@<host> <command>
-```
+**Always use SSH** for all remote host operations. Consult the host access map (from the handoff file) and `/app/skills/ssh-discovery.md` to construct the correct SSH command for each host:
+
+- **`method: root`** → `ssh root@<host> <command>`
+- **`method: sudo`** → `ssh <user>@<host> sudo <command>` for write commands; `ssh <user>@<host> <command>` for read commands (if `can_docker: true`, Docker read commands work without sudo)
+- **`method: limited`** → `ssh <user>@<host> <command>` for read commands only. Write commands (docker restart, systemctl, chown, file edits) MUST NOT be executed — follow the Limited Access Fallback section below.
+- **`method: unreachable`** → Skip all SSH-based checks for this host. Rely on HTTP/DNS checks only.
 
 Do NOT probe for or use alternative remote access methods (Docker TCP API on port 2375, REST APIs, etc.) — SSH is the only authorized remote access protocol. If SSH is not available, report the access issue rather than attempting alternative protocols.
 
@@ -42,9 +46,9 @@ Do NOT probe for or use alternative remote access methods (Docker TCP API on por
 For each failed service, dig deeper:
 
 ### Container issues
-- Read container logs: `ssh root@<host> docker logs --tail 100 <container>`
-- Check resource usage: `ssh root@<host> docker stats --no-stream <container>`
-- Inspect container config: `ssh root@<host> docker inspect <container>`
+- Read container logs: `ssh <user>@<host> docker logs --tail 100 <container>` (use the user and sudo prefix from the host access map)
+- Check resource usage: `ssh <user>@<host> docker stats --no-stream <container>`
+- Inspect container config: `ssh <user>@<host> docker inspect <container>`
 
 ### Application issues
 - Check service-specific logs (paths from inventory/config)
@@ -64,14 +68,14 @@ Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.j
 Apply the appropriate remediation from `/app/playbooks/`. Common patterns:
 
 ### Container restart
-1. `ssh root@<host> docker restart <container>`
+1. Look up the host in the access map. Use the correct SSH user and sudo prefix per `/app/skills/ssh-discovery.md` (e.g., `ssh <user>@<host> sudo docker restart <container>` for sudo hosts, `ssh root@<host> docker restart <container>` for root hosts). If the host has `method: limited`, this remediation CANNOT be executed — follow the Limited Access Fallback below.
 2. Wait 15-30 seconds
 3. Re-run the health check that originally failed
 4. If healthy: update cooldown state (increment restart count, update timestamp)
 5. If still unhealthy: continue to next remediation or escalate
 
 ### Docker Compose up
-1. `ssh root@<host> "cd <compose-dir> && docker compose up -d <service>"`
+1. Use the correct SSH user and sudo prefix from the host access map: `ssh <user>@<host> [sudo] "cd <compose-dir> && docker compose up -d <service>"`. If the host has `method: limited`, follow the Limited Access Fallback below.
 2. Wait for container to be healthy
 3. Verify health check passes
 
@@ -90,6 +94,15 @@ Apply the appropriate remediation from `/app/playbooks/`. Common patterns:
 After each remediation:
 - Update the cooldown state file
 - Verify the fix by re-checking the service
+
+## Limited Access Fallback
+
+When a remediation requires elevated privileges (write commands like `docker restart`, `systemctl`, `chown`, file edits) on a host where the access map shows `method: "limited"`:
+
+1. **PR workflow (preferred)**: If a mounted repo under `/repos/` manages the affected host's infrastructure, and the PR workflow (SPEC-0018) is available, generate a fix and create a pull request proposing the remediation.
+2. **Report for human action**: If PR creation is not possible (no matching repo, no git provider configured, or the change is outside allowed PR scope), report: "Remediation requires root access on `<host>` which is not available. Manual intervention needed." Include the exact command(s) that would fix the issue.
+
+Do NOT skip the issue silently. Do NOT escalate to a higher tier solely because of limited access — a higher tier does not grant more SSH access.
 
 ## Browser Automation
 

@@ -48,6 +48,19 @@ But for **where to reach services** (hostnames, URLs, SSH targets), always prefe
 
 **CRITICAL: All health checks target remote hosts defined in the CLAUDE-OPS.md manifest. You are NOT monitoring the local machine. Do not run `docker ps`, `docker inspect`, or any local container commands unless the CLAUDE-OPS.md manifest explicitly says the services run on localhost. The manifest tells you WHERE services are — check them THERE.**
 
+## Step 2.5: SSH Access Discovery
+
+Before running health checks, discover the SSH access method for each managed host.
+
+1. Read `/app/skills/ssh-discovery.md` for the full procedure
+2. Extract the host list from the CLAUDE-OPS.md manifest's Hosts table
+3. For each host, probe SSH access in order: root, manifest-declared user, common defaults (ubuntu, debian, pi, admin)
+4. For non-root users, detect sudo access and Docker access
+5. Build the host access map (JSON with user, method, can_docker per host)
+6. Log the discovery results for each host
+
+Cache the map for the rest of this cycle. It will be included in the handoff file if escalation is needed.
+
 ## Step 3: Health Checks
 
 Run checks ONLY against the hosts and services discovered from repos. **Never check localhost or the local Docker daemon unless a repo's CLAUDE-OPS.md explicitly defines localhost as a target host.**
@@ -63,7 +76,9 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 
 ### Container State (Remote Only via SSH)
 - **Only if** the repo provides SSH access to the target host
-- **Always use SSH** for remote host access: `ssh root@<host> docker ps`
+- **Use the host access map** (built in Step 2.5) to determine the SSH user and method for each host. See `/app/skills/ssh-discovery.md` for command construction rules.
+- For hosts with `method: "unreachable"`, skip SSH-based checks and rely on HTTP/DNS checks only
+- For hosts with `method: "limited"` and `can_docker: false`, skip container state checks
 - Do NOT probe for or use alternative remote access methods (Docker TCP API on port 2375, REST APIs, etc.) — SSH is the only authorized remote access protocol
 - Do NOT run `docker ps` against the local Docker daemon — that shows containers on YOUR machine, not the monitored infrastructure
 - If SSH is not available (connection refused, host key verification failed), skip container checks and rely on HTTP/DNS checks — do NOT fall back to Docker TCP or other protocols
@@ -128,6 +143,10 @@ If a service requires browser-based investigation, escalate to Tier 2 via the ha
       "response_time_ms": 1250
     }
   ],
+  "ssh_access_map": {
+    "ie01.stump.rocks": { "user": "root", "method": "root", "can_docker": true },
+    "pie01.stump.rocks": { "user": "pi", "method": "sudo", "can_docker": true }
+  },
   "investigation_findings": "",
   "remediation_attempted": ""
 }

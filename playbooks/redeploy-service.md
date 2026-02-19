@@ -14,6 +14,9 @@
 - Check cooldown state: max 1 redeployment per service per 24-hour window
 - Confirm restart was already attempted and failed
 - Identify the deployment method from the mounted repo (Ansible, Docker Compose, Helm)
+- Consult the host access map (from the handoff file) and `/app/skills/ssh-discovery.md` to determine the correct SSH user and command prefix for the target host
+
+**If the host has `method: limited`, this playbook CANNOT be executed.** Follow the limited-access fallback procedure in the tier prompt instead.
 
 ## Ansible Redeployment
 
@@ -38,7 +41,7 @@
 
 ## Docker Compose Redeployment
 
-1. **Locate the compose file**
+1. **Locate the compose file** and use the SSH command from the host access map (e.g., `ssh <user>@<host> [sudo] docker compose ...`):
    ```bash
    docker compose -f <compose-file> down <service>
    docker compose -f <compose-file> pull <service>

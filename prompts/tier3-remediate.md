@@ -30,6 +30,8 @@ Read the investigation findings from Tier 2:
 - Root cause analysis (from Tier 2)
 - What was attempted and why it failed
 
+Read the **SSH host access map** from the handoff file. The map tells you which user and method (`root`, `sudo`, `limited`, `unreachable`) to use for each host. If the handoff includes an `ssh_access_map` field, use it directly — do NOT re-probe SSH access. If the map is missing, read `/app/skills/ssh-discovery.md` and run the discovery routine before proceeding.
+
 ## Step 2: Analyze Root Cause
 
 With the full picture, determine the actual root cause:
@@ -55,10 +57,12 @@ Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.j
 
 ## Remote Host Access
 
-**Always use SSH** for all remote host operations:
-```bash
-ssh root@<host> <command>
-```
+**Always use SSH** for all remote host operations. Consult the host access map (from the handoff file) and `/app/skills/ssh-discovery.md` to construct the correct SSH command for each host:
+
+- **`method: root`** → `ssh root@<host> <command>`
+- **`method: sudo`** → `ssh <user>@<host> sudo <command>` for write commands; `ssh <user>@<host> <command>` for read commands (if `can_docker: true`, Docker read commands work without sudo)
+- **`method: limited`** → `ssh <user>@<host> <command>` for read commands only. Write commands (docker restart, systemctl, chown, file edits) MUST NOT be executed — follow the Limited Access Fallback section below.
+- **`method: unreachable`** → Skip all SSH-based checks for this host. Rely on HTTP/DNS checks only.
 
 Do NOT probe for or use alternative remote access methods (Docker TCP API on port 2375, REST APIs, etc.) — SSH is the only authorized remote access protocol. If SSH is not available, report the access issue rather than attempting alternative protocols.
 
@@ -79,9 +83,10 @@ Do NOT probe for or use alternative remote access methods (Docker TCP API on por
 5. Update cooldown state
 
 ### Container recreation
-1. `ssh root@<host> "cd <compose-dir> && docker compose down <service>"`
-2. `ssh root@<host> "cd <compose-dir> && docker compose pull <service>"`
-3. `ssh root@<host> "cd <compose-dir> && docker compose up -d <service>"`
+Use the correct SSH user and sudo prefix from the host access map (see `/app/skills/ssh-discovery.md`). If the host has `method: limited`, follow the Limited Access Fallback below instead.
+1. `ssh <user>@<host> [sudo] "cd <compose-dir> && docker compose down <service>"`
+2. `ssh <user>@<host> [sudo] "cd <compose-dir> && docker compose pull <service>"`
+3. `ssh <user>@<host> [sudo] "cd <compose-dir> && docker compose up -d <service>"`
 4. Wait for healthy state
 5. Verify health checks pass
 6. Update cooldown state
@@ -102,6 +107,15 @@ Do NOT probe for or use alternative remote access methods (Docker TCP API on por
 4. Attempt a controlled restart
 5. Verify connectivity from dependent services
 6. Check for data integrity issues (but NEVER delete data)
+
+## Limited Access Fallback
+
+When a remediation requires elevated privileges (write commands like `docker restart`, `docker compose`, `systemctl`, `chown`, Ansible playbooks, Helm upgrades) on a host where the access map shows `method: "limited"`:
+
+1. **PR workflow (preferred)**: If a mounted repo under `/repos/` manages the affected host's infrastructure, and the PR workflow (SPEC-0018) is available, generate a fix and create a pull request proposing the remediation.
+2. **Report for human action**: If PR creation is not possible (no matching repo, no git provider configured, or the change is outside allowed PR scope), report: "Remediation requires root access on `<host>` which is not available. Manual intervention needed." Include the exact command(s) that would fix the issue.
+
+Do NOT skip the issue silently. Do NOT escalate further solely because of limited access — a higher tier does not grant more SSH access. This is the terminal tier; if you cannot fix the issue due to limited access, report it via Apprise and include the commands a human would need to run.
 
 ## Browser Automation
 
