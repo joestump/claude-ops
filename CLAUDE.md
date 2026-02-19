@@ -262,7 +262,7 @@ openspec/specs/
 ### Rules
 
 - **ALWAYS write BOTH `spec.md` AND `design.md`** — never one without the other
-- **spec.md** uses RFC numbering: `RFC-XXXX` (sequential, zero-padded to 4 digits)
+- **spec.md** uses SPEC numbering: `SPEC-XXXX` (sequential, zero-padded to 4 digits)
 - **spec.md** MUST express requirements using [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119) keywords: MUST, MUST NOT, SHALL, SHALL NOT, SHOULD, SHOULD NOT, REQUIRED, MAY, OPTIONAL
 - **Scenarios** in spec.md MUST use exactly 4 hashtags (`####`) — using 3 or bullets will fail silently
 - Every requirement MUST have at least one scenario

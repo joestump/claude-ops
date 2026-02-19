@@ -21,6 +21,7 @@ func TestReadHandoffNotExist(t *testing.T) {
 func TestReadHandoffValid(t *testing.T) {
 	dir := t.TempDir()
 	h := Handoff{
+		SchemaVersion:    1,
 		RecommendedTier:  2,
 		ServicesAffected: []string{"caddy", "postgres"},
 		CheckResults: []CheckResult{
@@ -93,35 +94,52 @@ func TestValidateHandoff(t *testing.T) {
 	}{
 		{
 			name:    "valid tier 2",
-			h:       Handoff{RecommendedTier: 2, ServicesAffected: []string{"caddy"}},
+			h:       Handoff{SchemaVersion: 1, RecommendedTier: 2, ServicesAffected: []string{"caddy"}},
 			maxTier: 3,
 		},
 		{
 			name:    "valid tier 3",
-			h:       Handoff{RecommendedTier: 3, ServicesAffected: []string{"postgres"}},
+			h:       Handoff{SchemaVersion: 1, RecommendedTier: 3, ServicesAffected: []string{"postgres"}},
 			maxTier: 3,
 		},
 		{
+			name:    "schema version 0 (missing)",
+			h:       Handoff{SchemaVersion: 0, RecommendedTier: 2, ServicesAffected: []string{"caddy"}},
+			maxTier: 3,
+			wantErr: true,
+		},
+		{
+			name:    "schema version 1 (valid)",
+			h:       Handoff{SchemaVersion: 1, RecommendedTier: 2, ServicesAffected: []string{"caddy"}},
+			maxTier: 3,
+		},
+		{
+			name:    "schema version 2 (unrecognized)",
+			h:       Handoff{SchemaVersion: 2, RecommendedTier: 2, ServicesAffected: []string{"caddy"}},
+			maxTier: 3,
+			wantErr: true,
+		},
+		{
 			name:    "tier too low",
-			h:       Handoff{RecommendedTier: 1, ServicesAffected: []string{"caddy"}},
+			h:       Handoff{SchemaVersion: 1, RecommendedTier: 1, ServicesAffected: []string{"caddy"}},
 			maxTier: 3,
 			wantErr: true,
 		},
 		{
 			name:    "tier too high",
-			h:       Handoff{RecommendedTier: 4, ServicesAffected: []string{"caddy"}},
+			h:       Handoff{SchemaVersion: 1, RecommendedTier: 4, ServicesAffected: []string{"caddy"}},
 			maxTier: 3,
 			wantErr: true,
 		},
 		{
 			name:    "exceeds max tier",
-			h:       Handoff{RecommendedTier: 3, ServicesAffected: []string{"caddy"}},
+			h:       Handoff{SchemaVersion: 1, RecommendedTier: 3, ServicesAffected: []string{"caddy"}},
 			maxTier: 2,
 			wantErr: true,
 		},
 		{
 			name:    "no services",
-			h:       Handoff{RecommendedTier: 2, ServicesAffected: []string{}},
+			h:       Handoff{SchemaVersion: 1, RecommendedTier: 2, ServicesAffected: []string{}},
 			maxTier: 3,
 			wantErr: true,
 		},

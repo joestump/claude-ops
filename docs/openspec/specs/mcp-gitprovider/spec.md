@@ -43,13 +43,21 @@ The `claudeops` binary MUST provide a `mcp-server` subcommand that starts a JSON
 
 ### SPEC-0019-REQ-2: MCP Tool Discovery
 
-The MCP server MUST respond to tool discovery requests (JSON-RPC `tools/list` method) by returning the definitions of three tools: `create_pr`, `list_prs`, and `get_pr_status`. Each tool definition MUST include a name, description, and JSON Schema defining its input parameters.
+The MCP server MUST respond to tool discovery requests (JSON-RPC `tools/list` method) by returning tool definitions for `list_prs` and `get_pr_status` unconditionally. The `create_pr` tool MUST only be included when `CLAUDEOPS_PR_ENABLED` is set to `"true"` in the server's environment. When PR creation is disabled (the default), `tools/list` MUST return exactly two tools. When enabled, it MUST return all three. Each tool definition MUST include a name, description, and JSON Schema defining its input parameters.
 
-#### Scenario: Agent discovers available tools
+#### Scenario: PR creation enabled — all three tools returned
 
 - **WHEN** the Claude Code CLI sends a `tools/list` request to the MCP server
+- **AND** `CLAUDEOPS_PR_ENABLED=true` is set in the server's environment
 - **THEN** the response MUST include exactly three tool definitions: `create_pr`, `list_prs`, and `get_pr_status`
 - **AND** each tool MUST have a human-readable description explaining its purpose
+
+#### Scenario: PR creation disabled (default) — two tools returned
+
+- **WHEN** the Claude Code CLI sends a `tools/list` request to the MCP server
+- **AND** `CLAUDEOPS_PR_ENABLED` is not set or is not `"true"`
+- **THEN** the response MUST include exactly two tool definitions: `list_prs` and `get_pr_status`
+- **AND** the `create_pr` tool MUST NOT appear in the response
 
 #### Scenario: Tool schemas include parameter types
 
@@ -210,7 +218,7 @@ This is defense-in-depth: the agent has Bash access and MAY be able to discover 
 
 ### SPEC-0019-REQ-9: MCP Configuration Registration
 
-The MCP server MUST be registered in the baseline `.claude/mcp.json` alongside the existing Docker, PostgreSQL, Chrome DevTools, and Fetch MCP servers. The registration MUST use `"type": "stdio"`, `"command": "/app/claudeops"`, and `"args": ["mcp-server"]`. The `env` block MUST include `GITHUB_TOKEN`, `GITEA_URL`, `GITEA_TOKEN`, `CLAUDEOPS_TIER`, and `CLAUDEOPS_DRY_RUN`.
+The MCP server MUST be registered in the baseline `.claude/mcp.json` alongside the existing Docker, PostgreSQL, Chrome DevTools, and Fetch MCP servers. The registration MUST use `"type": "stdio"`, `"command": "/app/claudeops"`, and `"args": ["mcp-server"]`. The `env` block MUST include `GITHUB_TOKEN`, `GITEA_URL`, `GITEA_TOKEN`, `CLAUDEOPS_TIER`, `CLAUDEOPS_DRY_RUN`, and `CLAUDEOPS_PR_ENABLED`.
 
 #### Scenario: MCP config includes claudeops server
 
@@ -220,7 +228,7 @@ The MCP server MUST be registered in the baseline `.claude/mcp.json` alongside t
 #### Scenario: Environment variables passed through
 
 - **WHEN** the Claude CLI spawns the `claudeops` MCP server
-- **THEN** the subprocess MUST receive `GITHUB_TOKEN`, `GITEA_URL`, `GITEA_TOKEN`, `CLAUDEOPS_TIER`, and `CLAUDEOPS_DRY_RUN` from the `env` block
+- **THEN** the subprocess MUST receive `GITHUB_TOKEN`, `GITEA_URL`, `GITEA_TOKEN`, `CLAUDEOPS_TIER`, `CLAUDEOPS_DRY_RUN`, and `CLAUDEOPS_PR_ENABLED` from the `env` block
 
 #### Scenario: MCP server coexists with baseline servers
 

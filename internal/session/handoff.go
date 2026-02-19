@@ -12,6 +12,7 @@ import (
 // intervention; the session manager reads it to decide whether (and how)
 // to escalate.
 type Handoff struct {
+	SchemaVersion         int              `json:"schema_version"`
 	RecommendedTier       int              `json:"recommended_tier"`
 	ServicesAffected      []string         `json:"services_affected"`
 	CheckResults          []CheckResult    `json:"check_results"`
@@ -65,6 +66,9 @@ func DeleteHandoff(stateDir string) error {
 // ValidateHandoff checks that the handoff payload is well-formed and that the
 // recommended tier does not exceed maxTier.
 func ValidateHandoff(h *Handoff, maxTier int) error {
+	if h.SchemaVersion != 1 {
+		return fmt.Errorf("unrecognized schema_version %d, expected 1", h.SchemaVersion)
+	}
 	if h.RecommendedTier < 2 || h.RecommendedTier > 3 {
 		return fmt.Errorf("recommended_tier must be 2 or 3, got %d", h.RecommendedTier)
 	}
