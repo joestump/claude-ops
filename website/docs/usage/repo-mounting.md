@@ -8,7 +8,7 @@ Claude Ops discovers infrastructure repos at runtime by scanning a mount directo
 
 ## The `/repos` convention
 
-All infrastructure repos are mounted as subdirectories under a single parent path (default: `/repos`). Each subdirectory is treated as a separate repository.
+All infrastructure repos are mounted as subdirectories under a single parent path (default: `/repos`, configurable via [`CLAUDEOPS_REPOS_DIR`](./configuration#core-settings)). Each subdirectory is treated as a separate repository.
 
 ```
 /repos/
@@ -30,7 +30,9 @@ services:
       - /path/to/your/docker-images:/repos/docker-images:ro
 ```
 
-**Use `:ro` (read-only) by default.** Ansible runs against remote hosts via SSH, not local files. Only mount read-write if Claude genuinely needs write access (rare).
+:::warning Always mount read-only
+Use `:ro` (read-only) by default. Ansible runs against remote hosts via SSH, not local files. Only mount read-write if Claude genuinely needs write access (rare).
+:::
 
 ## The `CLAUDE-OPS.md` manifest
 
@@ -174,11 +176,12 @@ Additional MCP server definitions in `.claude-ops/mcp.json` are merged with the 
 }
 ```
 
-**Merge rules:**
+:::info MCP merge rules
 - Repo MCP servers are added to the baseline set
 - Same-name servers: repo version wins (allows overriding defaults)
 - Configs merge in alphabetical order by repo name
 - Merging happens before each Claude run — new repos are picked up without restart
+:::
 
 ## Discovery process
 
@@ -199,3 +202,7 @@ At the start of each run, Claude:
 3. (Optional) Add `.claude-ops/` extensions
 4. Restart the watchdog container
 5. Claude discovers it on the next run
+
+:::tip
+No need to touch any Claude Ops config files — just mount the repo and optionally add a manifest. Claude picks it up automatically on the next scheduled run.
+:::

@@ -7,15 +7,17 @@ slug: /intro
 
 AI-powered infrastructure monitoring and remediation. Claude Code runs on a schedule, discovers your services, health-checks everything, and fixes what it can — escalating to smarter (more expensive) models only when something is actually broken.
 
+![Claude Ops session detail showing a Tier 2 investigation report](/img/screenshots/claude-ops-sessions-01.png)
+
 ## How It Works
 
 Claude Ops runs as a Docker container. Every 60 minutes (configurable), it:
 
-1. **Discovers** your infrastructure by scanning mounted repos for service definitions
+1. **Discovers** your infrastructure by scanning [mounted repos](./usage/repo-mounting) for service definitions
 2. **Checks** every service — HTTP endpoints, DNS, container state, database health, service-specific APIs
 3. **Escalates** if issues are found, using progressively more capable (and costly) models
 4. **Remediates** within safety guardrails — restarting containers, rotating API keys, redeploying services
-5. **Notifies** you via [Apprise](https://github.com/caronc/apprise) (80+ services: email, ntfy, Slack, Discord, Telegram, etc.)
+5. **Notifies** you via [Apprise](./usage/notifications) (80+ services: email, ntfy, Slack, Discord, Telegram, etc.)
 
 ## Model Escalation
 
@@ -48,7 +50,9 @@ flowchart TD
     RESOLVED -->|No| HUMAN[Notify: needs human attention]
 ```
 
-On a healthy day, you spend ~$1-2 running 24 Haiku checks. Sonnet and Opus tokens are only spent when something is broken.
+:::tip Cost efficiency
+On a healthy day, you spend ~$1-2 running 24 Haiku checks. Sonnet and Opus tokens are only spent when something is broken. See [Model Selection](./usage/configuration#model-selection) for per-tier cost breakdowns.
+:::
 
 ## Key Features
 
@@ -58,11 +62,12 @@ On a healthy day, you spend ~$1-2 running 24 Haiku checks. Sonnet and Opus token
 - **Cooldown safety**: Rate limits on restarts and redeployments
 - **Browser automation**: Optional Chrome sidecar for web UI interactions
 - **Extensible via MCP**: Docker, PostgreSQL, Chrome DevTools, and Fetch MCP servers included
-- **Notifications via Apprise**: 80+ notification services supported
+- **[Notifications via Apprise](./usage/notifications)**: 80+ notification services supported
+- **[Real-time dashboard](./usage/dashboard)**: Track sessions, events, memories, and cooldowns live
 
 ## Configuration
 
-All configuration via environment variables:
+All configuration via environment variables. See the full [Configuration reference](./usage/configuration) for details.
 
 | Variable | Default | Description |
 |----------|---------|-------------|

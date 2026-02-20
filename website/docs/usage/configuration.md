@@ -18,10 +18,10 @@ All configuration is via environment variables. No config files to template.
 |----------|---------|-------------|
 | `CLAUDEOPS_INTERVAL` | `3600` | Seconds between scheduled runs |
 | `CLAUDEOPS_DRY_RUN` | `false` | Observe only, no remediation |
-| `CLAUDEOPS_REPOS_DIR` | `/repos` | Parent directory for mounted repos |
+| `CLAUDEOPS_REPOS_DIR` | `/repos` | Parent directory for [mounted repos](./repo-mounting) |
 | `CLAUDEOPS_STATE_DIR` | `/state` | Persistent state directory (SQLite DB + cooldown JSON) |
 | `CLAUDEOPS_RESULTS_DIR` | `/results` | Session log output directory |
-| `CLAUDEOPS_DASHBOARD_PORT` | `8080` | HTTP port for the web dashboard |
+| `CLAUDEOPS_DASHBOARD_PORT` | `8080` | HTTP port for the [web dashboard](./dashboard) |
 | `CLAUDEOPS_ALLOWED_TOOLS` | `Bash,Read,Grep,Glob,Task,WebFetch` | Claude CLI tools to enable |
 
 ## Model Selection
@@ -33,14 +33,17 @@ Each tier can use a different model. The defaults balance cost and capability:
 | `CLAUDEOPS_TIER1_MODEL` | `haiku` | Health checks (Tier 1) — cheapest, runs every interval |
 | `CLAUDEOPS_TIER2_MODEL` | `sonnet` | Investigation + safe remediation (Tier 2) — on-demand |
 | `CLAUDEOPS_TIER3_MODEL` | `opus` | Full remediation (Tier 3) — on-demand, most capable |
+| `CLAUDEOPS_SUMMARY_MODEL` | `haiku` | Model for generating [TL;DR session summaries](./dashboard#tldr) |
 
 ### Cost implications
+
+:::tip
+On a healthy day, only Tier 1 runs — about $1-2 for 24 Haiku checks. Costs scale with how often things break, not with how many services you monitor.
+:::
 
 - **Tier 1 (Haiku)** runs every interval (~24x/day at default). At ~$0.01-0.05 per run, that's ~$1-2/day.
 - **Tier 2 (Sonnet)** only runs when Tier 1 finds issues. Typical cost: $0.05-0.50 per escalation.
 - **Tier 3 (Opus)** only runs when Tier 2 can't fix the problem. Typical cost: $0.50-5.00 per escalation.
-
-On a healthy day, only Tier 1 runs. Costs scale with how often things break.
 
 ## API Configuration
 
@@ -58,7 +61,9 @@ ANTHROPIC_API_KEY=sk-your-litellm-key
 ANTHROPIC_BASE_URL=https://litellm.example.com
 ```
 
-**Bedrock users:** If your LiteLLM routes to AWS Bedrock, ensure your model deployments use inference profile ARNs (not raw model IDs) and that `drop_params: true` is set to strip unsupported beta headers.
+:::warning Bedrock users
+If your LiteLLM routes to AWS Bedrock, ensure your model deployments use inference profile ARNs (not raw model IDs) and that `drop_params: true` is set to strip unsupported beta headers.
+:::
 
 ## Git Provider / PR Creation
 
@@ -83,7 +88,7 @@ GITHUB_TOKEN=ghp_...
 |----------|---------|-------------|
 | `CLAUDEOPS_APPRISE_URLS` | *(disabled)* | Comma-separated [Apprise URLs](https://github.com/caronc/apprise/wiki) |
 
-See [Notifications](./notifications) for setup details.
+See [Notifications](./notifications) for setup details and common URL formats.
 
 ## Browser Automation
 
@@ -93,6 +98,10 @@ See [Notifications](./notifications) for setup details.
 | `BROWSER_CRED_{SERVICE}_{FIELD}` | *(none)* | Service credentials. `{SERVICE}` = uppercase name, `{FIELD}` = `USER`, `PASS`, `TOKEN`, or `API_KEY` |
 
 Browser automation requires the Chrome sidecar (`docker compose --profile browser up -d`). When `CLAUDEOPS_BROWSER_ALLOWED_ORIGINS` is empty, browser automation is disabled entirely.
+
+:::info
+Credentials are injected into the browser session at runtime — the Claude agent never sees raw passwords or tokens. See the [browser automation docs](https://github.com/joestump/claude-ops/blob/main/docs/browser-automation.md) for the full security model.
+:::
 
 ## Example `.env`
 

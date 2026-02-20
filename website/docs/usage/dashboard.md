@@ -4,11 +4,15 @@ sidebar_position: 5
 
 # Web Dashboard
 
-The web dashboard runs on port 8080 (configurable via `CLAUDEOPS_DASHBOARD_PORT`) and provides real-time visibility into Claude Ops activity.
+:::tip
+The dashboard runs on port 8080 by default. Change it with `CLAUDEOPS_DASHBOARD_PORT` — see [Configuration](./configuration#core-settings) for all options.
+:::
+
+The web dashboard provides real-time visibility into Claude Ops activity.
 
 ## TL;DR
 
-The TL;DR page (formerly Overview) shows an LLM-generated summary of the latest session — key findings and actions at a glance. When a session completes, a fast model (Haiku by default) summarizes the full response into 2–4 sentences. If no summary is available, the page falls back to showing the full session response.
+The TL;DR page shows an LLM-generated summary of the latest session — key findings and actions at a glance. When a session completes, a fast model (Haiku by default) summarizes the full response into 2–4 sentences. If no summary is available, the page falls back to showing the full session response.
 
 ## Sessions
 
@@ -25,6 +29,10 @@ Full history of scheduled and manual runs. Each session shows:
 ### Session detail
 
 Click any session to see its full output. The detail view streams Claude's CLI output in real-time via Server-Sent Events (SSE) — you can watch Claude work as it happens.
+
+:::tip Live following
+When viewing a running session, the output auto-scrolls to follow new content. Scroll up to pause following, or click the follow button to resume.
+:::
 
 ### Manual triggers
 
@@ -47,11 +55,15 @@ Current cooldown state and remediation action history per service. Shows:
 - Whether a redeployment has been used in the current 24-hour window
 - When cooldowns reset
 
+:::info
+Cooldown limits are **max 2 restarts per service per 4 hours** and **max 1 redeployment per service per 24 hours**. When exceeded, Claude sends a "needs human attention" [notification](./notifications) instead of retrying.
+:::
+
 ## Memories
 
 ![Memories page showing operational knowledge entries](/img/screenshots/claude-ops-memories-01.png)
 
-Persistent operational knowledge that the agent learns across sessions. Memories are categorized by type (timing, dependency, behavior, remediation, maintenance) and scoped to specific services or global. Confidence scores decay over time if not reinforced.
+Persistent operational knowledge that the agent learns across sessions. Memories are categorized by type (timing, dependency, behavior, remediation, maintenance) and scoped to specific services or global. Confidence scores decay over time if not reinforced — stale memories are automatically deactivated.
 
 ## Config
 

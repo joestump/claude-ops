@@ -18,7 +18,9 @@ CLAUDEOPS_APPRISE_URLS=ntfy://ntfy.sh/my-claude-ops-topic
 CLAUDEOPS_APPRISE_URLS=ntfy://ntfy.sh/my-topic,slack://TokenA/TokenB/TokenC,mailto://user:pass@gmail.com
 ```
 
-If `CLAUDEOPS_APPRISE_URLS` is empty or unset, notifications are silently skipped.
+:::tip
+If `CLAUDEOPS_APPRISE_URLS` is empty or unset, notifications are silently skipped — Claude Ops runs fine without them.
+:::
 
 ## When notifications fire
 
@@ -35,7 +37,7 @@ Immediately after successful remediation:
 
 ### Needs attention
 
-Immediately when remediation fails or a cooldown limit is exceeded:
+Immediately when remediation fails or a [cooldown limit](./dashboard#cooldowns) is exceeded:
 - What's wrong
 - What was tried
 - Why it didn't work

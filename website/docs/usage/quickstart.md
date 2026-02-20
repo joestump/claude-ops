@@ -31,6 +31,8 @@ Edit `.env` and add your Anthropic API key:
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
+See [Configuration](./configuration) for the full list of environment variables.
+
 ## 3. Mount your infrastructure repos
 
 ```bash
@@ -47,7 +49,9 @@ services:
       - /path/to/your/docker-images:/repos/docker-images:ro
 ```
 
-Use `:ro` (read-only) by default. Claude runs commands against remote hosts via SSH, not local files.
+:::warning Always mount read-only
+Use `:ro` (read-only) by default. Claude runs commands against remote hosts via SSH, not local files. Only mount read-write if Claude genuinely needs write access (rare).
+:::
 
 ## 4. (Optional) Add a manifest to your repos
 
@@ -69,7 +73,7 @@ This repo manages home lab infrastructure via Ansible.
 - Always use `--limit` when running playbooks
 ```
 
-See [Connecting Repos](./repo-mounting) for the full manifest spec.
+See [Connecting Repos](./repo-mounting) for the full manifest spec and extension directory structure.
 
 ## 5. Run it
 
@@ -77,7 +81,7 @@ See [Connecting Repos](./repo-mounting) for the full manifest spec.
 docker compose up -d
 ```
 
-The dashboard is available at [http://localhost:8080](http://localhost:8080). Claude will start checking your infrastructure every 60 minutes.
+The [web dashboard](./dashboard) is available at [http://localhost:8080](http://localhost:8080). Claude will start checking your infrastructure every 60 minutes.
 
 ### With browser automation
 
@@ -95,7 +99,7 @@ docker compose --profile browser up -d
 4. If everything is healthy, it logs results and sleeps until the next interval
 5. If something is broken, it escalates to Tier 2 (Sonnet) for investigation and safe fixes
 6. If Tier 2 can't fix it, Tier 3 (Opus) runs full remediation (Ansible playbooks, Helm upgrades)
-7. You get notified via Apprise at each step (if configured)
+7. You get [notified via Apprise](./notifications) at each step (if configured)
 
 ## Development mode
 
@@ -108,4 +112,6 @@ make dev-logs   # tail logs
 make dev-down   # stop
 ```
 
-The development override sets `CLAUDEOPS_DRY_RUN=true` by default and starts the Chrome sidecar automatically.
+:::tip
+The development override sets `CLAUDEOPS_DRY_RUN=true` by default and starts the Chrome sidecar automatically — no need for the `--profile browser` flag.
+:::
