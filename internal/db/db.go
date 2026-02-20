@@ -894,6 +894,7 @@ func (d *DB) DecayStaleMemories(graceDays int, decayRate float64) error {
 	return nil
 }
 
+// Governing: SPEC-0021 REQ "Session Summary Generation"
 func migrate007(tx *sql.Tx) error {
 	_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN summary TEXT`)
 	if err != nil {
@@ -903,6 +904,7 @@ func migrate007(tx *sql.Tx) error {
 }
 
 // UpdateSessionSummary stores an LLM-generated summary for a session.
+// Governing: SPEC-0021 REQ "Session Summary Generation"
 func (d *DB) UpdateSessionSummary(id int64, summary string) error {
 	_, err := d.conn.Exec(`UPDATE sessions SET summary = ? WHERE id = ?`, summary, id)
 	if err != nil {
