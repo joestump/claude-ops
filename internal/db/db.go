@@ -1,10 +1,13 @@
 package db
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
+	"io/fs"
 	"time"
 
+	"github.com/pressly/goose/v3"
 	_ "modernc.org/sqlite"
 )
 
@@ -84,6 +87,7 @@ type CooldownAction struct {
 }
 
 // Open creates a new DB connection and runs all pending migrations.
+// Governing: SPEC-0022 REQ "Goose Provider API Integration"
 func Open(path string) (*DB, error) {
 	conn, err := sql.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=busy_timeout(5000)")
 	if err != nil {
@@ -97,13 +101,33 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("ping sqlite: %w", err)
 	}
 
-	d := &DB{conn: conn}
-	if err := d.migrate(); err != nil {
+	// Bootstrap: migrate legacy schema_migrations -> goose_db_version
+	if err := bootstrapFromLegacy(conn); err != nil {
 		_ = conn.Close()
-		return nil, fmt.Errorf("migrate: %w", err)
+		return nil, fmt.Errorf("bootstrap legacy migrations: %w", err)
 	}
 
-	return d, nil
+	// Extract the migrations subdirectory from the embedded FS
+	migrationsFS, err := fs.Sub(MigrationFS, "migrations")
+	if err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("migrations sub-fs: %w", err)
+	}
+
+	// Create goose provider with embedded migrations (MUST NOT use global functions)
+	provider, err := goose.NewProvider(goose.DialectSQLite3, conn, migrationsFS)
+	if err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("create migration provider: %w", err)
+	}
+
+	// Apply all pending migrations
+	if _, err := provider.Up(context.Background()); err != nil {
+		_ = conn.Close()
+		return nil, fmt.Errorf("apply migrations: %w", err)
+	}
+
+	return &DB{conn: conn}, nil
 }
 
 // Close closes the database connection.
@@ -114,193 +138,6 @@ func (d *DB) Close() error {
 // Conn returns the underlying *sql.DB for use by other packages if needed.
 func (d *DB) Conn() *sql.DB {
 	return d.conn
-}
-
-// --- Migrations ---
-
-type migration struct {
-	version int
-	fn      func(tx *sql.Tx) error
-}
-
-var migrations = []migration{
-	{version: 1, fn: migrate001},
-	{version: 2, fn: migrate002},
-	{version: 3, fn: migrate003},
-	{version: 4, fn: migrate004},
-	{version: 5, fn: migrate005},
-	{version: 6, fn: migrate006},
-	{version: 7, fn: migrate007},
-}
-
-func (d *DB) migrate() error {
-	// Ensure schema_migrations table exists.
-	_, err := d.conn.Exec(`CREATE TABLE IF NOT EXISTS schema_migrations (
-		version INTEGER PRIMARY KEY,
-		applied_at TEXT NOT NULL DEFAULT (datetime('now'))
-	)`)
-	if err != nil {
-		return fmt.Errorf("create schema_migrations: %w", err)
-	}
-
-	var current int
-	row := d.conn.QueryRow("SELECT COALESCE(MAX(version), 0) FROM schema_migrations")
-	if err := row.Scan(&current); err != nil {
-		return fmt.Errorf("read migration version: %w", err)
-	}
-
-	for _, m := range migrations {
-		if m.version <= current {
-			continue
-		}
-
-		tx, err := d.conn.Begin()
-		if err != nil {
-			return fmt.Errorf("begin migration %d: %w", m.version, err)
-		}
-
-		if err := m.fn(tx); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("migration %d: %w", m.version, err)
-		}
-
-		if _, err := tx.Exec("INSERT INTO schema_migrations (version) VALUES (?)", m.version); err != nil {
-			_ = tx.Rollback()
-			return fmt.Errorf("record migration %d: %w", m.version, err)
-		}
-
-		if err := tx.Commit(); err != nil {
-			return fmt.Errorf("commit migration %d: %w", m.version, err)
-		}
-	}
-
-	return nil
-}
-
-func migrate001(tx *sql.Tx) error {
-	stmts := []string{
-		`CREATE TABLE sessions (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			tier INTEGER NOT NULL,
-			model TEXT NOT NULL,
-			prompt_file TEXT NOT NULL,
-			status TEXT NOT NULL,
-			started_at TEXT NOT NULL,
-			ended_at TEXT,
-			exit_code INTEGER,
-			log_file TEXT,
-			context TEXT
-		)`,
-
-		`CREATE TABLE health_checks (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			session_id INTEGER REFERENCES sessions(id),
-			service TEXT NOT NULL,
-			check_type TEXT NOT NULL,
-			status TEXT NOT NULL,
-			response_time_ms INTEGER,
-			error_detail TEXT,
-			checked_at TEXT NOT NULL
-		)`,
-
-		`CREATE TABLE cooldown_actions (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			service TEXT NOT NULL,
-			action_type TEXT NOT NULL,
-			timestamp TEXT NOT NULL,
-			success INTEGER NOT NULL,
-			tier INTEGER NOT NULL,
-			error TEXT,
-			session_id INTEGER REFERENCES sessions(id)
-		)`,
-
-		`CREATE TABLE service_health_streak (
-			service TEXT PRIMARY KEY,
-			consecutive_healthy INTEGER NOT NULL DEFAULT 0,
-			last_checked_at TEXT
-		)`,
-
-		`CREATE TABLE config (
-			key TEXT PRIMARY KEY,
-			value TEXT NOT NULL,
-			updated_at TEXT NOT NULL DEFAULT (datetime('now'))
-		)`,
-
-		`CREATE INDEX idx_health_checks_service ON health_checks(service, checked_at)`,
-		`CREATE INDEX idx_health_checks_session ON health_checks(session_id)`,
-		`CREATE INDEX idx_cooldown_actions_service ON cooldown_actions(service, action_type, timestamp)`,
-		`CREATE INDEX idx_sessions_status ON sessions(status, started_at)`,
-	}
-
-	for _, s := range stmts {
-		if _, err := tx.Exec(s); err != nil {
-			return fmt.Errorf("exec %q: %w", s[:40], err)
-		}
-	}
-	return nil
-}
-
-func migrate002(tx *sql.Tx) error {
-	stmts := []string{
-		`ALTER TABLE sessions ADD COLUMN response TEXT`,
-		`ALTER TABLE sessions ADD COLUMN cost_usd REAL`,
-		`ALTER TABLE sessions ADD COLUMN num_turns INTEGER`,
-		`ALTER TABLE sessions ADD COLUMN duration_ms INTEGER`,
-	}
-	for _, s := range stmts {
-		if _, err := tx.Exec(s); err != nil {
-			return fmt.Errorf("exec %q: %w", s, err)
-		}
-	}
-	return nil
-}
-
-func migrate003(tx *sql.Tx) error {
-	stmts := []string{
-		`ALTER TABLE sessions ADD COLUMN trigger TEXT NOT NULL DEFAULT 'scheduled'`,
-		`ALTER TABLE sessions ADD COLUMN prompt_text TEXT`,
-	}
-	for _, s := range stmts {
-		if _, err := tx.Exec(s); err != nil {
-			return fmt.Errorf("exec %q: %w", s, err)
-		}
-	}
-	return nil
-}
-
-func migrate004(tx *sql.Tx) error {
-	stmts := []string{
-		`CREATE TABLE events (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			session_id INTEGER REFERENCES sessions(id),
-			level TEXT NOT NULL,
-			service TEXT,
-			message TEXT NOT NULL,
-			created_at TEXT NOT NULL
-		)`,
-		`CREATE INDEX idx_events_created ON events(created_at)`,
-		`CREATE INDEX idx_events_session ON events(session_id)`,
-		`CREATE INDEX idx_events_level ON events(level, created_at)`,
-	}
-	for _, s := range stmts {
-		if _, err := tx.Exec(s); err != nil {
-			return fmt.Errorf("exec %q: %w", s[:40], err)
-		}
-	}
-	return nil
-}
-
-func migrate005(tx *sql.Tx) error {
-	stmts := []string{
-		`ALTER TABLE sessions ADD COLUMN parent_session_id INTEGER REFERENCES sessions(id)`,
-		`CREATE INDEX idx_sessions_parent ON sessions(parent_session_id)`,
-	}
-	for _, s := range stmts {
-		if _, err := tx.Exec(s); err != nil {
-			return fmt.Errorf("exec %q: %w", s, err)
-		}
-	}
-	return nil
 }
 
 // --- Session Methods ---
@@ -705,32 +542,6 @@ func (d *DB) GetChildSessions(sessionID int64) ([]Session, error) {
 	return sessions, rows.Err()
 }
 
-func migrate006(tx *sql.Tx) error {
-	stmts := []string{
-		`CREATE TABLE memories (
-			id INTEGER PRIMARY KEY AUTOINCREMENT,
-			service TEXT,
-			category TEXT NOT NULL,
-			observation TEXT NOT NULL,
-			confidence REAL NOT NULL DEFAULT 0.7,
-			active INTEGER NOT NULL DEFAULT 1,
-			created_at TEXT NOT NULL,
-			updated_at TEXT NOT NULL,
-			session_id INTEGER REFERENCES sessions(id),
-			tier INTEGER NOT NULL DEFAULT 1
-		)`,
-		`CREATE INDEX idx_memories_service ON memories(service, active)`,
-		`CREATE INDEX idx_memories_confidence ON memories(confidence, active)`,
-		`CREATE INDEX idx_memories_category ON memories(category)`,
-	}
-	for _, s := range stmts {
-		if _, err := tx.Exec(s); err != nil {
-			return fmt.Errorf("exec %q: %w", s[:40], err)
-		}
-	}
-	return nil
-}
-
 // --- Memory Methods ---
 
 // InsertMemory stores a memory record and returns its ID.
@@ -890,14 +701,6 @@ func (d *DB) DecayStaleMemories(graceDays int, decayRate float64) error {
 	_, err = d.conn.Exec(`UPDATE memories SET active = 0 WHERE confidence < 0.3`)
 	if err != nil {
 		return fmt.Errorf("deactivate low-confidence memories: %w", err)
-	}
-	return nil
-}
-
-func migrate007(tx *sql.Tx) error {
-	_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN summary TEXT`)
-	if err != nil {
-		return fmt.Errorf("exec %q: %w", "ALTER TABLE sessions ADD COLUMN summary TEXT", err)
 	}
 	return nil
 }
