@@ -24,6 +24,13 @@ function HomepageHeader() {
             Get Started
           </Link>
         </div>
+        <div className={styles.screenshotWrapper}>
+          <img
+            src="/claude-ops/img/screenshots/claude-ops-sessions-01.png"
+            alt="Claude Ops session detail showing a Tier 2 investigation report"
+            className={styles.screenshot}
+          />
+        </div>
       </div>
     </header>
   );

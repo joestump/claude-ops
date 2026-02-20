@@ -26,6 +26,7 @@ type Config struct {
 	MemoryBudget          int
 	BrowserAllowedOrigins string
 	PREnabled             bool
+	SummaryModel          string
 }
 
 // Load reads configuration from viper, which merges flag values, env vars,
@@ -51,5 +52,6 @@ func Load() Config {
 		MemoryBudget:          viper.GetInt("memory_budget"),
 		BrowserAllowedOrigins: viper.GetString("browser_allowed_origins"),
 		PREnabled:             viper.GetBool("pr_enabled"),
+		SummaryModel:          viper.GetString("summary_model"),
 	}
 }

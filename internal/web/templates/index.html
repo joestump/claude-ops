@@ -1,6 +1,6 @@
 {{define "index.html"}}
 <div class="max-w-6xl" id="overview-content">
-    <h1 class="text-2xl font-semibold mb-6">Overview</h1>
+    <h1 class="text-2xl font-semibold mb-6">TL;DR</h1>
 
     {{/* Recent events feed */}}
     <section class="mb-8" id="events-feed" hx-get="/" hx-trigger="every 10s" hx-select="#events-feed-inner" hx-target="#events-feed-inner" hx-swap="outerHTML">
@@ -26,7 +26,7 @@
 
     {{/* Last session summary */}}
     <section class="mb-8" id="last-session" hx-get="/" hx-trigger="every 10s" hx-select="#last-session-inner" hx-target="#last-session-inner" hx-swap="outerHTML">
-        <h2 class="section-heading">Last Session</h2>
+        <h2 class="section-heading">Latest Session Summary</h2>
         <div id="last-session-inner">
         {{if .Session}}
         <div class="card-base mb-4">
@@ -45,7 +45,11 @@
                 {{if .Session.NumTurns}}<div>Turns: <span class="text-charcoal font-mono">{{intVal .Session.NumTurns}}</span></div>{{end}}
             </div>
         </div>
-        {{if .Session.Response}}
+        {{if .Session.Summary}}
+        <div class="card-base">
+            <p class="text-sm leading-relaxed">{{.Session.Summary}}</p>
+        </div>
+        {{else if .Session.Response}}
         <div class="card-base prose">
             {{renderMarkdown .Session.Response}}
         </div>

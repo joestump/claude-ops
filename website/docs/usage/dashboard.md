@@ -6,11 +6,13 @@ sidebar_position: 5
 
 The web dashboard runs on port 8080 (configurable via `CLAUDEOPS_DASHBOARD_PORT`) and provides real-time visibility into Claude Ops activity.
 
-## Overview
+## TL;DR
 
-The overview page shows at-a-glance health status across all monitored services, including recent events, memory entries, and cooldown state.
+The TL;DR page (formerly Overview) shows an LLM-generated summary of the latest session — key findings and actions at a glance. When a session completes, a fast model (Haiku by default) summarizes the full response into 2–4 sentences. If no summary is available, the page falls back to showing the full session response.
 
 ## Sessions
+
+![Session detail showing a Tier 2 investigation report](/img/screenshots/claude-ops-sessions-01.png)
 
 Full history of scheduled and manual runs. Each session shows:
 
@@ -44,6 +46,12 @@ Current cooldown state and remediation action history per service. Shows:
 - How many restarts remain in the current 4-hour window
 - Whether a redeployment has been used in the current 24-hour window
 - When cooldowns reset
+
+## Memories
+
+![Memories page showing operational knowledge entries](/img/screenshots/claude-ops-memories-01.png)
+
+Persistent operational knowledge that the agent learns across sessions. Memories are categorized by type (timing, dependency, behavior, remediation, maintenance) and scoped to specific services or global. Confidence scores decay over time if not reinforced.
 
 ## Config
 

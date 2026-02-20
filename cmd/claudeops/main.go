@@ -53,6 +53,7 @@ func main() {
 	f.Int("memory-budget", 2000, "max tokens for memory context injection")
 	f.String("browser-allowed-origins", "", "comma-separated allowed origins for browser navigation")
 	f.Bool("pr-enabled", false, "enable PR creation via MCP and REST API (default: disabled)")
+	f.String("summary-model", "haiku", "Claude model for session summary generation")
 
 	// Bind flags to viper. Viper keys use underscores (tier1_model) so they
 	// match the env var suffix after stripping the CLAUDEOPS_ prefix.
@@ -79,6 +80,7 @@ func main() {
 	bindFlag("memory_budget", "memory-budget")
 	bindFlag("browser_allowed_origins", "browser-allowed-origins")
 	bindFlag("pr_enabled", "pr-enabled")
+	bindFlag("summary_model", "summary-model")
 
 	// Bind CLAUDEOPS_* environment variables. AutomaticEnv with the prefix
 	// maps CLAUDEOPS_INTERVAL -> "interval", CLAUDEOPS_TIER1_MODEL -> "tier1_model", etc.

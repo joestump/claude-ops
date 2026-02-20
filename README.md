@@ -128,7 +128,7 @@ In development, the `docker-compose.override.yaml` starts Chrome automatically (
 
 The web dashboard runs on port 8080 and provides:
 
-- **Overview**: At-a-glance health status across all monitored services
+- **TL;DR**: LLM-generated summary of the latest session — key findings and actions at a glance
 - **Sessions**: Full history of scheduled and manual runs with tier, model, duration, and cost
 - **Session detail**: Live CLI output streaming via SSE — watch Claude work in real-time
 - **Events**: Service state changes, remediation actions, and escalation decisions
@@ -155,6 +155,7 @@ All configuration via environment variables:
 | `CLAUDEOPS_RESULTS_DIR` | `/results` | Session log output directory |
 | `CLAUDEOPS_APPRISE_URLS` | *(disabled)* | Comma-separated [Apprise URLs](https://github.com/caronc/apprise/wiki) for notifications |
 | `CLAUDEOPS_DASHBOARD_PORT` | `8080` | HTTP port for the web dashboard |
+| `CLAUDEOPS_SUMMARY_MODEL` | `haiku` | Model for generating session summaries on the TL;DR page |
 | `CLAUDEOPS_ALLOWED_TOOLS` | `Bash,Read,Grep,Glob,Task,WebFetch` | Claude CLI tools to enable |
 | `CLAUDEOPS_BROWSER_ALLOWED_ORIGINS` | *(disabled)* | Comma-separated origins for browser automation (e.g., `https://sonarr.example.com`) |
 | `BROWSER_CRED_{SERVICE}_{FIELD}` | *(none)* | Service credentials for browser login. `{SERVICE}` = uppercase name, `{FIELD}` = `USER`, `PASS`, `TOKEN`, or `API_KEY` |

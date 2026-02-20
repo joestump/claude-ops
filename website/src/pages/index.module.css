@@ -21,3 +21,22 @@
   align-items: center;
   justify-content: center;
 }
+
+.screenshotWrapper {
+  margin-top: 2.5rem;
+  display: flex;
+  justify-content: center;
+}
+
+.screenshot {
+  max-width: 900px;
+  width: 100%;
+  border-radius: 8px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
+}
+
+@media screen and (max-width: 996px) {
+  .screenshot {
+    max-width: 100%;
+  }
+}

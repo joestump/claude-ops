@@ -405,6 +405,18 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 			}
 		}
 
+		// Generate and store an LLM summary of the session response.
+		if resultResponse != "" {
+			summary, sumErr := summarizeResponse(ctx, resultResponse, m.cfg.SummaryModel)
+			if sumErr != nil {
+				fmt.Fprintf(os.Stderr, "failed to summarize session %d: %v\n", sessionID, sumErr)
+			} else if summary != "" {
+				if dbErr := m.db.UpdateSessionSummary(sessionID, summary); dbErr != nil {
+					fmt.Fprintf(os.Stderr, "failed to store session summary %d: %v\n", sessionID, dbErr)
+				}
+			}
+		}
+
 		// Close the SSE hub AFTER DB updates so the browser reload sees the final state.
 		m.hub.Close(hubID)
 

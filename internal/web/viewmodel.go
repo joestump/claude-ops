@@ -19,6 +19,7 @@ type SessionView struct {
 	ExitCode   *int
 	LogFile    string
 	Response   string
+	Summary    string
 	CostUSD    *float64
 	NumTurns   *int
 	DurationMs *int64
@@ -97,6 +98,9 @@ func ToSessionView(s db.Session) SessionView {
 	}
 	if s.Response != nil {
 		v.Response = *s.Response
+	}
+	if s.Summary != nil {
+		v.Summary = *s.Summary
 	}
 	v.CostUSD = s.CostUSD
 	v.NumTurns = s.NumTurns

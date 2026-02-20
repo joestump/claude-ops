@@ -133,6 +133,9 @@
             });
             observer.observe(terminal, { childList: true, subtree: true });
 
+            // Scroll to bottom on initial page load so the user sees the latest output.
+            scrollToBottom();
+
             // Detect manual scroll — disable follow when user scrolls up.
             var scrollTimer = null;
             window.addEventListener('scroll', function() {

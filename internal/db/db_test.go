@@ -831,6 +831,66 @@ func TestFindSimilarMemory(t *testing.T) {
 	}
 }
 
+func TestMigration007Summary(t *testing.T) {
+	d := openTestDB(t)
+
+	// Verify the summary column exists by running a query against it.
+	var summary *string
+	err := d.Conn().QueryRow(`SELECT summary FROM sessions LIMIT 0`).Scan(&summary)
+	// sql.ErrNoRows is expected on an empty table — the important thing is no schema error.
+	if err != nil && err.Error() != "sql: no rows in result set" {
+		t.Fatalf("summary column should exist: %v", err)
+	}
+}
+
+func TestUpdateSessionSummary(t *testing.T) {
+	d := openTestDB(t)
+
+	id, err := d.InsertSession(&Session{
+		Tier:       1,
+		Model:      "haiku",
+		PromptFile: "/tmp/test.md",
+		Status:     "completed",
+		StartedAt:  time.Now().UTC().Format(time.RFC3339),
+	})
+	if err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+
+	// Summary should be nil before update.
+	s, err := d.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession: %v", err)
+	}
+	if s.Summary != nil {
+		t.Fatalf("expected nil Summary before update, got %q", *s.Summary)
+	}
+
+	// Update summary.
+	summary := "All 6 services healthy. No issues found."
+	if err := d.UpdateSessionSummary(id, summary); err != nil {
+		t.Fatalf("UpdateSessionSummary: %v", err)
+	}
+
+	// Verify via GetSession.
+	s, err = d.GetSession(id)
+	if err != nil {
+		t.Fatalf("GetSession after update: %v", err)
+	}
+	if s.Summary == nil || *s.Summary != summary {
+		t.Fatalf("expected summary %q, got %v", summary, s.Summary)
+	}
+
+	// Verify via LatestSession.
+	latest, err := d.LatestSession()
+	if err != nil {
+		t.Fatalf("LatestSession: %v", err)
+	}
+	if latest.Summary == nil || *latest.Summary != summary {
+		t.Fatalf("LatestSession: expected summary %q, got %v", summary, latest.Summary)
+	}
+}
+
 func TestDecayStaleMemories(t *testing.T) {
 	d := openTestDB(t)
 	svc := "caddy"

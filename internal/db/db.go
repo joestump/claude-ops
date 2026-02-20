@@ -32,6 +32,7 @@ type Session struct {
 	Trigger         string  // "scheduled" or "manual"
 	PromptText      *string // custom prompt text for ad-hoc sessions
 	ParentSessionID *int64  // links to parent session for escalation chains
+	Summary         *string // LLM-generated summary of session response
 }
 
 // HealthCheck represents a parsed health check result.
@@ -129,6 +130,7 @@ var migrations = []migration{
 	{version: 4, fn: migrate004},
 	{version: 5, fn: migrate005},
 	{version: 6, fn: migrate006},
+	{version: 7, fn: migrate007},
 }
 
 func (d *DB) migrate() error {
@@ -303,10 +305,10 @@ func migrate005(tx *sql.Tx) error {
 
 // --- Session Methods ---
 
-const sessionColumns = `id, tier, model, prompt_file, status, started_at, ended_at, exit_code, log_file, context, response, cost_usd, num_turns, duration_ms, trigger, prompt_text, parent_session_id`
+const sessionColumns = `id, tier, model, prompt_file, status, started_at, ended_at, exit_code, log_file, context, response, cost_usd, num_turns, duration_ms, trigger, prompt_text, parent_session_id, summary`
 
 func scanSession(scanner interface{ Scan(...any) error }, s *Session) error {
-	return scanner.Scan(&s.ID, &s.Tier, &s.Model, &s.PromptFile, &s.Status, &s.StartedAt, &s.EndedAt, &s.ExitCode, &s.LogFile, &s.Context, &s.Response, &s.CostUSD, &s.NumTurns, &s.DurationMs, &s.Trigger, &s.PromptText, &s.ParentSessionID)
+	return scanner.Scan(&s.ID, &s.Tier, &s.Model, &s.PromptFile, &s.Status, &s.StartedAt, &s.EndedAt, &s.ExitCode, &s.LogFile, &s.Context, &s.Response, &s.CostUSD, &s.NumTurns, &s.DurationMs, &s.Trigger, &s.PromptText, &s.ParentSessionID, &s.Summary)
 }
 
 // InsertSession creates a new session record and returns its ID.
@@ -888,6 +890,23 @@ func (d *DB) DecayStaleMemories(graceDays int, decayRate float64) error {
 	_, err = d.conn.Exec(`UPDATE memories SET active = 0 WHERE confidence < 0.3`)
 	if err != nil {
 		return fmt.Errorf("deactivate low-confidence memories: %w", err)
+	}
+	return nil
+}
+
+func migrate007(tx *sql.Tx) error {
+	_, err := tx.Exec(`ALTER TABLE sessions ADD COLUMN summary TEXT`)
+	if err != nil {
+		return fmt.Errorf("exec %q: %w", "ALTER TABLE sessions ADD COLUMN summary TEXT", err)
+	}
+	return nil
+}
+
+// UpdateSessionSummary stores an LLM-generated summary for a session.
+func (d *DB) UpdateSessionSummary(id int64, summary string) error {
+	_, err := d.conn.Exec(`UPDATE sessions SET summary = ? WHERE id = ?`, summary, id)
+	if err != nil {
+		return fmt.Errorf("update session summary %d: %w", id, err)
 	}
 	return nil
 }
