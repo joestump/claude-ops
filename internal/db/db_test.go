@@ -1,5 +1,8 @@
 package db
 
+// Governing: SPEC-0022 REQ "Existing Tests Must Pass"
+// All tests in this file must pass without modification after goose adoption.
+
 import (
 	"path/filepath"
 	"testing"
