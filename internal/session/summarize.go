@@ -12,6 +12,7 @@ const summarizeSystemPrompt = "You are a concise technical summarizer. Summarize
 // summarizeResponse calls the Anthropic Messages API to generate a short
 // plain-text summary of a session response. The model parameter should be
 // an Anthropic model identifier (e.g. "haiku").
+// Governing: SPEC-0021 REQ "Summarization Model"
 func summarizeResponse(ctx context.Context, response string, model string) (string, error) {
 	client := anthropic.NewClient()
 
