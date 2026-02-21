@@ -16,6 +16,7 @@ import (
 )
 
 // handleIndex renders the overview dashboard.
+// Governing: SPEC-0021 REQ "TL;DR Page Rendering"
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	var sessionView *SessionView
 	if latest, err := s.db.LatestSession(); err != nil {
