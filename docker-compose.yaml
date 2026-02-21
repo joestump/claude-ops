@@ -3,6 +3,7 @@ services:
     build: .
     container_name: claude-ops
     restart: unless-stopped
+    # Governing: SPEC-0009 REQ "Environment-Based Configuration"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
@@ -19,6 +20,7 @@ services:
       - CLAUDEOPS_PR_ENABLED=${CLAUDEOPS_PR_ENABLED:-false}
     ports:
       - "8080:8080"
+    # Governing: SPEC-0009 REQ "Persistent Volume Mounts"
     volumes:
       - ./state:/state
       - ./results:/results
