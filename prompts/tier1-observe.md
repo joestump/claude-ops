@@ -49,6 +49,58 @@ When `CLAUDEOPS_DRY_RUN=true`:
 
 Governing: SPEC-0023 REQ-7
 
+## Session Initialization: Tool Inventory
+
+<!-- Governing: SPEC-0023 REQ-3, REQ-4, REQ-5 / ADR-0022 -->
+
+At the start of every session, before any health checks or skill execution, build a tool inventory. Do this ONCE and reference it for all subsequent skill invocations.
+
+**Step 1: Enumerate MCP tools**
+Note all tools available in your tool listing that start with `mcp__`. Group them by domain:
+- `mcp__gitea__*` → git domain (Gitea)
+- `mcp__github__*` → git domain (GitHub)
+- `mcp__docker__*` → container domain (read-only at Tier 1: inspect, logs, list only)
+- `mcp__postgres__*` → database domain (read-only queries only)
+- `mcp__chrome-devtools__*` → browser domain (unauthenticated page loads only at Tier 1)
+- Any `mcp__fetch__*` or `mcp__*fetch*` → HTTP domain
+
+**Step 2: Check installed CLIs**
+Run once: `which curl && which dig && which psql && which mysql && which docker 2>/dev/null; true`
+Record which commands are found. At Tier 1, only read-only CLI usage is permitted (e.g., `docker inspect`, `docker logs` — never `docker restart` or `docker compose up`).
+
+**Step 3: Record the inventory**
+State the inventory in your reasoning, e.g.:
+- git-gitea: [mcp__gitea__list_repo_issues]
+- container (read-only): [docker CLI (inspect, logs)]
+- database (read-only): [mcp__postgres__query, psql CLI]
+- http: [WebFetch, curl CLI]
+- browser (unauthenticated only): [mcp__chrome-devtools__navigate_page]
+
+Use this inventory for all skill executions this session. Do NOT re-probe CLIs on each skill invocation.
+
+## Tool Selection
+
+When a skill requires a tool capability, select tools in this preference order:
+
+1. **MCP tools** (highest priority) — Direct tool integrations (e.g., `mcp__postgres__query`). Preferred because they are structured, type-safe, and run in-process.
+2. **CLI tools** — Installed command-line tools (e.g., `psql`, `curl`). Used when no MCP tool is available for the domain.
+3. **HTTP/curl** (lowest priority) — Raw HTTP requests via `curl` or WebFetch. Universal fallback when neither MCP nor a dedicated CLI is available.
+
+When a skill's preferred tool is blocked or unavailable, fall through to the next available tool in the chain. At Tier 1, only read-only operations are permitted regardless of which tool is selected.
+
+## Fallback Observability
+
+When executing a skill, log the tool selection outcome using these conventions:
+
+- **Primary tool used**: `[skill:<name>] Using: <tool> (<type>)` where type is MCP, CLI, or HTTP
+  - Example: `[skill:http-request] Using: mcp__fetch__get (MCP)`
+- **Fallback**: `[skill:<name>] WARNING: <preferred> not found, falling back to <actual> (<type>)`
+  - Example: `[skill:http-request] WARNING: mcp__fetch__get not found, falling back to curl (CLI)`
+- **No tool available**: `[skill:<name>] ERROR: No suitable tool found for <capability>`
+  - Example: `[skill:database-query] ERROR: No suitable tool found for postgres`
+
+These log lines MUST appear in the output whenever a skill is invoked so that tool selection decisions are traceable.
+
 ## Step 1: Discover Infrastructure Repos
 
 Scan `/repos` for mounted repositories:

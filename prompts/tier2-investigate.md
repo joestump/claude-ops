@@ -74,6 +74,60 @@ If an operation would violate a scope rule, MUST refuse and report:
 
 Governing: SPEC-0023 REQ-8, ADR-0022
 
+## Session Initialization: Tool Inventory
+
+<!-- Governing: SPEC-0023 REQ-3, REQ-4, REQ-5 / ADR-0022 -->
+
+At the start of every session, before any investigation or remediation, build a tool inventory. Do this ONCE and reference it for all subsequent skill invocations.
+
+**Step 1: Enumerate MCP tools**
+Note all tools available in your tool listing that start with `mcp__`. Group them by domain:
+- `mcp__gitea__*` → git domain (Gitea) — read and write (create PRs, issues)
+- `mcp__github__*` → git domain (GitHub) — read and write
+- `mcp__docker__*` → container domain — read and write (restart, start, stop)
+- `mcp__postgres__*` → database domain (read-only queries only)
+- `mcp__chrome-devtools__*` → browser domain (authenticated actions permitted)
+- Any `mcp__fetch__*` or `mcp__*fetch*` → HTTP domain
+
+**Step 2: Check installed CLIs**
+Run once: `which gh && which tea && which docker && which psql && which mysql && which curl && which apprise 2>/dev/null; true`
+Record which commands are found. At Tier 2, both read and write CLI usage is permitted within your permission scope (e.g., `docker restart`, `docker compose up -d`, `gh pr create`).
+
+**Step 3: Record the inventory**
+State the inventory in your reasoning, e.g.:
+- git-github: [gh CLI]
+- git-gitea: [mcp__gitea__create_pull_request, tea CLI]
+- container: [docker CLI (inspect, logs, restart, compose up)]
+- database (read-only): [mcp__postgres__query, psql CLI]
+- http: [WebFetch, curl CLI]
+- browser: [mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__fill]
+- notifications: [apprise CLI]
+
+Use this inventory for all skill executions this session. Do NOT re-probe CLIs on each skill invocation.
+
+## Tool Selection
+
+When a skill requires a tool capability, select tools in this preference order:
+
+1. **MCP tools** (highest priority) — Direct tool integrations (e.g., `mcp__gitea__create_pull_request`). Preferred because they are structured, type-safe, and run in-process.
+2. **CLI tools** — Installed command-line tools (e.g., `gh`, `docker`, `psql`). Used when no MCP tool is available for the domain.
+3. **HTTP/curl** (lowest priority) — Raw HTTP requests via `curl` or WebFetch. Universal fallback when neither MCP nor a dedicated CLI is available.
+
+When a skill's preferred tool is blocked or unavailable, fall through to the next available tool in the chain. Tier 2 permits both read and write operations within the safe remediation scope defined in "Your Permissions" above.
+
+## Fallback Observability
+
+When executing a skill, log the tool selection outcome using these conventions:
+
+- **Primary tool used**: `[skill:<name>] Using: <tool> (<type>)` where type is MCP, CLI, or HTTP
+  - Example: `[skill:container-ops] Using: docker (CLI)`
+- **Fallback**: `[skill:<name>] WARNING: <preferred> not found, falling back to <actual> (<type>)`
+  - Example: `[skill:git-pr] WARNING: mcp__gitea__create_pull_request not found, falling back to tea (CLI)`
+- **No tool available**: `[skill:<name>] ERROR: No suitable tool found for <capability>`
+  - Example: `[skill:git-pr] ERROR: No suitable tool found for pull request creation`
+
+These log lines MUST appear in the output whenever a skill is invoked so that tool selection decisions are traceable.
+
 ## Step 1: Review Context
 
 Read the failure summary provided by Tier 1. For each failed service, note:
