@@ -83,11 +83,12 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
+  # Governing: SPEC-0009 REQ "CI/CD Image Publishing" — build, push to GHCR, tag with semver and branch
   release:
     name: Release Container
     needs: [lint, test, build]
     runs-on: ubuntu-latest
-    if: github.event_name == 'push'
+    if: github.event_name == 'push'  # Triggers on main branch push and version tag push
     permissions:
       contents: read
       packages: write
@@ -101,7 +102,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Log in to GitHub Container Registry
+      - name: Log in to GitHub Container Registry  # Governing: SPEC-0009 REQ "CI/CD Image Publishing" — push to GHCR
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -117,6 +118,7 @@ jobs:
             echo "value=${{ github.ref_name }}-$(echo ${{ github.sha }} | cut -c1-7)" >> "$GITHUB_OUTPUT"
           fi
 
+      # Governing: SPEC-0009 REQ "CI/CD Image Publishing" — semantic version tags + main branch tags
       - name: Extract metadata (tags, labels)
         id: meta
         uses: docker/metadata-action@v5
