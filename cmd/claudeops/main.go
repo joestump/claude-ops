@@ -19,7 +19,6 @@ import (
 	"github.com/joestump/claude-ops/internal/gitprovider"
 	"github.com/joestump/claude-ops/internal/hub"
 	"github.com/joestump/claude-ops/internal/mcp"
-	"github.com/joestump/claude-ops/internal/mcpserver"
 	"github.com/joestump/claude-ops/internal/session"
 	"github.com/joestump/claude-ops/internal/web"
 )
@@ -91,15 +90,7 @@ func main() {
 	// so we need the replacer for any edge cases.
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
-	// MCP server subcommand: speaks JSON-RPC over stdio for git provider tools.
-	mcpServerCmd := &cobra.Command{
-		Use:   "mcp-server",
-		Short: "Start MCP server for git provider tools (stdio)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return mcpserver.Run()
-		},
-	}
-	rootCmd.AddCommand(mcpServerCmd)
+	// Governing: SPEC-0023 REQ-9 — custom MCP server removed; tools are now skill-based.
 
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
