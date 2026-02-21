@@ -114,7 +114,11 @@ func Open(path string) (*DB, error) {
 		return nil, fmt.Errorf("migrations sub-fs: %w", err)
 	}
 
-	// Create goose provider with embedded migrations (MUST NOT use global functions)
+	// Create goose provider with embedded migrations (MUST NOT use global functions).
+	// Governing: SPEC-0022 REQ "Transaction Safety"
+	// Goose runs each SQL migration in a transaction by default (useTx=true).
+	// No WithDisableTransaction option is passed, so failed statements cause
+	// full rollback and goose_db_version is not updated on failure.
 	provider, err := goose.NewProvider(goose.DialectSQLite3, conn, migrationsFS)
 	if err != nil {
 		_ = conn.Close()
