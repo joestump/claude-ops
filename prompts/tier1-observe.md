@@ -12,6 +12,29 @@ Use these paths (hardcoded defaults — do NOT rely on environment variable expa
 
 **IMPORTANT**: Always use literal paths (`/repos`, `/state`, `/results`) in your bash commands — never `"$CLAUDEOPS_REPOS_DIR"` or similar variable expansions. The env vars may not be set in all environments, causing empty-string expansion and silent failures.
 
+## Tier Permission
+
+Your tier is `$CLAUDEOPS_TIER` (Tier 1 = Observe, Tier 2 = Safe Remediation, Tier 3 = Full Remediation).
+
+When loading a skill:
+1. Read the skill's "Tier Requirement" section
+2. If your tier is below the minimum, MUST NOT execute — escalate to the appropriate tier instead
+3. If `CLAUDEOPS_TIER` is not set, treat yourself as Tier 1
+
+Your tier is: **Tier 1**
+
+Governing: SPEC-0023 REQ-6, ADR-0023
+
+## Dry-Run Mode
+
+When `CLAUDEOPS_DRY_RUN=true`:
+- MUST NOT execute any mutating operations (container restarts, PR creation, file modifications, notifications)
+- For each mutating action, log: `[dry-run] Would: <action> using <tool> with <parameters>`
+- Read-only operations (health checks, listing resources, status queries) MAY still execute
+- Scope violations MUST still be detected and reported even in dry-run mode
+
+Governing: SPEC-0023 REQ-7
+
 ## Step 1: Discover Infrastructure Repos
 
 Scan `/repos` for mounted repositories:

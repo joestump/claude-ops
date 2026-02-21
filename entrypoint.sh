@@ -8,6 +8,10 @@ STATE_DIR="${CLAUDEOPS_STATE_DIR:-/state}"
 RESULTS_DIR="${CLAUDEOPS_RESULTS_DIR:-/results}"
 REPOS_DIR="${CLAUDEOPS_REPOS_DIR:-/repos}"
 ALLOWED_TOOLS="${CLAUDEOPS_ALLOWED_TOOLS:-Bash,Read,Grep,Glob,Task,WebFetch}"
+# Governing: ADR-0023 (AllowedTools-Based Tier Enforcement)
+# Default to Tier 1 blocklist (most restrictive)
+DISALLOWED_TOOLS="${CLAUDEOPS_DISALLOWED_TOOLS:-Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr create:*),Bash(gh pr merge:*),Bash(tea pr create:*),Bash(git push:*),Bash(git commit:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*),Bash(apprise:*)}"
+CLAUDEOPS_TIER="${CLAUDEOPS_TIER:-1}"
 DRY_RUN="${CLAUDEOPS_DRY_RUN:-false}"
 MCP_CONFIG="/app/.claude/mcp.json"
 
@@ -18,6 +22,7 @@ echo "  Prompt: ${PROMPT_FILE}"
 echo "  State: ${STATE_DIR}"
 echo "  Results: ${RESULTS_DIR}"
 echo "  Repos: ${REPOS_DIR}"
+echo "  Tier: ${CLAUDEOPS_TIER}"
 echo "  Dry run: ${DRY_RUN}"
 echo ""
 
@@ -68,7 +73,8 @@ while true; do
     merge_mcp_configs
 
     # Build environment context for Claude
-    ENV_CONTEXT="CLAUDEOPS_DRY_RUN=${DRY_RUN}"
+    ENV_CONTEXT="CLAUDEOPS_TIER=${CLAUDEOPS_TIER}"
+    ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_DRY_RUN=${DRY_RUN}"
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_STATE_DIR=${STATE_DIR}"
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_RESULTS_DIR=${RESULTS_DIR}"
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_REPOS_DIR=${REPOS_DIR}"
@@ -85,6 +91,7 @@ while true; do
         --model "${MODEL}" \
         -p "$(cat "${PROMPT_FILE}")" \
         --allowedTools "${ALLOWED_TOOLS}" \
+        --disallowedTools "${DISALLOWED_TOOLS}" \
         --append-system-prompt "Environment: ${ENV_CONTEXT}" \
         2>&1 | tee -a "${LOG_FILE}" || true
 

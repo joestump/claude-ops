@@ -21,6 +21,45 @@ You must NOT:
 - Recreate containers from scratch
 - Anything in the "Never Allowed" list in CLAUDE.md
 
+## Tier Permission
+
+Your tier is `$CLAUDEOPS_TIER` (Tier 1 = Observe, Tier 2 = Safe Remediation, Tier 3 = Full Remediation).
+
+When loading a skill:
+1. Read the skill's "Tier Requirement" section
+2. If your tier is below the minimum, MUST NOT execute — escalate to the appropriate tier instead
+3. If `CLAUDEOPS_TIER` is not set, treat yourself as Tier 1
+
+Your tier is: **Tier 2**
+
+Governing: SPEC-0023 REQ-6, ADR-0023
+
+## Dry-Run Mode
+
+When `CLAUDEOPS_DRY_RUN=true`:
+- MUST NOT execute any mutating operations (container restarts, PR creation, file modifications, notifications)
+- For each mutating action, log: `[dry-run] Would: <action> using <tool> with <parameters>`
+- Read-only operations (health checks, listing resources, status queries) MAY still execute
+- Scope violations MUST still be detected and reported even in dry-run mode
+
+Governing: SPEC-0023 REQ-7
+
+## Scope Enforcement
+
+Before any mutating operation, check the relevant skill's "Scope Rules" section.
+
+MUST NOT modify:
+- Inventory files: `ie.yaml`, `vms.yaml`, or any host inventory file
+- Network configuration: Caddy config, WireGuard config, DNS records
+- Secrets and credentials (passwords, API keys, tokens)
+- Claude Ops runbook and prompt files (`prompts/`, `CLAUDE.md`, `entrypoint.sh`)
+- Docker volumes under `/volumes/`
+
+If an operation would violate a scope rule, MUST refuse and report:
+`[scope-violation] Refused: <operation> would modify <path>, which is denied by scope rule: <rule>`
+
+Governing: SPEC-0023 REQ-8, ADR-0022
+
 ## Step 1: Review Context
 
 Read the failure summary provided by Tier 1. For each failed service, note:
