@@ -406,6 +406,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		}
 
 		// Generate and store an LLM summary of the session response.
+		// Governing: SPEC-0021 REQ "Session Summary Generation"
 		if resultResponse != "" {
 			summary, sumErr := summarizeResponse(ctx, resultResponse, m.cfg.SummaryModel)
 			if sumErr != nil {
