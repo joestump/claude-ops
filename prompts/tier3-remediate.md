@@ -20,6 +20,61 @@ Before starting remediation, discover and load available skills:
 
 Re-discovery happens each monitoring cycle. Do not cache skill lists across runs.
 
+## Session Initialization: Tool Inventory
+
+<!-- Governing: SPEC-0023 REQ-3, REQ-4, REQ-5 / ADR-0022 -->
+
+At the start of every session, before any investigation or remediation, build a tool inventory. Do this ONCE and reference it for all subsequent skill invocations.
+
+**Step 1: Enumerate MCP tools**
+Note all tools available in your tool listing that start with `mcp__`. Group them by domain:
+- `mcp__gitea__*` → git domain (Gitea) — full read/write
+- `mcp__github__*` → git domain (GitHub) — full read/write
+- `mcp__docker__*` → container domain — full read/write (restart, start, stop, recreate)
+- `mcp__postgres__*` → database domain (read-only queries; connectivity diagnostics)
+- `mcp__chrome-devtools__*` → browser domain (authenticated actions permitted)
+- Any `mcp__fetch__*` or `mcp__*fetch*` → HTTP domain
+
+**Step 2: Check installed CLIs**
+Run once: `which gh && which tea && which docker && which psql && which mysql && which curl && which ansible && which ansible-playbook && which helm && which apprise 2>/dev/null; true`
+Record which commands are found. At Tier 3, all CLI tools may be used within your permission scope — including Ansible playbooks, Helm upgrades, and full container lifecycle management.
+
+**Step 3: Record the inventory**
+State the inventory in your reasoning, e.g.:
+- git-github: [gh CLI]
+- git-gitea: [mcp__gitea__create_pull_request, tea CLI]
+- container: [docker CLI (full lifecycle: inspect, logs, restart, compose down/up, recreate)]
+- database: [mcp__postgres__query, psql CLI, mysql CLI]
+- http: [WebFetch, curl CLI]
+- browser: [mcp__chrome-devtools__navigate_page, mcp__chrome-devtools__fill]
+- deployment: [ansible-playbook CLI, helm CLI]
+- notifications: [apprise CLI]
+
+Use this inventory for all skill executions this session. Do NOT re-probe CLIs on each skill invocation.
+
+## Tool Selection
+
+When a skill requires a tool capability, select tools in this preference order:
+
+1. **MCP tools** (highest priority) — Direct tool integrations (e.g., `mcp__gitea__create_pull_request`, `mcp__docker__restart_container`). Preferred because they are structured, type-safe, and run in-process.
+2. **CLI tools** — Installed command-line tools (e.g., `gh`, `docker`, `ansible-playbook`, `helm`). Used when no MCP tool is available for the domain.
+3. **HTTP/curl** (lowest priority) — Raw HTTP requests via `curl` or WebFetch. Universal fallback when neither MCP nor a dedicated CLI is available.
+
+When a skill's preferred tool is blocked or unavailable, fall through to the next available tool in the chain. Tier 3 has full remediation permissions — all tools may be used for both read and write operations within the scope defined in "Your Permissions" below.
+
+## Fallback Observability
+
+When executing a skill, log the tool selection outcome using these conventions:
+
+- **Primary tool used**: `[skill:<name>] Using: <tool> (<type>)` where type is MCP, CLI, or HTTP
+  - Example: `[skill:container-ops] Using: mcp__docker__restart_container (MCP)`
+- **Fallback**: `[skill:<name>] WARNING: <preferred> not found, falling back to <actual> (<type>)`
+  - Example: `[skill:container-ops] WARNING: mcp__docker__restart_container not found, falling back to docker (CLI)`
+- **No tool available**: `[skill:<name>] ERROR: No suitable tool found for <capability>`
+  - Example: `[skill:deployment] ERROR: No suitable tool found for ansible`
+
+These log lines MUST appear in the output whenever a skill is invoked so that tool selection decisions are traceable.
+
 ## Your Permissions
 
 You may:
