@@ -12,9 +12,10 @@ COPY api/ api/
 RUN CGO_ENABLED=0 go build -ldflags "-X github.com/joestump/claude-ops/internal/config.Version=${VERSION}" -o /claudeops ./cmd/claudeops
 
 # Runtime stage
+# Governing: SPEC-0009 REQ "Dockerfile Structure" — node:22-slim base image
 FROM node:22-slim
 
-# System dependencies for health checks and remediation
+# Governing: SPEC-0009 REQ "Dockerfile Structure" — system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client \
     curl \
@@ -25,13 +26,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
-# Apprise for notifications (supports 80+ services)
+# Governing: SPEC-0009 REQ "Dockerfile Structure" — apprise for notifications
 RUN pip3 install --break-system-packages --retries 3 --timeout 120 apprise
 
-# Claude Code CLI
+# Governing: SPEC-0009 REQ "Dockerfile Structure" — Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 
-# Working directory — this repo gets copied in
+# Governing: SPEC-0009 REQ "Dockerfile Structure" — working directory /app
 WORKDIR /app
 
 # Copy Go binary from build stage
@@ -40,7 +41,13 @@ COPY --from=builder /claudeops /claudeops
 # Copy project files (prompts, checks, playbooks, etc.)
 COPY . .
 
-# State and results directories (mount volumes over these)
+# Governing: SPEC-0009 REQ "Dockerfile Structure" — /state, /results, /repos directories
 RUN mkdir -p /state /results /repos
 
+# Governing: SPEC-0009 REQ "Dockerfile Structure" — container entrypoint
+# NOTE: The spec (REQ-9) references entrypoint.sh, which was the original entrypoint.
+# The Go binary /claudeops has since replaced entrypoint.sh entirely — it handles config
+# loading, MCP config merging, session scheduling, signal handling, and the web dashboard.
+# See ADR-0009 (Go rewrite) and cmd/claudeops/main.go. entrypoint.sh is retained for
+# reference but is not used.
 ENTRYPOINT ["/claudeops"]
