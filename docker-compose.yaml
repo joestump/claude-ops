@@ -29,7 +29,8 @@ services:
       - ./state:/state
       - ./results:/results
       # Governing: SPEC-0009 REQ-10 "SSH key mounting for remote access"
-      # Mount SSH keys for remote host access (container inspection, logs, remediation)
+      # Mount SSH keys for remote host access (container inspection, logs, remediation).
+      # Keys MUST be mounted read-only (:ro).
       # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
       # - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
       # Governing: SPEC-0009 REQ-4 "repos mount from operator-specified host paths"
@@ -41,13 +42,13 @@ services:
   # Headless Chrome sidecar for browser automation (credential rotation, web UI checks).
   # Only starts when using: docker compose --profile browser up -d
   chrome:
-    image: browserless/chromium
+    image: browserless/chromium  # Governing: SPEC-0009 REQ "Optional Browser Sidecar via Profiles" — browserless/chromium image
     container_name: claude-ops-chrome
-    restart: unless-stopped               # Governing: SPEC-0009 REQ-7 "browser sidecar restart policy", ADR-0009
+    restart: unless-stopped               # Governing: SPEC-0009 REQ-7 "browser sidecar restart policy", REQ-5 "Optional Browser Sidecar via Profiles", ADR-0009
     profiles:
-      - browser
+      - browser  # Governing: SPEC-0009 REQ "Optional Browser Sidecar via Profiles" — browser profile
     ports:
-      - "9222:9222"
+      - "9222:9222"  # Governing: SPEC-0009 REQ "Optional Browser Sidecar via Profiles" — CDP port 9222
     environment:
       - CONNECTION_TIMEOUT=120000
       # Governing: SPEC-0014 REQ "Isolated Browser Contexts"
