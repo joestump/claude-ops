@@ -1,8 +1,12 @@
+# Governing: SPEC-0009 REQ "Declarative topology in a single compose file"
+# This file is the single source of truth for the Claude Ops deployment topology.
 services:
+  # Governing: SPEC-0009 REQ "Watchdog service definition"
   watchdog:
-    build: .
-    container_name: claude-ops
-    restart: unless-stopped  # Governing: SPEC-0009 REQ "Restart Policy and Resilience", ADR-0009
+    build: .                              # Governing: SPEC-0009 REQ-3 "build from project Dockerfile"
+    container_name: claude-ops            # Governing: SPEC-0009 REQ-3 "container_name: claude-ops"
+    restart: unless-stopped               # Governing: SPEC-0009 REQ-3, REQ-7 "Restart policy and resilience", ADR-0009
+    # Governing: SPEC-0009 REQ-3, REQ-6 "Environment-based configuration"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
@@ -20,22 +24,26 @@ services:
     ports:
       - "8080:8080"
     # Governing: SPEC-0007 REQ-3 — state directory backed by bind mount, persists across restarts/rebuilds
+    # Governing: SPEC-0009 REQ-3, REQ-4 "Persistent volume mounts"
     volumes:
       - ./state:/state
       - ./results:/results
+      # Governing: SPEC-0009 REQ-10 "SSH key mounting for remote access"
       # Mount SSH keys for remote host access (container inspection, logs, remediation)
       # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
       # - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      # Governing: SPEC-0009 REQ-4 "repos mount from operator-specified host paths"
       # Mount infrastructure repos for service discovery
       # - /path/to/home-cluster:/repos/ansible:ro
       # - /path/to/docker-mirror:/repos/docker-mirror:ro
 
+  # Governing: SPEC-0009 REQ-5 "Optional browser sidecar via profiles"
   # Headless Chrome sidecar for browser automation (credential rotation, web UI checks).
   # Only starts when using: docker compose --profile browser up -d
   chrome:
     image: browserless/chromium
     container_name: claude-ops-chrome
-    restart: unless-stopped  # Governing: SPEC-0009 REQ "Restart Policy and Resilience", ADR-0009
+    restart: unless-stopped               # Governing: SPEC-0009 REQ-7 "browser sidecar restart policy", ADR-0009
     profiles:
       - browser
     ports:

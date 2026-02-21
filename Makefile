@@ -13,6 +13,7 @@ clean:
 	rm -f $(BINARY)
 
 # Docker Compose dev targets
+# Governing: SPEC-0009 REQ-1 "Single-command deployment"
 dev:
 	docker compose up --build
 
