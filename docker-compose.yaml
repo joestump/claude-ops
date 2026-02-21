@@ -7,6 +7,7 @@ services:
     container_name: claude-ops            # Governing: SPEC-0009 REQ-3 "container_name: claude-ops"
     restart: unless-stopped               # Governing: SPEC-0009 REQ-3, REQ-7 "Restart policy and resilience", ADR-0009
     # Governing: SPEC-0009 REQ-3, REQ-6 "Environment-based configuration"
+    # Governing: SPEC-0009 REQ "Restart Policy and Resilience", REQ "Environment-Based Configuration"
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
@@ -25,6 +26,7 @@ services:
       - "8080:8080"
     # Governing: SPEC-0007 REQ-3 — state directory backed by bind mount, persists across restarts/rebuilds
     # Governing: SPEC-0009 REQ-3, REQ-4 "Persistent volume mounts"
+    # Governing: SPEC-0009 REQ "Persistent Volume Mounts"
     volumes:
       - ./state:/state
       - ./results:/results
