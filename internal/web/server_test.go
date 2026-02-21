@@ -86,6 +86,82 @@ func TestIndexReturns200(t *testing.T) {
 	}
 }
 
+// Governing: SPEC-0021 REQ "TL;DR Page Rendering"
+func TestTLDRPageRendering(t *testing.T) {
+	e := newTestEnv(t)
+
+	// Insert a session with a summary.
+	now := time.Now().UTC().Format(time.RFC3339)
+	id, err := e.srv.db.InsertSession(&db.Session{
+		Tier: 1, Model: "haiku", PromptFile: "/tmp/test.md",
+		Status: "completed", StartedAt: now, Trigger: "scheduled",
+	})
+	if err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+	if err := e.srv.db.UpdateSessionSummary(id, "All 6 services healthy. No issues found."); err != nil {
+		t.Fatalf("UpdateSessionSummary: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /: expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Page heading must read "TL;DR".
+	if !strings.Contains(body, "TL;DR") {
+		t.Error("expected page to contain 'TL;DR' heading")
+	}
+
+	// Sidebar nav label must show emoji + TL;DR.
+	if !strings.Contains(body, "\xf0\x9f\xa4\x94") { // U+1F914 thinking face emoji
+		t.Error("expected sidebar to contain thinking face emoji")
+	}
+
+	// Summary text should be displayed.
+	if !strings.Contains(body, "All 6 services healthy. No issues found.") {
+		t.Error("expected page to display session summary text")
+	}
+}
+
+// Governing: SPEC-0021 REQ "TL;DR Page Rendering"
+func TestTLDRFallbackToResponse(t *testing.T) {
+	e := newTestEnv(t)
+
+	// Insert a session WITHOUT a summary, but with a response.
+	now := time.Now().UTC().Format(time.RFC3339)
+	id, err := e.srv.db.InsertSession(&db.Session{
+		Tier: 1, Model: "haiku", PromptFile: "/tmp/test.md",
+		Status: "completed", StartedAt: now, Trigger: "scheduled",
+	})
+	if err != nil {
+		t.Fatalf("InsertSession: %v", err)
+	}
+	if err := e.srv.db.UpdateSessionResult(id, "## Health Report\nAll services healthy.", 0.001, 2, 5000); err != nil {
+		t.Fatalf("UpdateSessionResult: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /: expected 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+
+	// Should fall back to rendered markdown response when summary is NULL.
+	if !strings.Contains(body, "Health Report") {
+		t.Error("expected page to fall back to full response when summary is NULL")
+	}
+}
+
 func TestSessionsReturns200(t *testing.T) {
 	e := newTestEnv(t)
 	req := httptest.NewRequest("GET", "/sessions", nil)
