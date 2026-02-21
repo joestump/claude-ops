@@ -26,7 +26,8 @@ type Config struct {
 	MemoryBudget          int
 	BrowserAllowedOrigins string
 	PREnabled             bool
-	SummaryModel          string
+	// Governing: SPEC-0021 REQ "Summarization Model"
+	SummaryModel string
 }
 
 // Load reads configuration from viper, which merges flag values, env vars,

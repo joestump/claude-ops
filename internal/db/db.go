@@ -32,7 +32,7 @@ type Session struct {
 	Trigger         string  // "scheduled" or "manual"
 	PromptText      *string // custom prompt text for ad-hoc sessions
 	ParentSessionID *int64  // links to parent session for escalation chains
-	Summary         *string // LLM-generated summary of session response
+	Summary         *string // LLM-generated summary of session response — Governing: SPEC-0021 REQ "Summary Persistence"
 }
 
 // HealthCheck represents a parsed health check result.
