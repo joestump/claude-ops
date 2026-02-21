@@ -72,8 +72,8 @@ This is not a traditional codebase — there is no application code to compile o
 
 ### Skills
 
-- `/adr` — Creates an Architecture Decision Record using a Claude Team (drafter + architect agents). Output goes to `docs/decisions/ADR-XXXX-*.md`.
-- `/openspec` — Creates an OpenSpec specification (spec.md + design.md) using a Claude Team. Output goes to `openspec/specs/{capability}/`.
+- `/adr` — Creates an Architecture Decision Record using a Claude Team (drafter + architect agents). Output goes to `docs/adrs/ADR-XXXX-*.md`.
+- `/openspec` — Creates an OpenSpec specification (spec.md + design.md) using a Claude Team. Output goes to `docs/openspec/specs/{capability}/`.
 
 Both skills use `TeamCreate` to spawn drafter/writer and architect review agents.
 
@@ -219,11 +219,11 @@ This project uses [MADR](https://adr.github.io/madr/) (Markdown Architectural De
 
 ### Location
 
-ADRs live in `docs/decisions/` and are named `ADR-XXXX-short-title.md` (e.g., `ADR-0001-web-dashboard.md`).
+ADRs live in `docs/adrs/` and are named `ADR-XXXX-short-title.md` (e.g., `ADR-0001-tiered-model-escalation.md`).
 
 ### Numbering
 
-ADR numbers are sequential and zero-padded to 4 digits: `ADR-0001`, `ADR-0002`, etc. Always scan `docs/decisions/` for the highest existing number before creating a new one.
+ADR numbers are sequential and zero-padded to 4 digits: `ADR-0001`, `ADR-0002`, etc. Always scan `docs/adrs/` for the highest existing number before creating a new one.
 
 ### Creating an ADR
 
@@ -251,9 +251,9 @@ This project uses [OpenSpec](https://github.com/Fission-AI/OpenSpec) for formal 
 
 ### Location
 
-Specs live in `openspec/specs/` organized by capability:
+Specs live in `docs/openspec/specs/` organized by capability:
 ```
-openspec/specs/
+docs/openspec/specs/
 └── {capability-name}/
     ├── spec.md       # Requirements (RFC 2119 language)
     └── design.md     # Technical design and architecture

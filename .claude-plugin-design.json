@@ -1,0 +1,37 @@
+{
+  "tracker": "github",
+  "tracker_config": {
+    "owner": "joestump",
+    "repo": "claude-ops"
+  },
+  "projects": {
+    "default_mode": "per-epic",
+    "project_ids": {
+      "SPEC-0001": "PVT_kwHNkyPOAT7oKA",
+      "SPEC-0002": "PVT_kwHNkyPOAT7oMA",
+      "SPEC-0003": "PVT_kwHNkyPOAT7oNg",
+      "SPEC-0004": "PVT_kwHNkyPOAT7oQw",
+      "SPEC-0005": "PVT_kwHNkyPOAT7oVg",
+      "SPEC-0006": "PVT_kwHNkyPOAT7oYg",
+      "SPEC-0007": "PVT_kwHNkyPOAT7oaw",
+      "SPEC-0008": "PVT_kwHNkyPOAT7ogQ",
+      "SPEC-0009": "PVT_kwHNkyPOAT7ojw",
+      "SPEC-0010": "PVT_kwHNkyPOAT7olw",
+      "SPEC-0011": "PVT_kwHNkyPOAT7onA",
+      "SPEC-0012": "PVT_kwHNkyPOAT7opA",
+      "SPEC-0013": "PVT_kwHNkyPOAT7oqA",
+      "SPEC-0014": "PVT_kwHNkyPOAT7orQ",
+      "SPEC-0015": "PVT_kwHNkyPOAT7osQ",
+      "SPEC-0016": "PVT_kwHNkyPOAT7owA",
+      "SPEC-0017": "PVT_kwHNkyPOAT7oxA",
+      "SPEC-0018": "PVT_kwHNkyPOAT7o0g",
+      "SPEC-0019": "PVT_kwHNkyPOAT7o1g",
+      "SPEC-0020": "PVT_kwHNkyPOAT7o4g",
+      "SPEC-0021": "PVT_kwHNkyPOAT7o7w",
+      "SPEC-0022": "PVT_kwHNkyPOAT7o8g"
+    },
+    "views": ["All Work", "Board", "Roadmap"],
+    "columns": ["Todo", "In Progress", "In Review", "Done"],
+    "iteration_weeks": 2
+  }
+}

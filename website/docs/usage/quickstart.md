@@ -49,8 +49,8 @@ services:
       - /path/to/your/docker-images:/repos/docker-images:ro
 ```
 
-:::warning Always mount read-only
-Use `:ro` (read-only) by default. Claude runs commands against remote hosts via SSH, not local files. Only mount read-write if Claude genuinely needs write access (rare).
+:::warning Mount read-only by default
+Use `:ro` (read-only) mounts. Claude reads repo files for context but never modifies them locally — remediation runs via SSH on remote hosts, and [PR creation](./configuration#git-provider--pr-creation) pushes changes through the GitHub/Gitea REST API (not local git).
 :::
 
 ## 4. (Optional) Add a manifest to your repos

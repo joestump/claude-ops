@@ -100,7 +100,7 @@ See [Notifications](./notifications) for setup details and common URL formats.
 Browser automation requires the Chrome sidecar (`docker compose --profile browser up -d`). When `CLAUDEOPS_BROWSER_ALLOWED_ORIGINS` is empty, browser automation is disabled entirely.
 
 :::info
-Credentials are injected into the browser session at runtime — the Claude agent never sees raw passwords or tokens. See the [browser automation docs](https://github.com/joestump/claude-ops/blob/main/docs/browser-automation.md) for the full security model.
+Credentials are injected into the browser session at runtime — the Claude agent never sees raw passwords or tokens. See the [browser automation spec](/docs/specs/browser-automation/spec) for the full security model.
 :::
 
 ## Example `.env`
