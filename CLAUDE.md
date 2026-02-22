@@ -181,6 +181,8 @@ Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` before taki
 
 ## Notifications via Apprise
 
+<!-- Governing: SPEC-0004 REQ-1 (single env var), REQ-2 (graceful degradation when unset) -->
+
 Notifications are sent using the `apprise` CLI, which supports 80+ services (email, ntfy, Slack, Discord, Telegram, etc.) through URL-based configuration.
 
 ```bash
