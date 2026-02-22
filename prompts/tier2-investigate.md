@@ -166,6 +166,7 @@ For each failed service, dig deeper:
 - If a core service (database, reverse proxy) is down, identify all dependent services
 - Prioritize fixing the root cause over restarting dependents
 
+<!-- Governing: SPEC-0007 REQ-14 — Tier 2 reads and writes cooldown state -->
 ## Step 3: Check Cooldown
 
 Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json` before any remediation. If cooldown limit is exceeded, skip to Step 5 (Notify).

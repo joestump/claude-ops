@@ -187,6 +187,7 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 - These are additional checks defined by the repo owner for their specific services
 - Run them after the standard checks above
 
+<!-- Governing: SPEC-0007 REQ-14 — Tier 1 reads cooldown state -->
 ## Step 4: Read Cooldown State
 
 Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. Note any services in cooldown.

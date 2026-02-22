@@ -159,6 +159,7 @@ With the full picture, determine the actual root cause:
 - Check if environment variables or mounted configs have changed
 - Look for version mismatches between services
 
+<!-- Governing: SPEC-0007 REQ-14 — Tier 3 reads and writes cooldown state -->
 ## Step 3: Check Cooldown
 
 Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. If cooldown limit is exceeded, skip to Step 5 (report as needs human attention).
