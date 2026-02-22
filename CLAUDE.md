@@ -164,6 +164,7 @@ Everything in Tier 2, plus:
 - Multi-service orchestrated recovery (e.g., restart postgres, wait, then restart dependents)
 - Complex multi-step recovery procedures
 
+<!-- Governing: SPEC-0003 REQ-5 — Never Allowed Operations -->
 ### Never Allowed (Any Tier)
 
 These actions ALWAYS require a human. Never do any of these:
@@ -180,6 +181,25 @@ These actions ALWAYS require a human. Never do any of these:
 - Modify this runbook or any prompt files
 
 <!-- Governing: SPEC-0007 REQ-1 (state file location), REQ-10 (agent tooling), REQ-11 (human readability) -->
+<!-- Governing: SPEC-0003 REQ-12 — Honest Safety Posture -->
+### Enforcement Model and Limitations
+
+This system uses a layered enforcement model. Operators should understand its boundaries:
+
+1. **Prompt-based restrictions rely on model compliance.** Semantic restrictions within a tool category (e.g., "you have Bash but must not run Ansible") are enforced by the model following its prompt instructions. There is no runtime interception layer that blocks a forbidden Bash command before execution.
+2. **`--allowedTools` provides a hard boundary at the tool level, not the command level.** If `Bash` is in the allowed tools list, the model can execute any shell command. The CLI prevents access to tools not on the list (e.g., blocking `Write` at Tier 1), but cannot restrict what happens inside an allowed tool.
+3. **Violations are detectable through post-hoc log review, not prevented at runtime.** All agent output and tool calls are logged to `$CLAUDEOPS_RESULTS_DIR`. Operators can audit these logs to detect policy violations after the fact.
+4. **Cooldown state provides a secondary blast-radius limit.** Even if a model deviates from prompt instructions, the cooldown system caps the number of restarts and redeployments per service per time window.
+
+**Recommended complementary hardening:**
+
+- Mount infrastructure repos as read-only volumes in Docker (`ro` flag) to prevent file modifications at the filesystem level.
+- Use Docker `--cap-drop` to remove unnecessary Linux capabilities from the container.
+- Apply network policies or Docker network isolation to restrict which hosts the container can reach.
+- Use `--read-only` for the container filesystem where possible, with explicit writable mounts only for state and results directories.
+
+These Docker-level restrictions provide defense-in-depth that does not depend on model compliance.
+
 ## Cooldown Rules
 
 Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `/state/cooldown.json`) before taking any remediation action. The file is valid JSON, readable and writable using standard shell tools (`cat`, `jq`, `python3`). No custom parsers or binary formats are needed.
