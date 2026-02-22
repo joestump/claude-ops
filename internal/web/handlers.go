@@ -17,6 +17,7 @@ import (
 
 // handleIndex renders the overview dashboard.
 // Governing: SPEC-0021 REQ "TL;DR Page Rendering"
+// Governing: SPEC-0013 "Real-Time Overview" — serves polling endpoint for HTMX auto-refresh
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	var sessionView *SessionView
 	if latest, err := s.db.LatestSession(); err != nil {
@@ -58,6 +59,7 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSessions renders the session list.
+// Governing: SPEC-0013 "Real-Time Sessions List" — serves polling endpoint for HTMX auto-refresh
 func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	sessions, err := s.db.ListSessions(50, 0)
 	if err != nil {
