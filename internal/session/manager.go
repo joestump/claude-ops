@@ -27,6 +27,7 @@ type Manager struct {
 	cfg      *config.Config
 	db       *db.DB
 	hub      *hub.Hub
+	rawHub   *hub.Hub // Governing: SPEC-0024 REQ-5 — raw NDJSON event hub for OpenAI streaming
 	runner   ProcessRunner
 	redactor *RedactionFilter // Governing: SPEC-0014 REQ "Log Redaction of Credential Values" — applied to all output streams
 
@@ -48,11 +49,18 @@ func New(cfg *config.Config, database *db.DB, h *hub.Hub, runner ProcessRunner) 
 		cfg:         cfg,
 		db:          database,
 		hub:         h,
+		rawHub:      hub.New(), // Governing: SPEC-0024 REQ-5 — raw NDJSON hub for OpenAI streaming
 		runner:      runner,
 		redactor:    NewRedactionFilter(),
 		triggerCh:   make(chan string, 1),
 		lastAdHocID: make(chan int64, 1),
 	}
+}
+
+// RawHub returns the raw NDJSON event hub used by OpenAI streaming.
+// Governing: SPEC-0024 REQ-5 (Streaming Response), ADR-0020
+func (m *Manager) RawHub() *hub.Hub {
+	return m.rawHub
 }
 
 // Governing: SPEC-0012 REQ "Busy Rejection When Session Already Running" (mutex check + channel buffer rejects concurrent triggers)
@@ -357,6 +365,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 			// Write timestamped JSON to log file for forensic analysis.
 			_, _ = fmt.Fprintf(logFile, "%s\t%s\n", ts.Format(time.RFC3339Nano), raw)
 
+			// Governing: SPEC-0024 REQ-5 — publish raw NDJSON to rawHub for OpenAI streaming
+			m.rawHub.Publish(hubID, raw)
+
 			// Plain text for container stdout logs.
 			plainText := FormatStreamEvent(raw)
 			if plainText == "" {
@@ -459,6 +470,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 
 		// Close the SSE hub AFTER DB updates so the browser reload sees the final state.
 		m.hub.Close(hubID)
+		m.rawHub.Close(hubID) // Governing: SPEC-0024 REQ-5 — close raw hub for OpenAI streaming
 
 		if err != nil {
 			return sessionID, fmt.Errorf("claude exited: %w", err)
@@ -470,6 +482,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		exitCode := 137
 		m.finalizeSession(sessionID, "timed_out", &exitCode, &logPath)
 		m.hub.Close(hubID)
+		m.rawHub.Close(hubID) // Governing: SPEC-0024 REQ-5 — close raw hub for OpenAI streaming
 		return sessionID, ctx.Err()
 	}
 }

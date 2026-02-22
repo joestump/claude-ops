@@ -154,7 +154,8 @@ func run(cmd *cobra.Command, args []string) error {
 	// Governing: SPEC-0008 REQ-2 (Web Server — HTTP on configurable port, default 8080)
 	// Create and start web server (needs mgr for ad-hoc session triggers).
 	// Governing: SPEC-0023 REQ-9 — git provider registry removed; PR operations are now skill-based.
-	webServer := web.New(&cfg, sseHub, database, mgr)
+	// Governing: SPEC-0024 REQ-5 — pass raw hub for OpenAI streaming
+	webServer := web.New(&cfg, sseHub, database, mgr, web.WithRawHub(mgr.RawHub()))
 	go func() {
 		if err := webServer.Start(); err != nil {
 			log.Printf("web server error: %v", err)
