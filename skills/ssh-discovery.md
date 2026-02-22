@@ -8,6 +8,8 @@ Discover the SSH access method for each managed host at the start of every monit
 
 Run once per cycle, after repo and service discovery (Step 2) and before health checks (Step 3). Extract the host list from the CLAUDE-OPS.md manifest's Hosts table.
 
+<!-- Governing: SPEC-0020 "Manifest as Advisory" — CLAUDE-OPS.md SSH config is advisory, verified at runtime -->
+
 ## Probing Order
 
 For each host, attempt SSH connections in this order. Stop on the first success.
@@ -57,6 +59,8 @@ ssh <user>@<host> docker info --format '{{.ServerVersion}}'
 - If the command succeeds, record `can_docker: true`
 - If it fails (permission error), record `can_docker: false`
 
+<!-- Governing: SPEC-0020 "Host Access Map Structure" — per-host JSON with user, method, can_docker -->
+
 ## Host Access Map Schema
 
 Build a JSON map with one entry per host:
@@ -87,6 +91,8 @@ Build a JSON map with one entry per host:
   }
 }
 ```
+
+<!-- Governing: SPEC-0020 "Per-Run Caching" — computed once per cycle, passed via handoff to higher tiers -->
 
 ## Caching
 
