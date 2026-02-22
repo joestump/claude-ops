@@ -208,7 +208,7 @@ Before running health checks, discover the SSH access method for each managed ho
 1. Read `/app/skills/ssh-discovery.md` for the full procedure
 2. Extract the host list from the CLAUDE-OPS.md manifest's Hosts table
 3. For each host, probe SSH access in order: root, manifest-declared user, common defaults (ubuntu, debian, pi, admin)
-4. For non-root users, detect sudo access and Docker access
+4. For non-root users, detect sudo access and Docker access <!-- Governing: SPEC-0020 REQ "Sudo Access Detection", REQ "Docker Access Detection" -->
 5. Build the host access map (JSON with user, method, can_docker per host)
 6. Log the discovery results for each host
 

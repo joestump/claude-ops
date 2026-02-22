@@ -30,6 +30,7 @@ ssh -o BatchMode=yes -o ConnectTimeout=5 <user>@<host> whoami
 
 If all probes fail for a host, record it as `unreachable` and move on. Do not block the rest of the cycle.
 
+<!-- Governing: SPEC-0020 REQ "Sudo Access Detection" — test passwordless sudo via 'sudo -n whoami', record method as "sudo" or "limited" -->
 ## Sudo Detection
 
 For any non-root user that successfully connects, test for passwordless sudo:
@@ -41,6 +42,7 @@ ssh <user>@<host> 'sudo -n whoami 2>/dev/null'
 - If the output is `root`, record `method: "sudo"`
 - Otherwise, record `method: "limited"`
 
+<!-- Governing: SPEC-0020 REQ "Docker Access Detection" — test docker info with appropriate sudo prefix, record can_docker flag -->
 ## Docker Access Detection
 
 For every successfully connected host, test Docker access:
