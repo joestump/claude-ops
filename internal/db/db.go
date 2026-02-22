@@ -579,6 +579,7 @@ func (d *DB) GetMemory(id int64) (*Memory, error) {
 	return m, nil
 }
 
+// Governing: SPEC-0015 "Confidence Scoring" — confidence updates for reinforcement, contradiction, and operator edits
 // UpdateMemory updates a memory's observation, confidence, and active flag.
 func (d *DB) UpdateMemory(id int64, observation string, confidence float64, active bool) error {
 	_, err := d.conn.Exec(
@@ -662,6 +663,7 @@ func (d *DB) GetActiveMemories(limit int) ([]Memory, error) {
 	return memories, rows.Err()
 }
 
+// Governing: SPEC-0015 "Memory Reinforcement", "Memory Contradiction" — finds match for reinforce/contradict logic
 // FindSimilarMemory finds an existing memory matching the given service and category.
 func (d *DB) FindSimilarMemory(service *string, category string) (*Memory, error) {
 	var query string
@@ -690,6 +692,7 @@ func (d *DB) FindSimilarMemory(service *string, category string) (*Memory, error
 	return m, nil
 }
 
+// Governing: SPEC-0015 "Staleness Decay" — reduces confidence after grace period, deactivates below 0.3
 // DecayStaleMemories reduces confidence for memories not updated within graceDays,
 // then deactivates any that fall below 0.3.
 func (d *DB) DecayStaleMemories(graceDays int, decayRate float64) error {

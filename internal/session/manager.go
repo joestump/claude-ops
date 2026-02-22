@@ -108,6 +108,7 @@ func (m *Manager) runAdHoc(ctx context.Context, prompt string) {
 // sessions where the first tier uses a custom prompt instead of the standard
 // prompt file.
 func (m *Manager) runEscalationChain(ctx context.Context, trigger string, promptOverride *string) {
+	// Governing: SPEC-0015 "Staleness Decay" — 0.1/week after 30-day grace, deactivate below 0.3
 	// Decay stale memories before each escalation chain.
 	if err := m.db.DecayStaleMemories(30, 0.1); err != nil {
 		fmt.Fprintf(os.Stderr, "decay stale memories: %v\n", err)
@@ -950,6 +951,7 @@ func (m *Manager) buildEnvContext() string {
 	return ctx
 }
 
+// Governing: SPEC-0015 "Confidence Scoring", "Memory Reinforcement", "Memory Contradiction" — default 0.7, +0.1 reinforce, -0.1 contradict
 // upsertMemory handles the insert-or-update logic for a parsed memory marker.
 // If a similar memory exists (same service + category), it either reinforces
 // (increases confidence) or contradicts (decreases old, inserts new).
