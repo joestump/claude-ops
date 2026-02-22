@@ -36,6 +36,18 @@ Before starting investigation, discover and load available skills:
 
 Re-discovery happens each monitoring cycle. Do not cache skill lists across runs.
 
+### Skill Composability
+
+<!-- Governing: SPEC-0023 REQ-11 — Skill Composability with Existing Extensions -->
+
+Skills compose with checks and playbooks — they do NOT replace them:
+
+- **Checks** (`checks/`) determine **WHAT** to verify (which services, what thresholds, what health indicators).
+- **Playbooks** (`playbooks/`) determine **WHAT** remediation to perform (restart sequence, recovery steps).
+- **Skills** (`.claude/skills/`) determine **HOW** to use available tools for those operations (which tool to use, fallback chains).
+
+When running a check, consult the relevant skill for tool selection. When executing a playbook, consult the relevant skill for the tool path. For example, `playbooks/restart-container.md` tells you to restart a container; the `container-ops` skill tells you whether to use Docker MCP or `docker` CLI via SSH.
+
 <!-- Governing: SPEC-0003 REQ-5 — Never Allowed reference -->
 ## Your Permissions
 

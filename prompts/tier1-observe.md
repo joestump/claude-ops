@@ -27,6 +27,18 @@ Before running any checks, discover and load available skills:
 
 Re-discovery happens each monitoring cycle. Do not cache skill lists across runs.
 
+### Skill Composability
+
+<!-- Governing: SPEC-0023 REQ-11 — Skill Composability with Existing Extensions -->
+
+Skills compose with checks and playbooks — they do NOT replace them:
+
+- **Checks** (`checks/`) determine **WHAT** to verify (which services, what thresholds, what health indicators).
+- **Playbooks** (`playbooks/`) determine **WHAT** remediation to perform (restart sequence, recovery steps).
+- **Skills** (`.claude/skills/`) determine **HOW** to use available tools for those operations (which tool to use, fallback chains).
+
+When running a check, consult the relevant skill for tool selection. For example, `checks/http.md` tells you to verify HTTP health; the `http-request` skill tells you whether to use WebFetch, Fetch MCP, or curl. When executing a playbook, consult the relevant skill for the tool path. For example, `playbooks/restart-container.md` tells you to restart a container; the `container-ops` skill tells you whether to use Docker MCP or `docker` CLI via SSH.
+
 ## Step 0.5: Environment
 
 Use these paths (hardcoded defaults — do NOT rely on environment variable expansion in bash commands):
