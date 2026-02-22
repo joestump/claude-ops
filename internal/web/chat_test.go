@@ -225,10 +225,9 @@ func TestChatCompletionsSessionConflict(t *testing.T) {
 	}
 }
 
-func TestChatCompletionsLastUserMessageUsed(t *testing.T) {
-	// We can't directly inspect the prompt passed to TriggerAdHoc from
-	// the mock, but we can verify the endpoint handles multi-message arrays
-	// without error.
+// Governing: SPEC-0024 REQ-3 (Request Parsing) — last user message extracted as prompt
+
+func TestChatCompletionsLastUserMessageExtracted(t *testing.T) {
 	trigger := &mockTrigger{nextID: 5}
 	e := newTestEnvWithTrigger(t, trigger)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
@@ -243,10 +242,190 @@ func TestChatCompletionsLastUserMessageUsed(t *testing.T) {
 		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
 	}
 
+	// Verify the last user message was extracted as the prompt.
+	if trigger.lastPrompt != "restart nginx" {
+		t.Fatalf("expected prompt 'restart nginx', got %q", trigger.lastPrompt)
+	}
+
 	var resp ChatCompletion
 	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if resp.ID != "chatcmpl-5" {
 		t.Fatalf("expected id 'chatcmpl-5', got %q", resp.ID)
+	}
+}
+
+// Governing: SPEC-0024 REQ-3 — single user message extracted correctly
+
+func TestChatCompletionsSingleUserMessage(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"restart jellyfin"}],"stream":true}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+	if trigger.lastPrompt != "restart jellyfin" {
+		t.Fatalf("expected prompt 'restart jellyfin', got %q", trigger.lastPrompt)
+	}
+}
+
+// Governing: SPEC-0024 REQ-3 — model field accepted but ignored (any model name)
+
+func TestChatCompletionsModelFieldIgnored(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	// Use a model name that doesn't match claude-ops — should still succeed.
+	body := `{"model":"gpt-4","messages":[{"role":"user","content":"check services"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with model='gpt-4', got %d", w.Code)
+	}
+	if trigger.lastPrompt != "check services" {
+		t.Fatalf("expected prompt 'check services', got %q", trigger.lastPrompt)
+	}
+
+	// Response should still report model as "claude-ops" regardless of request model.
+	var resp ChatCompletion
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Model != "claude-ops" {
+		t.Fatalf("expected response model 'claude-ops', got %q", resp.Model)
+	}
+}
+
+// Governing: SPEC-0024 REQ-9 (Stateless Sessions) — prior messages not injected as context
+
+func TestChatCompletionsPriorMessagesNotInjected(t *testing.T) {
+	trigger := &mockTrigger{nextID: 10}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	// Send a request with extensive history — only the last user message should be used.
+	body := `{"model":"claude-ops","messages":[
+		{"role":"system","content":"You are a monitoring bot"},
+		{"role":"user","content":"what is the status of caddy?"},
+		{"role":"assistant","content":"Caddy is healthy."},
+		{"role":"user","content":"restart jellyfin"}
+	]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	// Only the last user message should be the prompt — no system/assistant context.
+	if trigger.lastPrompt != "restart jellyfin" {
+		t.Fatalf("expected prompt 'restart jellyfin' (only last user message), got %q", trigger.lastPrompt)
+	}
+}
+
+// Governing: SPEC-0024 REQ-3 — whitespace-only user message treated as empty
+
+func TestChatCompletionsWhitespaceUserMessage(t *testing.T) {
+	e := newTestEnv(t)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"   "}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400 for whitespace-only user message, got %d", w.Code)
+	}
+}
+
+// Governing: SPEC-0024 REQ-4 — 429 error body matches spec exactly
+
+func TestChatCompletions429ErrorBody(t *testing.T) {
+	trigger := &mockTrigger{nextErr: fmt.Errorf("session already running")}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"status"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", w.Code)
+	}
+
+	var errResp OpenAIError
+	_ = json.NewDecoder(w.Body).Decode(&errResp)
+	if errResp.Error.Message != "A session is already running. Try again shortly." {
+		t.Fatalf("expected exact 429 message, got %q", errResp.Error.Message)
+	}
+	if errResp.Error.Type != "rate_limit_error" {
+		t.Fatalf("expected type 'rate_limit_error', got %q", errResp.Error.Type)
+	}
+	if errResp.Error.Code != "rate_limit_exceeded" {
+		t.Fatalf("expected code 'rate_limit_exceeded', got %q", errResp.Error.Code)
+	}
+}
+
+// Governing: SPEC-0024 REQ-6 — synchronous response includes usage with zeroed tokens
+
+func TestChatCompletionsUsageZeroed(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"test"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	var resp ChatCompletion
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Usage.PromptTokens != 0 || resp.Usage.CompletionTokens != 0 || resp.Usage.TotalTokens != 0 {
+		t.Fatalf("expected all usage tokens to be 0, got prompt=%d completion=%d total=%d",
+			resp.Usage.PromptTokens, resp.Usage.CompletionTokens, resp.Usage.TotalTokens)
+	}
+}
+
+// Governing: SPEC-0024 REQ-3 — stream field defaults to false when omitted
+
+func TestChatCompletionsStreamFieldDefaults(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	// Omit stream field entirely — should default to synchronous response.
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"test"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 without stream field, got %d", w.Code)
+	}
+
+	// Verify response is a complete ChatCompletion (not SSE chunks).
+	var resp ChatCompletion
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("should be valid JSON (non-streaming): %v", err)
+	}
+	if resp.Object != "chat.completion" {
+		t.Fatalf("expected object 'chat.completion', got %q", resp.Object)
 	}
 }
 
