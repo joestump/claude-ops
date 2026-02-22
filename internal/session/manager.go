@@ -52,6 +52,7 @@ func New(cfg *config.Config, database *db.DB, h *hub.Hub, runner ProcessRunner) 
 
 // TriggerAdHoc sends a prompt to trigger an immediate session.
 // Returns the session ID once created, or error if busy.
+// Governing: SPEC-0012 "TriggerAdHoc Public API" — channel-based trigger, busy rejection
 func (m *Manager) TriggerAdHoc(prompt string) (int64, error) {
 	m.mu.Lock()
 	if m.running {
