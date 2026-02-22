@@ -268,6 +268,7 @@ Categorize each service:
 - **down** — service is unreachable or critical checks failed
 - **in_cooldown** — known issue, cooldown limits reached, waiting for human
 
+<!-- Governing: SPEC-0014 "Tier 2+ Permission Gate" — Tier 1 denied browser authentication -->
 ## Browser Automation
 
 Browser authentication is NOT permitted at Tier 1. You may check if a login page loads (unauthenticated navigation to allowed origins only), but you MUST NOT:

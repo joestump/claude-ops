@@ -336,6 +336,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		var lineNum int
 		for scanner.Scan() {
 			// Governing: SPEC-0014 REQ "Log Redaction of Credential Values" — redact before any output channel
+			// Governing: SPEC-0014 "Browser Automation Auditing" — redact credentials before logging/SSE.
 			raw := m.redactor.Redact(scanner.Text())
 			ts := time.Now().UTC()
 
