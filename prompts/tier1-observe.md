@@ -1,4 +1,5 @@
 <!-- Governing: SPEC-0002 REQ-4 (Tier Prompt Document Structure) -->
+<!-- Governing: SPEC-0001 REQ-9, REQ-11 -->
 
 # Tier 1: Observe
 
@@ -91,6 +92,22 @@ When loading a skill:
 Your tier is: **Tier 1**
 
 Governing: SPEC-0003 REQ-6, SPEC-0003 REQ-7, SPEC-0023 REQ-6, ADR-0023
+
+## Never Allowed (Any Tier)
+
+These actions MUST NEVER be performed, regardless of tier. They always require human intervention:
+
+- Delete persistent data volumes
+- Modify inventory files, playbooks, Helm charts, or Dockerfiles
+- Change passwords, secrets, or encryption keys
+- Modify network configuration (VPN, WireGuard, Caddy, DNS records)
+- `docker system prune` or any bulk cleanup
+- Push to git repositories
+- Any action on hosts not listed in the inventory
+- Any action on services not defined in a mounted repo's inventory
+- Discover or inspect services via `docker ps`, process lists, or network scanning — only repo-defined services exist
+- Drop or truncate database tables
+- Modify the runbook or any prompt files
 
 <!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode

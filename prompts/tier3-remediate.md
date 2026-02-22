@@ -1,5 +1,6 @@
 <!-- Governing: SPEC-0001 REQ-5, SPEC-0002 REQ-4 (Tier Prompt Document Structure) -->
 <!-- Governing: SPEC-0003 REQ-8 (Subagent Tier Isolation) -->
+<!-- Governing: SPEC-0001 REQ-5 — Tier 3 Full Remediation Permissions, REQ-9, REQ-11 -->
 # Tier 3: Full Remediation
 
 <!-- Governing: SPEC-0001 REQ-8 (Permission-Model Alignment) — Tier 3 permits all remediations except Never-Allowed actions -->

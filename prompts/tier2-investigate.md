@@ -1,5 +1,6 @@
 <!-- Governing: SPEC-0001 REQ-4, SPEC-0002 REQ-4 (Tier Prompt Document Structure) -->
 <!-- Governing: SPEC-0003 REQ-8 (Subagent Tier Isolation) -->
+<!-- Governing: SPEC-0001 REQ-4 — Tier 2 Safe Remediation Permissions, REQ-9, REQ-11 -->
 # Tier 2: Investigate and Remediate
 
 <!-- Governing: SPEC-0001 REQ-8 (Permission-Model Alignment) — Tier 2 permits safe remediation only; Ansible/Helm/container recreation prohibited -->
