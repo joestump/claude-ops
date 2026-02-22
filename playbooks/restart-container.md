@@ -1,5 +1,4 @@
-<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-8 (no build step), REQ-9 (self-documenting) -->
-
+<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-3 (Playbook Document Structure), REQ-8 (no build step), REQ-9 (self-documenting) -->
 # Playbook: Restart Container
 
 <!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating, REQ-3 — Playbook Document Structure -->
@@ -57,6 +56,13 @@ Before executing this playbook, consult the host access map (from the handoff fi
    - Increment `restart_count_4h` for this service
    - Update `last_restart` timestamp
    - Set status to `healthy` if checks pass, `degraded` if partially recovered
+
+## Verification
+
+- Re-run the original health check that triggered this playbook
+- If the container defines a Docker healthcheck, wait until it reports `healthy`
+- Confirm dependent services can reach the restarted container
+- Verify no new errors in container logs after restart
 
 ## If It Doesn't Work
 

@@ -1,5 +1,4 @@
-<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-8 (no build step), REQ-9 (self-documenting) -->
-
+<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-3 (Playbook Document Structure), REQ-8 (no build step), REQ-9 (self-documenting) -->
 # Playbook: Rotate API Key
 
 <!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating, REQ-3 — Playbook Document Structure -->
@@ -76,6 +75,13 @@ When the provider has no API for key management:
 6. **Verify end-to-end**
    - Test the integration
    - Confirm the consumer can authenticate with the new key
+
+## Verification
+
+- Test the consumer's integration endpoint with the new key
+- Confirm the consumer can authenticate and retrieve data from the provider
+- Verify no 401/403 errors in the consumer's health check
+- Check that no other consumers of the same provider are affected by the rotation
 
 ## After Rotation
 
