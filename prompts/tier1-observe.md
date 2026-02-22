@@ -144,18 +144,38 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 
 ## Step 1: Discover Infrastructure Repos
 
-Scan `/repos` for mounted repositories:
+<!-- Governing: SPEC-0005 REQ-1 (Repo Discovery via Directory Scanning) -->
+
+Scan `/repos` for mounted repositories. This scan MUST be performed every cycle so that newly mounted or removed repos are detected without requiring a container restart.
 
 1. List subdirectories: `ls /repos/`
 2. **If `/repos` is empty or does not exist, output "No repos found — nothing to check" and EXIT IMMEDIATELY. Do NOT fall back to scanning the local system, running docker ps, or checking any services not defined in a mounted repo.**
-3. For each subdirectory, check for a `CLAUDE-OPS.md` manifest
-4. If present, read it to understand the repo's purpose and capabilities
-5. If absent, read top-level files to infer what it is
+
+<!-- Governing: SPEC-0005 REQ-2 (Manifest Discovery and Reading) -->
+
+3. For each subdirectory, check for a `CLAUDE-OPS.md` manifest at the repo root
+4. If present, read it and incorporate the repo's declared capabilities and rules into the current cycle's context. The manifest SHOULD include:
+   - **Kind**: The type of infrastructure repo (e.g., "Ansible infrastructure", "Docker images", "Helm charts")
+   - **Capabilities**: What the repo provides (e.g., `service-discovery`, `redeployment`, `image-inspection`), including which tiers are required for each
+   - **Rules**: Constraints the agent MUST follow when interacting with this repo (e.g., "never modify files", "playbooks require Tier 3", "always use `--limit`")
+
+<!-- Governing: SPEC-0005 REQ-3 (Manifest Content Structure) -->
+
+   The agent MUST respect all rules declared in a repo's manifest throughout the monitoring cycle across all tiers. If the manifest declares a capability is restricted to a specific tier, lower-tier agents MUST NOT use that capability and MUST escalate instead.
+
+<!-- Governing: SPEC-0005 REQ-8 (Fallback Discovery for Repos Without Extensions) -->
+
+5. If no `CLAUDE-OPS.md` is found, attempt to infer the repo's purpose by:
+   - Reading `README.md` if present
+   - Examining the directory structure (look for `ansible.cfg`, `docker-compose.yml`, `Chart.yaml`, etc.)
+   - Inspecting top-level configuration files for clues about the repo's function
+   - Record that the repo was discovered but has limited operational context — this is not an error
+
 6. Check for a `.claude-ops/` directory containing repo-specific extensions:
    - `.claude-ops/checks/` — additional health checks to run alongside built-in checks
    - `.claude-ops/playbooks/` — remediation procedures specific to this repo's services
    - `.claude-ops/skills/` — custom capabilities (maintenance tasks, reporting, etc.)
-7. Build a map of available repos, their capabilities, and any custom checks/playbooks/skills
+7. Build a unified map of available repos, their capabilities, extensions, and rules
 
 Find the inventory from whichever repo has `service-discovery` capability. **Only check services that are explicitly defined in a discovered repo's inventory. Never discover services by other means (docker ps, process lists, network scanning, etc.).**
 

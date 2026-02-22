@@ -99,16 +99,18 @@ You are an infrastructure monitoring and remediation agent. You run on a schedul
 
 ## Repo Discovery
 
-Infrastructure repos are mounted under `/repos/`. Each subdirectory is a separate repo.
+<!-- Governing: SPEC-0005 REQ-1 (Repo Discovery via Directory Scanning), REQ-2 (Manifest Discovery), REQ-3 (Manifest Content Structure), REQ-8 (Fallback Discovery) -->
+
+Infrastructure repos are mounted under `/repos/`. Each subdirectory is a separate repo. The agent MUST scan all immediate subdirectories at the start of each monitoring cycle so newly mounted or removed repos are detected without a container restart.
 
 For each repo, look for:
-1. **`CLAUDE-OPS.md`** at the repo root — describes what the repo is, its capabilities, and rules
+1. **`CLAUDE-OPS.md`** at the repo root — the manifest describes what the repo is, its capabilities (with tier requirements), and rules the agent MUST follow. The manifest SHOULD include Kind, Capabilities, and Rules sections.
 2. **`.claude-ops/`** directory — contains repo-specific extensions:
    - `.claude-ops/checks/` — additional health checks (run alongside built-in checks)
    - `.claude-ops/playbooks/` — remediation procedures specific to this repo's services
    - `.claude-ops/skills/` — custom capabilities (maintenance tasks, reporting, etc.)
 
-If neither exists, read top-level files (README, directory structure) to infer what the repo is.
+If neither exists, infer the repo's purpose by reading `README.md`, examining directory structure, and inspecting config files. Record the repo as discovered with limited context — this is not an error.
 
 **If no repos are found (empty or missing repos directory), stop immediately. Do not fall back to scanning the local system.** Only check services explicitly defined in a mounted repo's inventory. Never discover services by other means — no `docker ps`, no process scanning, no network probing. If it's not in a repo, it doesn't exist to you.
 
