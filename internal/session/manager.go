@@ -332,6 +332,8 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 
 	// Parse stream-json events and fan out formatted lines to stdout, log, and hub.
 	hubID := int(sessionID)
+	// Governing: SPEC-0011 REQ "Result Event Metadata Extraction"
+	// — captures result, total_cost_usd, num_turns, and duration_ms from the result event.
 	var resultResponse string
 	var resultCostUSD float64
 	var resultNumTurns int
@@ -432,7 +434,8 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		}
 		m.finalizeSession(sessionID, status, &exitCode, &logPath)
 
-		// Store the final response and metadata from the result event.
+		// Governing: SPEC-0011 REQ "Result Event Metadata Extraction"
+		// — stores extracted metadata in the sessions table via UpdateSessionResult.
 		if resultResponse != "" || resultCostUSD > 0 || resultNumTurns > 0 {
 			if dbErr := m.db.UpdateSessionResult(sessionID, resultResponse, resultCostUSD, resultNumTurns, resultDurationMs); dbErr != nil {
 				fmt.Fprintf(os.Stderr, "failed to store session result %d: %v\n", sessionID, dbErr)
@@ -496,6 +499,7 @@ type streamEvent struct {
 	Message struct {
 		Content []contentBlock `json:"content"`
 	} `json:"message,omitempty"`
+	// Governing: SPEC-0011 REQ "Result Event Metadata Extraction"
 	// Fields from the "result" event.
 	Result       string  `json:"result,omitempty"`
 	TotalCostUSD float64 `json:"total_cost_usd,omitempty"`
