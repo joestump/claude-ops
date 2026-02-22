@@ -19,6 +19,7 @@ services:
       - CLAUDEOPS_PR_ENABLED=${CLAUDEOPS_PR_ENABLED:-false}
     ports:
       - "8080:8080"
+    # Governing: SPEC-0007 REQ-3 — state directory backed by bind mount, persists across restarts/rebuilds
     volumes:
       - ./state:/state
       - ./results:/results

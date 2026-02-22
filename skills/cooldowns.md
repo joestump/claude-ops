@@ -1,6 +1,7 @@
+<!-- Governing: SPEC-0007 REQ-1 (state file location), REQ-10 (agent tooling), REQ-11 (human readability) -->
 # Skill: Cooldown Management
 
-Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` before taking any remediation action.
+Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `/state/cooldown.json`) before taking any remediation action. The file is valid JSON, readable and writable with `cat`, `jq`, or `python3` -- no custom parsers needed.
 
 ## Limits
 
