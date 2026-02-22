@@ -56,6 +56,44 @@ Action records MAY include an `error` field for failed actions.
 
 Cooldown windows are evaluated as sliding windows over the action record arrays: count entries with timestamps within the last 4 hours (restarts) or 24 hours (redeployments).
 
+## Counter Reset on Recovery
+
+<!-- Governing: SPEC-0007 REQ-6 — Counter Reset on Recovery -->
+
+When a service recovers, its cooldown counters MUST be reset — but only after the service has been confirmed healthy for **2 consecutive** health check runs. A single healthy check is NOT sufficient.
+
+### Rules
+
+1. **Healthy check**: When a service passes all health checks, increment its `consecutive_healthy` counter by 1.
+2. **Two consecutive healthy checks**: When `consecutive_healthy` reaches 2, reset the service's `restarts` array to `[]`, `redeployments` array to `[]`, and reset `consecutive_healthy` to 0.
+3. **Unhealthy check**: When a service fails any health check, reset its `consecutive_healthy` to 0 immediately. Do NOT modify the existing cooldown arrays (`restarts`, `redeployments`).
+4. **Partial recovery does not count**: If a service is healthy in one check but unhealthy in the next, the streak is broken and the counter restarts from 0.
+
+### jq Example
+
+```bash
+# On 2nd consecutive healthy check, clear arrays and reset streak:
+jq --arg svc "nginx" \
+  '.services[$svc].restarts = [] | .services[$svc].redeployments = [] | .services[$svc].consecutive_healthy = 0' \
+  /state/cooldown.json > /state/cooldown.json.tmp && mv /state/cooldown.json.tmp /state/cooldown.json
+```
+
+### When to Evaluate
+
+Counter reset evaluation happens during **Tier 1 Step 5 (Evaluate Results)**. After categorizing each service as healthy/degraded/down, the Tier 1 agent MUST:
+
+1. For each **healthy** service: increment `consecutive_healthy` in the cooldown state. If it reaches 2, clear cooldown counters and reset `consecutive_healthy` to 0.
+2. For each **unhealthy** service (degraded or down): set `consecutive_healthy` to 0.
+3. Write the updated state back to `/state/cooldown.json`.
+
+### Example
+
+```
+Check run 1: nginx is unhealthy → consecutive_healthy = 0, counters unchanged
+Check run 2: nginx restarted, now healthy → consecutive_healthy = 1, counters unchanged
+Check run 3: nginx still healthy → consecutive_healthy = 2 → reset counters to 0 → consecutive_healthy = 0
+```
+
 <!-- Governing: SPEC-0007 REQ-14 — Tier-Specific Access Patterns -->
 ## Per-Tier Rules
 
