@@ -349,6 +349,7 @@ func (s *Server) registerRoutes() {
 	// Governing: SPEC-0017 REQ-12 "Config Get Endpoint", REQ-13 "Config Update Endpoint"
 	s.mux.HandleFunc("GET /api/v1/config", s.handleAPIGetConfig)
 	s.mux.HandleFunc("PUT /api/v1/config", s.handleAPIUpdateConfig)
+	// Governing: SPEC-0018 REQ-7, REQ-8, REQ-10, REQ-11 — PR creation and listing endpoints
 	s.mux.HandleFunc("POST /api/v1/prs", s.handleAPICreatePR)
 	s.mux.HandleFunc("GET /api/v1/prs", s.handleAPIListPRs)
 

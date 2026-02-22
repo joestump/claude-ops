@@ -508,6 +508,9 @@ func (s *Server) handleAPIUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Governing: SPEC-0018 REQ-7 "PR Body Context Requirements", REQ-8 "Duplicate PR Prevention",
+//            REQ-10 "Agent MUST NOT Merge Own PRs", REQ-11 "Notification on PR Creation"
+//
 // handleAPICreatePR creates a branch, commits files, and opens a pull request.
 func (s *Server) handleAPICreatePR(w http.ResponseWriter, r *http.Request) {
 	if !s.cfg.PREnabled {
@@ -588,6 +591,7 @@ func (s *Server) handleAPICreatePR(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Governing: SPEC-0018 REQ-8 "Duplicate PR Prevention" — list open PRs by claude-ops label for overlap check
 // handleAPIListPRs lists open pull requests for a repository filtered by the claude-ops label.
 func (s *Server) handleAPIListPRs(w http.ResponseWriter, r *http.Request) {
 	owner := r.URL.Query().Get("repo_owner")
