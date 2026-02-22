@@ -18,6 +18,7 @@ import (
 	"github.com/joestump/claude-ops/internal/hub"
 )
 
+// Governing: SPEC-0012 "Channel-Based Trigger in Session Manager"
 // Manager runs Claude CLI sessions on a recurring interval.
 // Governing: SPEC-0008 REQ-5 "Claude Code CLI Session Management"
 // — manages CLI invocations as subprocesses, supports scheduling at a
@@ -36,6 +37,7 @@ type Manager struct {
 	mu          sync.Mutex
 	running     bool
 	cmd         *exec.Cmd
+	// Governing: SPEC-0012 "Channel-Based Trigger in Session Manager" — buffered channel (size 1)
 	triggerCh   chan string
 	lastAdHocID chan int64
 }
@@ -54,10 +56,15 @@ func New(cfg *config.Config, database *db.DB, h *hub.Hub, runner ProcessRunner) 
 }
 
 // Governing: SPEC-0012 REQ "Busy Rejection When Session Already Running" (mutex check + channel buffer rejects concurrent triggers)
+// Governing: SPEC-0012 "TriggerAdHoc Public API" — non-blocking send, goroutine-safe
 // TriggerAdHoc sends a prompt to trigger an immediate session.
 // Returns the session ID once created, or error if busy.
 // Governing: SPEC-0012 "TriggerAdHoc Public API" — channel-based trigger, busy rejection
 func (m *Manager) TriggerAdHoc(prompt string) (int64, error) {
+	if prompt == "" {
+		return 0, fmt.Errorf("prompt is required")
+	}
+
 	m.mu.Lock()
 	if m.running {
 		m.mu.Unlock()
@@ -95,6 +102,7 @@ func (m *Manager) Run(ctx context.Context) error {
 		fmt.Printf("[%s] Sleeping %ds until next run...\n\n",
 			time.Now().UTC().Format(time.RFC3339), m.cfg.Interval)
 
+		// Governing: SPEC-0012 "Channel-Based Trigger in Session Manager" — select wakes on triggerCh
 		select {
 		case <-ctx.Done():
 			return nil
