@@ -2,7 +2,7 @@ services:
   watchdog:
     build: .
     container_name: claude-ops
-    restart: unless-stopped
+    restart: unless-stopped  # Governing: SPEC-0009 REQ "Restart Policy and Resilience", ADR-0009
     environment:
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - ANTHROPIC_BASE_URL=${ANTHROPIC_BASE_URL:-}
@@ -34,7 +34,7 @@ services:
   chrome:
     image: browserless/chromium
     container_name: claude-ops-chrome
-    restart: unless-stopped
+    restart: unless-stopped  # Governing: SPEC-0009 REQ "Restart Policy and Resilience", ADR-0009
     profiles:
       - browser
     ports:
