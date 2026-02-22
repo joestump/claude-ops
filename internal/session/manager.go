@@ -793,6 +793,7 @@ func parseMarkers(re *regexp.Regexp, text string) []markerMatch {
 
 // --- Event markers ---
 
+// Governing: SPEC-0013 REQ "Event Marker Parsing" ([EVENT:level] and [EVENT:level:service] from assistant text only)
 // eventMarkerRe matches [EVENT:level] or [EVENT:level:service] markers in assistant text.
 var eventMarkerRe = regexp.MustCompile(`\[EVENT:(info|warning|critical)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
 
