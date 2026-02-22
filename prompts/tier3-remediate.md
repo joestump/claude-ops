@@ -322,18 +322,34 @@ Tier 3 MUST always send a notification. There is no silent exit at this tier.
 
 ## Step 5: Report
 
-ALWAYS send a detailed report via Apprise, regardless of outcome.
+<!-- Governing: SPEC-0004 REQ-5 — Three Notification Event Categories -->
+<!-- Governing: SPEC-0004 REQ-6 — Notification Message Format -->
+<!-- Governing: SPEC-0004 REQ-9 — Multiple Simultaneous Targets -->
+
+### Notification Event Categories
+
+Tier 3 supports two notification event categories:
+
+1. **Tier 3 Remediation Report** — Sent after a successful remediation, including root cause analysis, step-by-step actions, verification, and follow-up recommendations.
+2. **Human Attention Alert** — Sent when remediation fails or cooldown limits are exceeded, indicating manual intervention is required.
+
+Tier 3 MUST always send a notification at the end of its execution, regardless of outcome. When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silently (no errors). When set, it may contain multiple comma-separated Apprise URLs — the same notification is delivered to ALL configured targets simultaneously.
 
 ### Fixed
 
 ```bash
 apprise -t "Claude Ops: Remediated <service> (Tier 3)" \
-  -b "Root cause: <what was wrong>
-Actions taken: <step by step>
-Verification: <result>
-Recommendations: <any follow-up needed>" \
+  -b "Root cause: <root cause analysis>
+Actions taken:
+  1. <step 1>
+  2. <step 2>
+  ...
+Verification: <post-remediation health check result>
+Recommendations: <follow-up actions needed>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
+
+The Tier 3 remediation body MUST include: root cause analysis, step-by-step actions taken, verification result, and recommendations for follow-up.
 
 ### Not fixed
 
@@ -347,6 +363,8 @@ Recommended next steps: <what a human should do>
 Current system state: <summary>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
+
+The human attention alert body MUST include: issue description, what was attempted, why remediation failed or was stopped, and current system state with recommended next steps.
 
 ## Output Format
 
