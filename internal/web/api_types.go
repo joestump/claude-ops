@@ -99,11 +99,13 @@ type APIConfig struct {
 // --- PR API Types ---
 
 // APICreatePRRequest is the JSON body for POST /api/v1/prs.
+// Governing: SPEC-0018 REQ-9 "Permission Tier Integration" (Tier field), REQ-12 "Dry Run Mode".
 type APICreatePRRequest struct {
 	RepoOwner  string                   `json:"repo_owner"`
 	RepoName   string                   `json:"repo_name"`
 	CloneURL   string                   `json:"clone_url"`
-	Tier       int                      `json:"tier"`
+	Tier       int                      `json:"tier"` // Governing: SPEC-0018 REQ-9 — tier carried in request for enforcement.
+
 	Files      []gitprovider.FileChange `json:"files"`
 	Title      string                   `json:"title"`
 	Body       string                   `json:"body"`
@@ -112,6 +114,7 @@ type APICreatePRRequest struct {
 }
 
 // APICreatePRResponse is returned after creating a pull request.
+// Governing: SPEC-0018 REQ-12 "Dry Run Mode" — DryRun field signals no git operations were executed.
 type APICreatePRResponse struct {
 	Number int    `json:"number"`
 	URL    string `json:"url"`
