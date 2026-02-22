@@ -161,6 +161,28 @@ When executing a skill, log the tool selection outcome using these conventions:
 
 These log lines MUST appear in the output whenever a skill is invoked so that tool selection decisions are traceable.
 
+## Repo Extension Discovery
+
+<!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
+
+In addition to skill discovery (above), discover repo-specific checks and playbooks:
+
+1. **Repo checks**: For each mounted repo under `/repos/`, check for `.claude-ops/checks/` and read any `.md` files found there. These extend the built-in checks and follow the same format requirements.
+2. **Repo playbooks**: For each mounted repo under `/repos/`, check for `.claude-ops/playbooks/` and read any `.md` files found there. These are remediation procedures specific to the repo's services. They follow the same format as built-in playbooks and MUST specify a minimum tier.
+
+## Playbook Tier Gating
+
+<!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating -->
+
+Before executing any playbook (built-in or repo-contributed):
+
+1. Read the playbook's **Tier** line (e.g., `**Tier**: 2 (Sonnet) minimum` or `**Tier**: 3 (Opus) only`)
+2. If your tier is **below** the playbook's minimum, MUST NOT execute the playbook — escalate to the required tier instead
+3. If your tier is **equal to or above** the playbook's minimum, you MAY execute the playbook (the minimum is a floor, not a ceiling)
+4. If a playbook does not specify a tier, treat it as requiring Tier 3 (safest default)
+
+Your tier is: **Tier 2**. You may execute playbooks that require Tier 1 or Tier 2. You MUST NOT execute playbooks that require Tier 3.
+
 ## Step 1: Review Context
 
 <!-- Governing: SPEC-0001 REQ-6 (Escalation Context Forwarding) -->
@@ -199,7 +221,7 @@ For each failed service, dig deeper:
 ### Application issues
 - Check service-specific logs (paths from inventory/config)
 - Verify dependencies are healthy (database, redis, upstream services)
-- Check if the issue is a known pattern (see `/app/playbooks/`)
+- Check if the issue is a known pattern (see `/app/playbooks/` and any `.claude-ops/playbooks/` from mounted repos)
 
 ### Dependency chain
 - If a core service (database, reverse proxy) is down, identify all dependent services
@@ -213,10 +235,11 @@ Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.j
 ## Step 4: Remediate
 
 <!-- Governing: SPEC-0002 REQ-10 — Agent Reads Checks at Runtime -->
+<!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating -->
 
-Read the applicable playbook files from `/app/playbooks/` and `.claude-ops/playbooks/` from mounted repos at runtime. Do NOT rely on cached or pre-compiled instructions — always re-read playbook files before executing them. This ensures changes to playbook documents take effect immediately.
+Read the applicable playbook files from `/app/playbooks/` and `.claude-ops/playbooks/` from mounted repos at runtime. Do NOT rely on cached or pre-compiled instructions — always re-read playbook files before executing them. This ensures changes to playbook documents take effect immediately. **Before executing any playbook, check its minimum tier requirement** — if it requires Tier 3, you MUST NOT execute it; escalate instead.
 
-Apply the appropriate remediation from `/app/playbooks/`. Common patterns:
+Apply the appropriate remediation from `/app/playbooks/` and any repo-contributed playbooks in `.claude-ops/playbooks/`. Common patterns:
 
 <!-- Governing: SPEC-0020 "Command Prefix Based on Access Method", "Write Command Gating" -->
 ### Container restart

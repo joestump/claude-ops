@@ -2,6 +2,8 @@
 
 # Playbook: Rotate API Key
 
+<!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating, REQ-3 — Playbook Document Structure -->
+
 **Tier**: 2 (Sonnet) minimum
 
 ## When to Use
