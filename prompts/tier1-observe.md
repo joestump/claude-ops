@@ -151,7 +151,9 @@ Use this inventory for all skill executions this session. Do NOT re-probe CLIs o
 
 ## Tool Selection
 
-When a skill requires a tool capability, select tools in this preference order:
+<!-- Governing: SPEC-0023 REQ-4 — Adaptive Tool Discovery with Preference Ordering -->
+
+When a skill requires a tool capability, consult the tool inventory (built in Session Initialization above) and select the first available tool in this preference order:
 
 1. **MCP tools** (highest priority) — Direct tool integrations (e.g., `mcp__postgres__query`). Preferred because they are structured, type-safe, and run in-process.
 2. **CLI tools** — Installed command-line tools (e.g., `psql`, `curl`). Used when no MCP tool is available for the domain.
@@ -159,7 +161,11 @@ When a skill requires a tool capability, select tools in this preference order:
 
 When a skill's preferred tool is blocked or unavailable, fall through to the next available tool in the chain. At Tier 1, only read-only operations are permitted regardless of which tool is selected.
 
+If **no suitable tool** exists in the inventory for a skill's domain, you MUST report the error and MUST NOT silently skip the operation. Log the error per the Fallback Observability conventions below.
+
 ## Fallback Observability
+
+<!-- Governing: SPEC-0023 REQ-5 — Fallback Observability -->
 
 When executing a skill, log the tool selection outcome using these conventions:
 
