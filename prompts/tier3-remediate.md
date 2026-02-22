@@ -253,8 +253,11 @@ With the full picture, determine the actual root cause:
 
 <!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
 <!-- Governing: SPEC-0007 REQ-4 (max 2 restarts per 4h), REQ-5 (max 1 redeployment per 24h) -->
+<!-- Governing: SPEC-0007 REQ-6 — Counter Reset on Recovery -->
 
 Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. The cooldown system acts as a **secondary safety net** that limits the blast radius of repeated remediation, independent of the permission tier. If cooldown limit is exceeded, skip to Step 5 (report as needs human attention).
+
+**Note**: Cooldown counters are reset by Tier 1 when a service is confirmed healthy for 2 consecutive checks. Tier 3 does NOT reset counters — it only increments them after remediation attempts.
 
 <!-- Governing: SPEC-0020 "Command Prefix Based on Access Method" — SSH prefix per host access map -->
 <!-- Governing: SPEC-0020 "Write Command Gating" — limited-access hosts restricted to read commands -->

@@ -256,8 +256,11 @@ For each failed service, dig deeper:
 
 <!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
 <!-- Governing: SPEC-0007 REQ-4 (max 2 restarts per 4h), REQ-5 (max 1 redeployment per 24h) -->
+<!-- Governing: SPEC-0007 REQ-6 — Counter Reset on Recovery -->
 
 Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json` before any remediation. The cooldown system acts as a **secondary safety net** that limits the blast radius of repeated remediation, independent of the permission tier. If cooldown limit is exceeded, skip to Step 5 (Notify).
+
+**Note**: Cooldown counters are reset by Tier 1 when a service is confirmed healthy for 2 consecutive checks. Tier 2 does NOT reset counters — it only increments them after remediation attempts.
 
 ## Step 4: Remediate
 
