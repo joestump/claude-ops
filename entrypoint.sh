@@ -78,7 +78,17 @@ while true; do
     RUN_START=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     LOG_FILE="${RESULTS_DIR}/run-$(date +%Y%m%d-%H%M%S).log"
 
+    # Governing: SPEC-0003 REQ-10 — Post-Hoc Auditability
+    # All agent output is logged to timestamped files in $RESULTS_DIR.
+    # This captures tool calls, check results, remediation actions, and
+    # cooldown state changes for post-hoc compliance and incident review.
     echo "[${RUN_START}] Starting health check run..."
+    echo "--- Run metadata ---" >> "${LOG_FILE}"
+    echo "timestamp: ${RUN_START}" >> "${LOG_FILE}"
+    echo "tier: ${CLAUDEOPS_TIER}" >> "${LOG_FILE}"
+    echo "model: ${MODEL}" >> "${LOG_FILE}"
+    echo "dry_run: ${DRY_RUN}" >> "${LOG_FILE}"
+    echo "---" >> "${LOG_FILE}"
 
     # Merge repo MCP configs before each run
     echo "Merging MCP configurations..."
@@ -123,6 +133,7 @@ while true; do
         2>&1 | tee -a "${LOG_FILE}" || true  # Governing: SPEC-0010 REQ-10 (Error Handling — || true prevents set -e from terminating loop)
 
     RUN_END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-    echo "[${RUN_END}] Run complete. Sleeping ${INTERVAL}s..."
+    echo "[${RUN_END}] Run complete. Log: ${LOG_FILE}" | tee -a "${LOG_FILE}"
+    echo "[${RUN_END}] Sleeping ${INTERVAL}s..."
     sleep "${INTERVAL}"
 done

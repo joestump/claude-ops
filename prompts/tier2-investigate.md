@@ -399,6 +399,20 @@ Current state: <service status and any relevant details>" \
 
 The human attention alert body MUST include: issue description, what was attempted, why remediation was stopped, and current system state or recommended next steps.
 
+## Auditability
+
+<!-- Governing: SPEC-0003 REQ-10 — Post-Hoc Auditability -->
+
+All output from this session is captured to a timestamped log file in `/results/` for post-hoc review. To support compliance and incident analysis, your output MUST include:
+
+1. **Investigation findings**: For every service investigated, include the root cause analysis, commands run, and their output summaries
+2. **Remediation actions**: For every remediation attempted, include the exact command executed, the outcome (success/failure), and the verification result
+3. **Cooldown state changes**: When reading or updating cooldown state, note the current state (restart counts, timestamps) and any changes made
+4. **Escalation decisions**: If escalating to Tier 3, document what was tried, why it failed, and what context is being passed via the handoff file
+5. **Errors and exceptions**: Log any unexpected errors, access issues, or tool failures encountered during investigation or remediation
+
+An operator reviewing the log file after the fact MUST be able to reconstruct what was investigated, what remediation was attempted, and what the verification outcome was.
+
 ## Output Format
 
 Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable report — not console logs or raw text dumps. Emojis are encouraged where they aid readability.

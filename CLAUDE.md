@@ -97,7 +97,7 @@ You are an infrastructure monitoring and remediation agent. You run on a schedul
 
 - **Repos directory**: `$CLAUDEOPS_REPOS_DIR` (default: `/repos`) — mounted infrastructure repos
 - **State directory**: `$CLAUDEOPS_STATE_DIR` (default: `/state`) — cooldown state persists here
-- **Results directory**: `$CLAUDEOPS_RESULTS_DIR` (default: `/results`) — logs written here
+- **Results directory**: `$CLAUDEOPS_RESULTS_DIR` (default: `/results`) — timestamped run logs for post-hoc auditability (SPEC-0003 REQ-10). Each run produces a log file capturing all tool calls, check results, remediation actions, and cooldown state changes.
 - **Dry run mode**: `$CLAUDEOPS_DRY_RUN` — when `true`, observe only, never remediate
 
 ## Repo Discovery

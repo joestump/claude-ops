@@ -393,6 +393,20 @@ Read and follow `/app/skills/events.md` for event marker format and guidelines.
 <!-- Governing: SPEC-0015 "Prompt Integration for Memory Markers" — instructs LLM to emit [MEMORY:category:service] markers -->
 Read and follow `/app/skills/memories.md` for memory marker format, categories, and guidelines.
 
+## Auditability
+
+<!-- Governing: SPEC-0003 REQ-10 — Post-Hoc Auditability -->
+
+All output from this session is captured to a timestamped log file in `/results/` for post-hoc review. To support compliance and incident analysis, your output MUST include:
+
+1. **Check results**: For every service checked, include the service name, check type, result (status code, response time), and healthy/degraded/down classification
+2. **Tool calls**: When executing commands (curl, dig, ssh, etc.), include the command and its outcome in your output
+3. **Cooldown state changes**: When reading or updating cooldown state, note the current state and any changes made
+4. **Escalation decisions**: If escalating to a higher tier, document what failed, why escalation is needed, and what context is being passed
+5. **Errors and exceptions**: Log any unexpected errors, timeouts, or access issues encountered during the run
+
+An operator reviewing the log file after the fact MUST be able to reconstruct what was checked, what was found, and what actions were taken (or not taken and why).
+
 ## Output Format
 
 Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable summary — not console logs or raw text dumps. Emojis are encouraged where they aid readability.
