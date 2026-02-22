@@ -330,6 +330,8 @@ The daily digest body MUST include: total services checked, count of healthy/deg
 
 ### Issues found
 
+<!-- Governing: SPEC-0016 REQ "Tier Prompt Changes" — writes handoff file instead of using Task tool for escalation -->
+
 **You are Tier 1 (observe only). You MUST NOT attempt remediation. You MUST escalate to Tier 2.**
 
 1. Summarize all failures: which services, what checks failed, error details

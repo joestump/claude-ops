@@ -20,6 +20,7 @@ type ProcessRunner interface {
 type CLIRunner struct{}
 
 // Governing: SPEC-0011 "CLI Invocation with stream-json" (--output-format stream-json for structured NDJSON events)
+// Governing: SPEC-0016 "Handoff Context Serialization" — passes handoff context via --append-system-prompt
 // Start builds and starts a claude CLI process with stream-json output.
 // It returns a reader for stdout, a wait function that blocks until the
 // process exits, and any startup error.
