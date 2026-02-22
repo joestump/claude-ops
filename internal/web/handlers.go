@@ -264,6 +264,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSessionStream opens an SSE connection for a running session.
+// Governing: SPEC-0008 REQ-3 — HTMX-Based Interactivity (hx-ext="sse" for real-time streaming)
 func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
@@ -538,6 +539,7 @@ func (s *Server) handleTriggerSession(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleConfigPost processes configuration form submissions.
+// Governing: SPEC-0008 REQ-3 — HTMX-Based Interactivity (hx-post form submission with hx-swap)
 func (s *Server) handleConfigPost(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form data", http.StatusBadRequest)

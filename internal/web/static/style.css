@@ -1,6 +1,7 @@
 /* Claude Ops Dashboard Theme
    Clean, minimal, robotic. Dieter Rams energy.
-   Warm off-white, charcoal text, burnt orange accents. */
+   Warm off-white, charcoal text, burnt orange accents.
+   Governing: SPEC-0008 REQ-4 — DaisyUI/TailwindCSS Styling (custom theme extending DaisyUI) */
 
 /* ---- Color tokens ---- */
 :root {

@@ -31,6 +31,8 @@ var memoryBadgeRe = regexp.MustCompile(`\[MEMORY:([a-z]+)(?::([a-zA-Z0-9_-]+))?\
 // action is "restart" or "redeployment", service is required, result is "success" or "failure".
 var cooldownBadgeRe = regexp.MustCompile(`\[COOLDOWN:(restart|redeployment):([a-zA-Z0-9_-]+)\]\s*(success|failure)\s*[—–-]\s*([^\[<]+)`)
 
+// Governing: SPEC-0008 REQ-14 — Static Asset Embedding (templates embedded via go:embed)
+
 //go:embed templates/*.html
 var templateFS embed.FS
 
@@ -307,6 +309,7 @@ func (s *Server) parseTemplates() {
 	)
 }
 
+// Governing: SPEC-0008 REQ-14 — Static Asset Embedding (static files served from embed.FS)
 func (s *Server) registerRoutes() {
 	staticSub, _ := fs.Sub(staticFS, "static")
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
@@ -349,6 +352,7 @@ func (s *Server) registerRoutes() {
 
 // render executes a template. If HX-Request header is set, render just the
 // content block; otherwise render the full layout wrapping the content.
+// Governing: SPEC-0008 REQ-3 — HTMX-Based Interactivity (partial rendering for HX-Request)
 func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, data any) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 
