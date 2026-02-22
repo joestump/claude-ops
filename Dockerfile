@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Apprise for notifications (supports 80+ services)
 RUN pip3 install --break-system-packages --retries 3 --timeout 120 apprise
 
+# Governing: SPEC-0010 REQ-1 (CLI Installation via npm — globally installed, available on PATH)
 # Claude Code CLI
 RUN npm install -g @anthropic-ai/claude-code
 

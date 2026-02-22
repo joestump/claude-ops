@@ -90,6 +90,7 @@ while true; do
         ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS}"
     fi
 
+    # Governing: SPEC-0010 REQ-2 (Subprocess Invocation from Bash — CLI flags for all config, non-interactive, piped output)
     # Run Claude with tier 1 prompt
     claude \
         --model "${MODEL}" \
