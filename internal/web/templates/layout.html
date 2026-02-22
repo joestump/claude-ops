@@ -4,9 +4,11 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Claude Ops{{if eq .Page "sessions.html"}} &mdash; Sessions{{else if eq .Page "session.html"}} &mdash; Session{{else if eq .Page "events.html"}} &mdash; Events{{else if eq .Page "memories.html"}} &mdash; Memories{{else if eq .Page "cooldowns.html"}} &mdash; Cooldowns{{else if eq .Page "config.html"}} &mdash; Config{{end}}</title>
+    {{/* Governing: SPEC-0008 REQ-4 — DaisyUI/TailwindCSS loaded via CDN, no build step required */}}
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet">
     <link href="/static/style.css" rel="stylesheet">
+    {{/* Governing: SPEC-0008 REQ-3 — HTMX loaded via CDN, no JS build toolchain required */}}
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
 </head>
