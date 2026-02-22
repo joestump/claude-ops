@@ -3,7 +3,7 @@
 <div class="max-w-6xl" id="overview-content">
     <h1 class="text-2xl font-semibold mb-6">TL;DR</h1>
 
-    {{/* Recent events feed — Governing: SPEC-0013 "Real-Time Overview" — hx-trigger every 10s polling */}}
+    {{/* Recent events feed — Governing: SPEC-0013 "Real-Time Overview" — hx-trigger every 10s polling; "Events on Overview Page" — top 10 events with "View all" link */}}
     <section class="mb-8" id="events-feed" hx-get="/" hx-trigger="every 10s" hx-select="#events-feed-inner" hx-target="#events-feed-inner" hx-swap="outerHTML">
         <h2 class="section-heading">Recent Events</h2>
         <div id="events-feed-inner">

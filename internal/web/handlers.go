@@ -317,6 +317,7 @@ func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleEvents renders the events feed.
+// Governing: SPEC-0013 "Events Page" — reverse-chronological events with HTMX polling
 func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	events, err := s.db.ListEvents(100, 0, nil, nil)
 	if err != nil {
