@@ -22,22 +22,27 @@ Before executing this playbook, consult the host access map (from the handoff fi
 
 ## Steps
 
+<!-- Governing: SPEC-0002 REQ-5 — Embedded Command Examples -->
+
 1. **Record pre-restart state**
    Use the SSH command from the host access map (e.g., `ssh <user>@<host> [sudo] docker inspect ...`):
    ```bash
-   docker inspect --format '{{.State.Status}} {{.State.Health.Status}} restarts={{.RestartCount}}' <container>
-   docker logs --tail 20 <container>
+   ssh <user>@<host> docker inspect --format '{{.State.Status}} {{.State.Health.Status}} restarts={{.RestartCount}}' <container>
+   ssh <user>@<host> docker logs --tail 20 <container>
    ```
+
+   Replace `<user>` and `<host>` with the SSH credentials from the host access map. Replace `<container>` with the actual container name from the inventory.
 
 2. **Restart the container**
    Use the SSH command from the host access map (requires write access — `method: root` or `method: sudo`):
    ```bash
-   docker restart <container>
+   ssh <user>@<host> docker restart <container>
    ```
 
 3. **Wait for startup**
-   - Wait 15-30 seconds (adjust based on service — databases need longer)
-   - Check container status: `docker inspect --format '{{.State.Status}}' <container>`
+   <!-- Governing: SPEC-0002 REQ-6 — Contextual Adaptation -->
+   - Wait 15-30 seconds (adjust based on service — databases need longer, lightweight services like static file servers may be ready in 5 seconds)
+   - Check container status: `ssh <user>@<host> docker inspect --format '{{.State.Status}}' <container>`
 
 4. **Verify health**
    - Re-run the original health check that failed
@@ -51,7 +56,7 @@ Before executing this playbook, consult the host access map (from the handoff fi
 
 ## If It Doesn't Work
 
-- Check container logs for crash reason (use SSH command from the host access map): `docker logs --tail 100 <container>`
+- Check container logs for crash reason (use SSH command from the host access map): `ssh <user>@<host> docker logs --tail 100 <container>`
 - If crashlooping (exits immediately after restart), escalate to Tier 3
 - If resource issue (OOM), note memory usage and escalate
 - Do NOT retry the restart if it already failed — escalate instead

@@ -10,10 +10,14 @@
 
 ## Prerequisites
 
-- Confirm the issue is actually an auth problem (not service down)
+<!-- Governing: SPEC-0002 REQ-6 — Contextual Adaptation -->
+
+- Confirm the issue is actually an auth problem (not service down). A 401/403 response on an endpoint that normally requires auth does not necessarily mean the key is bad — verify by checking the service's health endpoint first.
 - Identify which service needs the key rotated and where the key is consumed
 
 ## Via REST API (Preferred)
+
+<!-- Governing: SPEC-0002 REQ-5 — Embedded Command Examples -->
 
 If the service providing the key has an API:
 
@@ -23,6 +27,8 @@ If the service providing the key has an API:
    curl -s -H "X-Api-Key: <admin_key>" "http://<provider>/api/v1/config" | jq '.apiKey'
    ```
 
+   Replace `<admin_key>` with the provider service's current admin API key. Replace `<provider>` with the provider's hostname from the inventory. The exact API path varies by service — check the service's API documentation.
+
 2. **Update the consumer**
    ```bash
    # Example: update Prowlarr's indexer with new key
@@ -31,6 +37,8 @@ If the service providing the key has an API:
      -d '{"apiKey": "<new_key>", ...}' \
      "http://<prowlarr>/api/v1/indexer/<id>"
    ```
+
+   Replace `<prowlarr_key>` with Prowlarr's own API key. Replace `<new_key>` with the key obtained in step 1. Replace `<prowlarr>` with Prowlarr's hostname. Replace `<id>` with the indexer ID that needs updating.
 
 3. **Verify**
    - Test the integration endpoint
