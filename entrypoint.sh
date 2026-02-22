@@ -2,8 +2,10 @@
 set -euo pipefail
 
 INTERVAL="${CLAUDEOPS_INTERVAL:-3600}"
+# Governing: SPEC-0010 REQ-4 — Prompt Loading via --prompt-file
 PROMPT_FILE="${CLAUDEOPS_PROMPT:-/app/prompts/tier1-observe.md}"
 # Governing: SPEC-0001 REQ-1 (Three-Tier Model Hierarchy), REQ-2 (Configurable Model Selection)
+# Governing: SPEC-0010 REQ-3 — Model Selection via --model Flag
 MODEL="${CLAUDEOPS_TIER1_MODEL:-haiku}"
 STATE_DIR="${CLAUDEOPS_STATE_DIR:-/state}"
 RESULTS_DIR="${CLAUDEOPS_RESULTS_DIR:-/results}"
@@ -89,6 +91,7 @@ while true; do
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_RESULTS_DIR=${RESULTS_DIR}"
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_REPOS_DIR=${REPOS_DIR}"
     # Governing: SPEC-0001 REQ-1 (Three-Tier Model Hierarchy), REQ-2 (Configurable Model Selection)
+    # Governing: SPEC-0010 REQ-3 — Tier model defaults passed to agent for subagent spawning
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_TIER2_MODEL=${CLAUDEOPS_TIER2_MODEL:-sonnet}"
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_TIER3_MODEL=${CLAUDEOPS_TIER3_MODEL:-opus}"
 
@@ -104,6 +107,7 @@ while true; do
     #            SPEC-0003 REQ-11 (prompt read at runtime — changes take effect next cycle),
     #            SPEC-0010 REQ-2 (Subprocess Invocation from Bash — CLI flags for all config, non-interactive, piped output)
     # Run Claude with tier 1 prompt
+    # Governing: SPEC-0010 REQ-3 (--model), REQ-4 (--prompt-file)
     # Governing: SPEC-0010 REQ-5 — --allowedTools and --disallowedTools enforce
     # tool filtering at CLI runtime, independent of prompt-level instructions.
     claude \
