@@ -17,6 +17,7 @@ type ProcessRunner interface {
 // CLIRunner implements ProcessRunner by spawning the real `claude` CLI binary.
 type CLIRunner struct{}
 
+// Governing: SPEC-0011 "CLI Invocation with stream-json" (--output-format stream-json for structured NDJSON events)
 // Start builds and starts a claude CLI process with stream-json output.
 // It returns a reader for stdout, a wait function that blocks until the
 // process exits, and any startup error.
