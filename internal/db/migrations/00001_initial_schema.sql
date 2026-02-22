@@ -1,4 +1,6 @@
 -- +goose Up
+-- Governing: SPEC-0008 REQ-8 — SQLite State Storage (sessions, cooldown_actions, config tables)
+-- Governing: SPEC-0008 REQ-9 — Health Check History (health_checks table with queryable history)
 CREATE TABLE sessions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tier INTEGER NOT NULL,

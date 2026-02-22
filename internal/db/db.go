@@ -12,6 +12,7 @@ import (
 )
 
 // DB wraps a sql.DB connection to the SQLite database.
+// Governing: SPEC-0008 REQ-8 — SQLite State Storage (pure-Go driver via modernc.org/sqlite)
 type DB struct {
 	conn *sql.DB
 }
@@ -39,6 +40,7 @@ type Session struct {
 }
 
 // HealthCheck represents a parsed health check result.
+// Governing: SPEC-0008 REQ-9 — Health Check History (service, check_type, status, timestamp, response_time, error)
 type HealthCheck struct {
 	ID             int64
 	SessionID      *int64
@@ -87,6 +89,7 @@ type CooldownAction struct {
 }
 
 // Open creates a new DB connection and runs all pending migrations.
+// Governing: SPEC-0008 REQ-8 — SQLite State Storage (database init and schema migration on startup)
 // Governing: SPEC-0022 REQ "Goose Provider API Integration"
 func Open(path string) (*DB, error) {
 	conn, err := sql.Open("sqlite", path+"?_pragma=journal_mode(wal)&_pragma=busy_timeout(5000)")
@@ -232,6 +235,7 @@ func (d *DB) ListSessions(limit, offset int) ([]Session, error) {
 }
 
 // --- Health Check Methods ---
+// Governing: SPEC-0008 REQ-9 — Health Check History (store and query health check results)
 
 // InsertHealthCheck stores a health check result.
 func (d *DB) InsertHealthCheck(h *HealthCheck) (int64, error) {
@@ -321,6 +325,7 @@ func (d *DB) ListEvents(limit, offset int, level, service *string) ([]Event, err
 }
 
 // --- Cooldown Methods ---
+// Governing: SPEC-0008 REQ-8 — SQLite State Storage (cooldown enforcement via SQLite replaces cooldown.json)
 
 // CheckCooldown returns the count of actions of the given type for a service
 // within the specified window.
