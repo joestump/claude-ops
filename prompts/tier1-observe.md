@@ -369,6 +369,8 @@ The human attention alert body MUST include: issue description, cooldown state, 
 
 ## Event Reporting
 
+<!-- Governing: SPEC-0013 "Prompt Integration" — instructs LLM to emit [EVENT:level] markers -->
+
 Read and follow `/app/skills/events.md` for event marker format and guidelines.
 
 ## Memory Recording
