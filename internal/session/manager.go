@@ -53,6 +53,7 @@ func New(cfg *config.Config, database *db.DB, h *hub.Hub, runner ProcessRunner) 
 	}
 }
 
+// Governing: SPEC-0012 REQ "Busy Rejection When Session Already Running" (mutex check + channel buffer rejects concurrent triggers)
 // TriggerAdHoc sends a prompt to trigger an immediate session.
 // Returns the session ID once created, or error if busy.
 func (m *Manager) TriggerAdHoc(prompt string) (int64, error) {
@@ -103,6 +104,7 @@ func (m *Manager) Run(ctx context.Context) error {
 	}
 }
 
+// Governing: SPEC-0012 REQ "Ad-Hoc Session Uses runOnce with Custom Prompt" (custom prompt via promptOverride, identical lifecycle to scheduled)
 // runAdHoc handles a manually triggered session with full escalation support.
 func (m *Manager) runAdHoc(ctx context.Context, prompt string) {
 	m.runEscalationChain(ctx, "manual", &prompt)
