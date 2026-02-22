@@ -80,6 +80,7 @@ These actions ALWAYS require a human. Never do any of these:
 
 ## Tier Permission
 
+<!-- Governing: SPEC-0023 REQ-6 (Tier Permission Integration), ADR-0022 -->
 <!-- Governing: SPEC-0003 REQ-7 (Prompt-Level Permission Enforcement) -->
 
 Your tier is `$CLAUDEOPS_TIER` (Tier 1 = Observe, Tier 2 = Safe Remediation, Tier 3 = Full Remediation).
@@ -91,7 +92,7 @@ When loading a skill:
 
 Your tier is: **Tier 1**
 
-Governing: SPEC-0003 REQ-6, SPEC-0003 REQ-7, SPEC-0023 REQ-6, ADR-0023
+Governing: SPEC-0003 REQ-6, SPEC-0003 REQ-7, SPEC-0023 REQ-6, ADR-0022
 
 ## Never Allowed (Any Tier)
 
@@ -109,6 +110,7 @@ These actions MUST NEVER be performed, regardless of tier. They always require h
 - Drop or truncate database tables
 - Modify the runbook or any prompt files
 
+<!-- Governing: SPEC-0023 REQ-7 (Dry-Run Mode), ADR-0022 -->
 <!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode
 
@@ -118,7 +120,7 @@ When `CLAUDEOPS_DRY_RUN=true`:
 - Read-only operations (health checks, listing resources, status queries) MAY still execute
 - Scope violations MUST still be detected and reported even in dry-run mode
 
-Governing: SPEC-0023 REQ-7
+Governing: SPEC-0023 REQ-7, ADR-0022
 
 ## Session Initialization: Tool Inventory
 

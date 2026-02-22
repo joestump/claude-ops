@@ -148,12 +148,17 @@ After getting PR status:
 
 ## Scope Rules
 
+<!-- Governing: SPEC-0023 REQ-8 (Scope Enforcement via Skill Instructions), ADR-0022 -->
+
+Before creating any commit or PR, verify the proposed changeset does NOT include any of the paths listed below. If any denied path is modified, refuse the operation and report which scope rule was violated.
+
 This skill MUST NOT create PRs that modify any of the following files or resources:
 
-- **Inventory files**: `ie.yaml`, `vms.yaml`, or any file matching `**/inventory/*.yaml`
-- **Network configuration**: Caddy configs (`Caddyfile`, `caddy/*.json`), WireGuard configs (`wg*.conf`, `wireguard/`), DNS records
-- **Secrets and credentials**: `.env` files, `**/secrets/**`, `**/credentials/**`, `*.key`, `*.pem`, `*.crt`, password files
-- **Claude Ops runbook and prompts**: `CLAUDE.md`, `prompts/*.md`, `entrypoint.sh`, `checks/*.md`, `playbooks/*.md`
+- **Inventory files**: `ie.yaml`, `vms.yaml`, `vms-*.yaml`, or any file matching `**/inventory/*.yaml`
+- **Network configuration**: Caddy configs (`Caddyfile`, `caddy/*.json`, `caddy/*.caddy`), WireGuard configs (`wg0.conf`, `wg*.conf`, `wireguard/`), DNS records
+- **Secrets and credentials**: `.env` files, `**/secrets/**`, `**/credentials/**`, `*.key`, `*.pem`, `*.crt`, vault files, password files
+- **Claude Ops runbook and prompts**: `CLAUDE.md`, `prompts/*.md`, `.claude/skills/*.md`, `entrypoint.sh`, `checks/*.md`, `playbooks/*.md`
+- **Docker infrastructure**: `docker-compose.yaml`, `docker-compose.yml`, `docker-compose.override.yaml`, `Dockerfile`, `Dockerfile.*`
 - **Persistent data volumes**: anything under `/volumes/`
 
 If the agent detects that a proposed PR would modify any denied path, it MUST:
