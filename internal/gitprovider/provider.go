@@ -2,6 +2,8 @@ package gitprovider
 
 import "context"
 
+// Governing: SPEC-0018 REQ-1 "GitProvider Interface" — abstracts CreatePR, ListPRs, GetPRStatus across providers
+//
 // GitProvider abstracts git hosting operations for PR-based workflows.
 // Each implementation targets a specific platform (GitHub, Gitea, etc.).
 type GitProvider interface {
