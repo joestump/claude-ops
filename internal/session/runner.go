@@ -10,8 +10,8 @@ import (
 
 // ProcessRunner abstracts the spawning of a Claude CLI subprocess so that
 // tests can substitute a mock implementation.
-// Governing: SPEC-0008 REQ-5 "CLI subprocess creation"
-// — uses os/exec.Command to invoke the claude CLI binary.
+// Governing: SPEC-0008 REQ-5 "CLI subprocess creation" — uses os/exec.Command to invoke the claude CLI binary.
+// Governing: SPEC-0008 REQ-7 — subprocess lifecycle management (startup, completion, crash handling).
 type ProcessRunner interface {
 	Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (stdout io.ReadCloser, wait func() error, err error)
 }
@@ -39,7 +39,7 @@ func (r *CLIRunner) Start(ctx context.Context, model string, promptContent strin
 	}
 
 	cmd := exec.Command("claude", args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // Governing: SPEC-0008 REQ-7 — process group isolation for signal forwarding.
 	cmd.Stderr = os.Stderr
 
 	stdoutPipe, err := cmd.StdoutPipe()
