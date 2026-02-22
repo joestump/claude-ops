@@ -326,6 +326,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /sessions/trigger", s.handleTriggerSession)
 
 	// API v1
+	// Governing: SPEC-0017 REQ-14 "Health Endpoint"
 	s.mux.HandleFunc("GET /api/v1/health", s.handleAPIHealth)
 	s.mux.HandleFunc("GET /api/v1/sessions", s.handleAPIListSessions)
 	s.mux.HandleFunc("GET /api/v1/sessions/{id}", s.handleAPIGetSession)
@@ -336,6 +337,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/v1/memories/{id}", s.handleAPIUpdateMemory)
 	s.mux.HandleFunc("DELETE /api/v1/memories/{id}", s.handleAPIDeleteMemory)
 	s.mux.HandleFunc("GET /api/v1/cooldowns", s.handleAPIListCooldowns)
+	// Governing: SPEC-0017 REQ-12 "Config Get Endpoint", REQ-13 "Config Update Endpoint"
 	s.mux.HandleFunc("GET /api/v1/config", s.handleAPIGetConfig)
 	s.mux.HandleFunc("PUT /api/v1/config", s.handleAPIUpdateConfig)
 	s.mux.HandleFunc("POST /api/v1/prs", s.handleAPICreatePR)

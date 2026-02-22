@@ -57,6 +57,7 @@ func parseLimitOffset(r *http.Request, defaultLimit int) (limit, offset int, err
 
 // --- API Handlers ---
 
+// Governing: SPEC-0017 REQ-14 "Health Endpoint" — GET /api/v1/health
 // handleAPIHealth returns a simple health check response.
 func (s *Server) handleAPIHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -389,6 +390,7 @@ func (s *Server) handleAPIListCooldowns(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, APICooldownsResponse{Cooldowns: toAPICooldowns(cooldowns)})
 }
 
+// Governing: SPEC-0017 REQ-12 "Config Get Endpoint" — GET /api/v1/config
 // handleAPIGetConfig returns the current runtime configuration.
 func (s *Server) handleAPIGetConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, APIConfig{
@@ -405,6 +407,7 @@ func (s *Server) handleAPIGetConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// Governing: SPEC-0017 REQ-13 "Config Update Endpoint" — PUT /api/v1/config (partial update)
 // handleAPIUpdateConfig applies partial configuration updates from a JSON body.
 func (s *Server) handleAPIUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
