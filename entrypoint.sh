@@ -84,6 +84,7 @@ while true; do
     echo "Merging MCP configurations..."
     merge_mcp_configs
 
+    # Governing: SPEC-0010 REQ-6 — Runtime Context Injection via --append-system-prompt
     # Build environment context for Claude
     ENV_CONTEXT="CLAUDEOPS_TIER=${CLAUDEOPS_TIER}"
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_DRY_RUN=${DRY_RUN}"
@@ -97,7 +98,8 @@ while true; do
 
     # Governing: SPEC-0004 REQ-1 (single env var config),
     #            SPEC-0004 REQ-2 (graceful degradation — only pass when set),
-    #            SPEC-0004 REQ-4 (env var passthrough to agent context)
+    #            SPEC-0004 REQ-4 (env var passthrough to agent context),
+    #            SPEC-0010 REQ-6 — Apprise URLs conditionally included
     # Pass Apprise URLs if configured; skip silently when unset (REQ-2).
     if [ -n "${CLAUDEOPS_APPRISE_URLS:-}" ]; then
         ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS}"
@@ -106,6 +108,8 @@ while true; do
     # Governing: SPEC-0003 REQ-6 (--allowedTools hard boundary),
     #            SPEC-0003 REQ-11 (prompt read at runtime — changes take effect next cycle),
     #            SPEC-0010 REQ-2 (Subprocess Invocation from Bash — CLI flags for all config, non-interactive, piped output)
+    # Governing: SPEC-0010 REQ-7 — Non-Interactive Output via -p (--print) piped through tee
+    # Governing: SPEC-0010 REQ-6 — --append-system-prompt injects ENV_CONTEXT at runtime
     # Run Claude with tier 1 prompt
     # Governing: SPEC-0010 REQ-3 (--model), REQ-4 (--prompt-file)
     # Governing: SPEC-0010 REQ-5 — --allowedTools and --disallowedTools enforce
