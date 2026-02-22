@@ -10,6 +10,8 @@ import (
 
 // ProcessRunner abstracts the spawning of a Claude CLI subprocess so that
 // tests can substitute a mock implementation.
+// Governing: SPEC-0008 REQ-5 "CLI subprocess creation"
+// — uses os/exec.Command to invoke the claude CLI binary.
 type ProcessRunner interface {
 	Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (stdout io.ReadCloser, wait func() error, err error)
 }
@@ -20,6 +22,9 @@ type CLIRunner struct{}
 // Start builds and starts a claude CLI process with stream-json output.
 // It returns a reader for stdout, a wait function that blocks until the
 // process exits, and any startup error.
+// Governing: SPEC-0008 REQ-5 "CLI subprocess creation"
+// — passes model, prompt content, allowed tools, and system prompt arguments
+// matching the entrypoint.sh invocation pattern via os/exec.Command.
 func (r *CLIRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (io.ReadCloser, func() error, error) {
 	args := []string{
 		"--model", model,

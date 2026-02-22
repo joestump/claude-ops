@@ -19,6 +19,9 @@ import (
 )
 
 // Manager runs Claude CLI sessions on a recurring interval.
+// Governing: SPEC-0008 REQ-5 "Claude Code CLI Session Management"
+// — manages CLI invocations as subprocesses, supports scheduling at a
+// configurable interval, and tracks concurrent sessions (one active per tier).
 type Manager struct {
 	cfg      *config.Config
 	db       *db.DB
@@ -81,6 +84,8 @@ func (m *Manager) IsRunning() bool {
 // cfg.Interval seconds after each session completes before starting the next.
 // It returns when the context is cancelled and any in-flight session has
 // finished (or been killed after the grace period).
+// Governing: SPEC-0008 REQ-5 "Scheduled session invocation"
+// — invokes sessions at the configured interval after each completion.
 func (m *Manager) Run(ctx context.Context) error {
 	for {
 		m.runEscalationChain(ctx, "scheduled", nil)
@@ -206,8 +211,8 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 // It returns the session ID and any error.
 // promptOverride is used for ad-hoc sessions (non-nil pointer); promptFile is used otherwise.
 func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFile string, parentSessionID *int64, handoffContext string, trigger string, promptOverride *string) (int64, error) {
-	// Check if a session is already running (shouldn't happen with sequential
-	// scheduling, but guards against unexpected re-entry).
+	// Governing: SPEC-0008 REQ-5 "Session already running"
+	// — guards against starting a second session for the same tier.
 	m.mu.Lock()
 	if m.running {
 		m.mu.Unlock()
@@ -225,6 +230,8 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	}()
 
 	// Run the pre-session hook (e.g. MCP config merging).
+	// Governing: SPEC-0008 REQ-11 "MCP Configuration Merging"
+	// — PreSessionHook triggers MergeConfigs before each session invocation.
 	if m.PreSessionHook != nil {
 		if err := m.PreSessionHook(); err != nil {
 			return 0, fmt.Errorf("pre-session hook: %w", err)
@@ -293,7 +300,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	fmt.Printf("[%s] Starting tier %d session (model=%s, prompt=%s, session=%d)...\n",
 		runStart, tier, model, promptFile, sessionID)
 
-	// Use the ProcessRunner to start the subprocess.
+	// Governing: SPEC-0008 REQ-5 "CLI subprocess creation"
+	// — uses ProcessRunner (os/exec) to invoke the claude CLI with model,
+	// prompt content, allowed tools, and system prompt arguments.
 	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, m.cfg.AllowedTools, envCtx)
 	if err != nil {
 		m.finalizeSession(sessionID, "failed", nil, &logPath)

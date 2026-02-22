@@ -19,6 +19,10 @@ import (
 // Repo configs are discovered at {reposDir}/*/.claude-ops/mcp.json. Each
 // repo's "mcpServers" entries are merged into the baseline. On name collision,
 // the repo config wins (overrides the baseline).
+//
+// Governing: SPEC-0008 REQ-11 "MCP Configuration Merging"
+// — replicates entrypoint.sh merge behavior: discovers .claude-ops/mcp.json
+// from mounted repos, merges into baseline, repo configs override on collision.
 func MergeConfigs(mcpConfigPath, reposDir string) error {
 	// If the MCP config doesn't exist, there's nothing to merge into. This is
 	// normal when running locally outside Docker.

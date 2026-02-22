@@ -137,6 +137,10 @@ func run(cmd *cobra.Command, args []string) error {
 	sseHub := hub.New()
 
 	// Create session manager with MCP merging as pre-session hook.
+	// Governing: SPEC-0008 REQ-5 "Claude Code CLI Session Management"
+	// — session manager handles scheduling, subprocess creation, and tier tracking.
+	// Governing: SPEC-0008 REQ-11 "MCP Configuration Merging"
+	// — PreSessionHook merges .claude-ops/mcp.json from repos before each session.
 	mgr := session.New(&cfg, database, sseHub, &session.CLIRunner{})
 	mgr.PreSessionHook = func() error {
 		fmt.Println("Merging MCP configurations...")
