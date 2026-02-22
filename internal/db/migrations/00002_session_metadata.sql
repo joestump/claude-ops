@@ -1,3 +1,5 @@
+-- Governing: SPEC-0011 REQ "Database Schema for Session Metadata"
+-- Adds nullable columns for result event metadata: response, cost, turns, duration.
 -- +goose Up
 ALTER TABLE sessions ADD COLUMN response TEXT;
 ALTER TABLE sessions ADD COLUMN cost_usd REAL;

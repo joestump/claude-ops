@@ -191,6 +191,8 @@ func (d *DB) UpdateSessionStatus(id int64, status string) error {
 
 // UpdateSessionResult stores the final response and metadata from a completed session.
 // Governing: SPEC-0016 REQ "Per-Tier Cost Attribution" — each tier records cost_usd, num_turns, duration_ms independently
+// Governing: SPEC-0011 REQ "Result Event Metadata Extraction", REQ "Database Schema for Session Metadata"
+// — persists result, total_cost_usd, num_turns, and duration_ms extracted from the result event.
 func (d *DB) UpdateSessionResult(id int64, response string, costUSD float64, numTurns int, durationMs int64) error {
 	_, err := d.conn.Exec(
 		`UPDATE sessions SET response = ?, cost_usd = ?, num_turns = ?, duration_ms = ? WHERE id = ?`,
