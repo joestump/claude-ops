@@ -26,6 +26,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     && rm -rf /var/lib/apt/lists/*
 
+# Governing: SPEC-0004 REQ-8 (Docker Image Installation — apprise via pip3)
 # Apprise for notifications (supports 80+ services)
 RUN pip3 install --break-system-packages --retries 3 --timeout 120 apprise
 

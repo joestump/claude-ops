@@ -85,7 +85,10 @@ while true; do
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_TIER2_MODEL=${CLAUDEOPS_TIER2_MODEL:-sonnet}"
     ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_TIER3_MODEL=${CLAUDEOPS_TIER3_MODEL:-opus}"
 
-    # Pass Apprise URLs if configured
+    # Governing: SPEC-0004 REQ-1 (single env var config),
+    #            SPEC-0004 REQ-2 (graceful degradation — only pass when set),
+    #            SPEC-0004 REQ-4 (env var passthrough to agent context)
+    # Pass Apprise URLs if configured; skip silently when unset (REQ-2).
     if [ -n "${CLAUDEOPS_APPRISE_URLS:-}" ]; then
         ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS}"
     fi
