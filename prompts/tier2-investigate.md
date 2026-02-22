@@ -354,6 +354,7 @@ The auto-remediation body MUST include: what was wrong (the detected issue), wha
 ### Cannot fix (needs Tier 3)
 
 <!-- Governing: SPEC-0001 REQ-6 (Escalation Context Forwarding), REQ-7 (Escalation Mechanism) -->
+<!-- Governing: SPEC-0016 REQ "Tier Prompt Changes" — writes handoff file instead of using Task tool for escalation -->
 
 Build the escalation context as a structured JSON object with the following schema:
 

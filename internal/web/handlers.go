@@ -175,6 +175,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	view := ToSessionView(*sess)
 
 	// Load parent session if this session was escalated.
+	// Governing: SPEC-0016 REQ "Dashboard Escalation Chain Display" — parent/child links and chain cost
 	if sess.ParentSessionID != nil {
 		if parent, err := s.db.GetSession(*sess.ParentSessionID); err == nil && parent != nil {
 			pv := ToSessionView(*parent)

@@ -26,6 +26,7 @@
                     {{if not .Sessions}}
                     <tr><td colspan="10" class="py-8 text-center text-sm text-muted">No sessions recorded yet. Sessions will appear after the first health check run or when you trigger one manually with the Run Now button.</td></tr>
                     {{end}}
+                    {{/* Governing: SPEC-0016 REQ "Dashboard Escalation Chain Display" — chain indicators and cost rollup */}}
                     {{range .Sessions}}
                     <tr class="tbody-row{{if .ChainOutcome}} chain-{{statusDot .Status}}{{end}}">
                         <td class="py-3 pr-4">

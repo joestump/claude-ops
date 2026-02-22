@@ -940,6 +940,7 @@ func ParseTimestampedLogLine(line string) (ts time.Time, raw string, hasTS bool)
 
 // buildHandoffContext formats a Handoff into a readable markdown section
 // suitable for injection into the next tier's system prompt.
+// Governing: SPEC-0016 REQ "Handoff Context Serialization" — preserves all context for next tier
 func buildHandoffContext(h *Handoff) string {
 	var b strings.Builder
 	b.WriteString("## Escalation Context\n\n")

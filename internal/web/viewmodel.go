@@ -27,6 +27,7 @@ type SessionView struct {
 	PromptText string
 
 	// Escalation chain fields.
+	// Governing: SPEC-0016 REQ "Dashboard Escalation Chain Display", REQ "Per-Tier Cost Attribution"
 	ParentSessionID *int64
 	ParentSession   *SessionView
 	ChildSessions   []SessionView
