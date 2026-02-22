@@ -9,6 +9,7 @@ import (
 // Governing: SPEC-0014 REQ "Credential Injection via Environment Variables" (BROWSER_CRED_* env vars, Tier 2+ gate)
 // ResolveCredential looks up a BROWSER_CRED_* environment variable by name,
 // enforcing Tier 2+ permissions and the BROWSER_CRED_ prefix convention.
+// Governing: SPEC-0014 "Tier 2+ Permission Gate" — credential injection requires Tier 2+.
 func ResolveCredential(tier int, envKey string) (string, error) {
 	if tier < 2 {
 		return "", fmt.Errorf("browser credential injection requires Tier 2+")

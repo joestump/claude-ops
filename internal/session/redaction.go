@@ -11,6 +11,7 @@ import (
 // RedactionFilter scans output for known credential values and replaces them
 // with [REDACTED:VAR_NAME] placeholders. It builds a replacement dictionary
 // from BROWSER_CRED_* environment variables at construction time.
+// Governing: SPEC-0014 "Browser Automation Auditing" — redact credential values from all output channels.
 type RedactionFilter struct {
 	replacements map[string]string // credential value -> "[REDACTED:VAR_NAME]"
 }

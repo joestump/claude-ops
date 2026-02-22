@@ -151,7 +151,7 @@ Everything in Tier 1, plus:
 - Fix file ownership/permissions on known data paths
 - Clear tmp/cache directories
 - Update API keys via service REST APIs
-- Browser automation for credential rotation (via Chrome DevTools MCP)
+- Browser automation for credential rotation (via Chrome DevTools MCP) <!-- Governing: SPEC-0014 "Tier 2+ Permission Gate" -->
 - Send notifications via Apprise
 
 ### Tier 3 — Opus (Full Remediation)

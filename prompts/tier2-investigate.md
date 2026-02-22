@@ -254,6 +254,8 @@ When a remediation requires elevated privileges (write commands like `docker res
 
 Do NOT skip the issue silently. Do NOT escalate to a higher tier solely because of limited access — a higher tier does not grant more SSH access.
 
+<!-- Governing: SPEC-0014 "Tier 2+ Permission Gate" — Tier 2 permitted browser authentication -->
+<!-- Governing: SPEC-0014 "Browser Automation Auditing" — all actions logged with redacted credentials -->
 ## Browser Automation
 
 You may use Chrome DevTools MCP tools for authenticated browser automation against allowed origins.
