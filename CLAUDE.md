@@ -54,6 +54,8 @@ This is not a traditional codebase — there is no application code to compile o
 
 ### Execution flow
 
+<!-- Governing: SPEC-0010 REQ-3 (model selection), REQ-4 (prompt loading) -->
+
 `entrypoint.sh` runs an infinite loop:
 1. Merges MCP configs from mounted repos into `.claude/mcp.json`
 2. Invokes `claude --model haiku --prompt-file prompts/tier1-observe.md`
@@ -225,6 +227,8 @@ When spawning subagents for escalation, use the Task tool:
 Always pass the full context of what was found to the next tier. The escalated agent should not need to re-run checks — it should pick up from where you left off.
 
 ## Escalation Model Config
+
+<!-- Governing: SPEC-0010 REQ-3 — Model Selection via --model Flag and CLAUDEOPS_TIER*_MODEL env vars -->
 
 - Tier 1 model: `$CLAUDEOPS_TIER1_MODEL` (default: `haiku`)
 - Tier 2 model: `$CLAUDEOPS_TIER2_MODEL` (default: `sonnet`)
