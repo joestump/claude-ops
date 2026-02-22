@@ -76,6 +76,7 @@ Your tier is: **Tier 2**
 
 Governing: SPEC-0023 REQ-6, ADR-0023
 
+<!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode
 
 When `CLAUDEOPS_DRY_RUN=true`:
@@ -235,6 +236,7 @@ After each remediation:
 - Update the cooldown state file
 - Verify the fix by re-checking the service
 
+<!-- Governing: SPEC-0018 REQ-9 "Permission Tier Integration" — Tier 2 permitted to create PRs for non-structural changes -->
 ## Limited Access Fallback
 
 When a remediation requires elevated privileges (write commands like `docker restart`, `systemctl`, `chown`, file edits) on a host where the access map shows `method: "limited"`:

@@ -80,6 +80,7 @@ Your tier is: **Tier 1**
 
 Governing: SPEC-0023 REQ-6, ADR-0023
 
+<!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode
 
 When `CLAUDEOPS_DRY_RUN=true`:

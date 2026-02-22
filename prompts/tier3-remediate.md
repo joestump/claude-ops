@@ -137,6 +137,7 @@ Your tier is: **Tier 3**
 
 Governing: SPEC-0023 REQ-6, ADR-0023
 
+<!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode
 
 When `CLAUDEOPS_DRY_RUN=true`:
@@ -253,6 +254,7 @@ Use the correct SSH user and sudo prefix from the host access map (see `/app/ski
 5. Verify connectivity from dependent services
 6. Check for data integrity issues (but NEVER delete data)
 
+<!-- Governing: SPEC-0018 REQ-9 "Permission Tier Integration" — Tier 3 permitted to create PRs for structural changes -->
 ## Limited Access Fallback
 
 When a remediation requires elevated privileges (write commands like `docker restart`, `docker compose`, `systemctl`, `chown`, Ansible playbooks, Helm upgrades) on a host where the access map shows `method: "limited"`:

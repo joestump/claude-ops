@@ -494,11 +494,13 @@ func (s *Server) handleAPICreatePR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Governing: SPEC-0018 REQ-9 "Permission Tier Integration" — tier gate enforced at API level.
 	if err := gitprovider.ValidateTier(req.Tier, req.Files); err != nil {
 		writeError(w, http.StatusForbidden, err.Error())
 		return
 	}
 
+	// Governing: SPEC-0018 REQ-12 "Dry Run Mode" — log proposed PR details without executing git operations.
 	if s.cfg.DryRun {
 		log.Printf("[PR] Dry run: would create PR '%s' for %s/%s", req.Title, req.RepoOwner, req.RepoName)
 		writeJSON(w, http.StatusOK, APICreatePRResponse{DryRun: true})
