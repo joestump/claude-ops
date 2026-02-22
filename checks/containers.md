@@ -1,5 +1,4 @@
-<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-8 (no build step), REQ-9 (self-documenting) -->
-
+<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-2 (Check Document Structure), REQ-8 (no build step), REQ-9 (self-documenting) -->
 # Container State Checks
 
 ## When to Run
@@ -54,3 +53,10 @@ For each expected container:
 - Restart count
 - Uptime (time since last start)
 - Whether it matches expectations
+
+## Special Cases
+
+- Init containers or one-shot containers (e.g., migration runners) may have status `exited` with exit code 0 — this is expected and healthy
+- Containers with `restart: unless-stopped` policy may have a non-zero restart count from a previous incident — check if the count is increasing, not just non-zero
+- Some containers do not define a Docker healthcheck — absence of health status does not mean unhealthy; fall back to checking if the container is running and the service responds to HTTP/TCP checks
+- Sidecar containers (e.g., log shippers, metrics exporters) may not have web endpoints — verify they are running and not crashlooping

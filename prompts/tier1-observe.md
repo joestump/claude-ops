@@ -1,3 +1,5 @@
+<!-- Governing: SPEC-0002 REQ-4 (Tier Prompt Document Structure) -->
+
 # Tier 1: Observe
 
 <!-- Governing: SPEC-0001 REQ-8 (Permission-Model Alignment) — Tier 1 is observe-only, remediation is prohibited -->

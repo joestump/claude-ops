@@ -1,5 +1,4 @@
-<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-8 (no build step), REQ-9 (self-documenting) -->
-
+<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-3 (Playbook Document Structure), REQ-8 (no build step), REQ-9 (self-documenting) -->
 # Playbook: Redeploy Service
 
 <!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating, REQ-3 — Playbook Document Structure -->
@@ -76,6 +75,15 @@
 2. **Verify**
    - Check rollout status: `kubectl rollout status deployment/<name> -n <namespace>`
    - Run health checks
+
+## Verification
+
+After any redeployment method (Ansible, Docker Compose, or Helm):
+- Wait for all containers to reach `running` status
+- If containers define Docker healthchecks, wait for `healthy` status
+- Re-run the original health checks that triggered this playbook
+- Verify dependent services can reach the redeployed service
+- Check container logs for startup errors
 
 ## After Redeployment
 
