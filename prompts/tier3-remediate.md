@@ -389,6 +389,20 @@ Current system state: <summary>" \
 
 The human attention alert body MUST include: issue description, what was attempted, why remediation failed or was stopped, and current system state with recommended next steps.
 
+## Auditability
+
+<!-- Governing: SPEC-0003 REQ-10 — Post-Hoc Auditability -->
+
+All output from this session is captured to a timestamped log file in `/results/` for post-hoc review. To support compliance and incident analysis, your output MUST include:
+
+1. **Root cause analysis**: Document the full root cause determination, including what evidence was examined (logs, metrics, container state)
+2. **Remediation actions**: For every remediation attempted (Ansible playbooks, Helm upgrades, container recreation, multi-service recovery), include the exact commands executed, their output summaries, and the verification result
+3. **Cooldown state changes**: When reading or updating cooldown state, note the current state (restart/redeployment counts, timestamps) and any changes made
+4. **Failed remediation details**: If remediation fails, document what was tried, why it failed, and what human action is recommended
+5. **Errors and exceptions**: Log any unexpected errors, access issues, or tool failures encountered during remediation
+
+An operator reviewing the log file after the fact MUST be able to reconstruct the full remediation timeline: what was the root cause, what actions were taken, what succeeded, what failed, and what requires human follow-up.
+
 ## Output Format
 
 Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable report — not console logs or raw text dumps. Emojis are encouraged where they aid readability.
