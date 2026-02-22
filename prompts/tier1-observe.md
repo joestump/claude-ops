@@ -199,6 +199,8 @@ But for **where to reach services** (hostnames, URLs, SSH targets), always prefe
 
 **CRITICAL: All health checks target remote hosts defined in the CLAUDE-OPS.md manifest. You are NOT monitoring the local machine. Do not run `docker ps`, `docker inspect`, or any local container commands unless the CLAUDE-OPS.md manifest explicitly says the services run on localhost. The manifest tells you WHERE services are — check them THERE.**
 
+<!-- Governing: SPEC-0020 "Tier Integration", "Discovery Logging" — Tier 1 runs SSH discovery and builds the access map -->
+
 ## Step 2.5: SSH Access Discovery
 
 Before running health checks, discover the SSH access method for each managed host.

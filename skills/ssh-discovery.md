@@ -98,6 +98,8 @@ Build a JSON map with one entry per host:
 
 The map is computed once per cycle and cached for the duration of the run. Do NOT re-probe SSH access on every command. When escalating to Tier 2 or Tier 3, include the map in the handoff file so the receiving tier can reuse it without re-probing.
 
+<!-- Governing: SPEC-0020 "Discovery Logging" — structured log lines for root, fallback, and unreachable results -->
+
 ## Logging
 
 Log the discovery result for each host:
@@ -105,6 +107,8 @@ Log the discovery result for each host:
 - **Root access**: `SSH discovery: <host> -> root@<host> (root access)`
 - **Fallback to non-root**: `SSH discovery: <host> -> <user>@<host> (sudo|limited) [root failed]`
 - **Unreachable**: `SSH discovery: <host> -> unreachable (tried: root, <manifest_user>, ubuntu, debian, pi, admin)`
+
+<!-- Governing: SPEC-0020 "Tier Integration" — all tiers consult the access map for SSH command construction -->
 
 ## Command Execution Rules
 
@@ -142,6 +146,8 @@ Read commands only. Write commands MUST be refused — follow the limited access
 
 ### method: unreachable
 Skip all SSH-based checks for this host. Rely on HTTP/DNS checks only.
+
+<!-- Governing: SPEC-0020 "Limited Access Fallback" — PR workflow or human report when elevated access unavailable -->
 
 ## Limited Access Fallback
 

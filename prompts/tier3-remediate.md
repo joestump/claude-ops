@@ -171,6 +171,7 @@ Read the investigation findings from Tier 2:
 - Root cause analysis (from Tier 2)
 - What was attempted and why it failed
 
+<!-- Governing: SPEC-0020 "Tier Integration" — Tier 3 reuses the SSH access map from handoff -->
 Read the **SSH host access map** from the handoff file. The map tells you which user and method (`root`, `sudo`, `limited`, `unreachable`) to use for each host. If the handoff includes an `ssh_access_map` field, use it directly — do NOT re-probe SSH access. If the map is missing, read `/app/skills/ssh-discovery.md` and run the discovery routine before proceeding.
 
 ## Step 2: Analyze Root Cause
