@@ -226,6 +226,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	// Log files contain timestamped NDJSON from --output-format stream-json.
 	// Format: "2006-01-02T15:04:05Z\t{json}" per line (or legacy raw JSON).
 	// We use FormatStreamEventHTML to produce color-coded HTML output.
+	// Governing: SPEC-0011 "Log File Formatting on Read Path" — line-by-line formatting via scanner
 	var output string
 	if sess.LogFile != nil && *sess.LogFile != "" {
 		if f, err := os.Open(*sess.LogFile); err == nil {
