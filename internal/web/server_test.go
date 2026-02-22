@@ -21,12 +21,16 @@ type mockTrigger struct {
 	nextID     int64
 	nextErr    error
 	lastPrompt string // captures the prompt passed to TriggerAdHoc
+	onTrigger  func(id int64) // optional callback after trigger returns
 }
 
 func (m *mockTrigger) TriggerAdHoc(prompt string) (int64, error) {
 	m.lastPrompt = prompt
 	if m.nextErr != nil {
 		return 0, m.nextErr
+	}
+	if m.onTrigger != nil {
+		go m.onTrigger(m.nextID)
 	}
 	return m.nextID, nil
 }
@@ -36,6 +40,7 @@ func (m *mockTrigger) IsRunning() bool { return m.running }
 type testEnv struct {
 	srv     *Server
 	hub     *hub.Hub
+	rawHub  *hub.Hub
 	trigger *mockTrigger
 }
 
@@ -65,9 +70,11 @@ func newTestEnvWithTrigger(t *testing.T, trigger *mockTrigger) *testEnv {
 	}
 
 	h := hub.New()
+	rawHub := hub.New()
 	return &testEnv{
-		srv:     New(cfg, h, database, trigger),
+		srv:     New(cfg, h, database, trigger, WithRawHub(rawHub)),
 		hub:     h,
+		rawHub:  rawHub,
 		trigger: trigger,
 	}
 }

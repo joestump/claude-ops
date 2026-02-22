@@ -49,11 +49,21 @@ type SessionTrigger interface {
 	IsRunning() bool
 }
 
+// ServerOption configures optional Server features.
+type ServerOption func(*Server)
+
+// WithRawHub sets the raw NDJSON event hub for OpenAI streaming.
+// Governing: SPEC-0024 REQ-5 (Streaming Response), ADR-0020
+func WithRawHub(h SSEHub) ServerOption {
+	return func(s *Server) { s.rawHub = h }
+}
+
 // Governing: SPEC-0008 REQ-2 (Web Server — HTTP on configurable port, default 8080)
 // Server is the HTTP server for the Claude Ops dashboard.
 type Server struct {
 	cfg    *config.Config
 	hub    SSEHub
+	rawHub SSEHub // Governing: SPEC-0024 REQ-5 — raw NDJSON event hub for OpenAI streaming
 	db     *db.DB
 	mgr    SessionTrigger
 	mux    *http.ServeMux
@@ -62,13 +72,17 @@ type Server struct {
 }
 
 // New creates a new web server. Pass nil for hub if SSE streaming is not yet available.
-func New(cfg *config.Config, hub SSEHub, database *db.DB, mgr SessionTrigger) *Server {
+// rawHub is the raw NDJSON event hub for OpenAI streaming (may be nil).
+func New(cfg *config.Config, hub SSEHub, database *db.DB, mgr SessionTrigger, opts ...ServerOption) *Server {
 	s := &Server{
 		cfg: cfg,
 		hub: hub,
 		db:  database,
 		mgr: mgr,
 		mux: http.NewServeMux(),
+	}
+	for _, opt := range opts {
+		opt(s)
 	}
 
 	s.parseTemplates()

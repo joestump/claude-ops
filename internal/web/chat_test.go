@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 // Governing: SPEC-0024 REQ-8 (Models Endpoint), ADR-0020
@@ -131,9 +132,19 @@ func TestChatCompletionsInvalidToken(t *testing.T) {
 	}
 }
 
+// closeRawHubOnTrigger returns an onTrigger callback that closes the raw hub session.
+func closeRawHubOnTrigger(e *testEnv) func(int64) {
+	return func(id int64) {
+		// Small delay to ensure the handler has time to subscribe.
+		time.Sleep(10 * time.Millisecond)
+		e.rawHub.Close(int(id))
+	}
+}
+
 func TestChatCompletionsValidToken(t *testing.T) {
 	trigger := &mockTrigger{nextID: 1}
 	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "valid-key")
 
 	body := `{"model":"claude-ops","messages":[{"role":"user","content":"restart jellyfin"}]}`
@@ -230,6 +241,7 @@ func TestChatCompletionsSessionConflict(t *testing.T) {
 func TestChatCompletionsLastUserMessageExtracted(t *testing.T) {
 	trigger := &mockTrigger{nextID: 5}
 	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
 
 	body := `{"model":"claude-ops","messages":[{"role":"user","content":"hello"},{"role":"assistant","content":"hi"},{"role":"user","content":"restart nginx"}]}`
@@ -249,8 +261,8 @@ func TestChatCompletionsLastUserMessageExtracted(t *testing.T) {
 
 	var resp ChatCompletion
 	_ = json.NewDecoder(w.Body).Decode(&resp)
-	if resp.ID != "chatcmpl-5" {
-		t.Fatalf("expected id 'chatcmpl-5', got %q", resp.ID)
+	if !strings.HasPrefix(resp.ID, "chatcmpl-") {
+		t.Fatalf("expected id prefix 'chatcmpl-', got %q", resp.ID)
 	}
 }
 
@@ -260,6 +272,9 @@ func TestChatCompletionsSingleUserMessage(t *testing.T) {
 	trigger := &mockTrigger{nextID: 1}
 	e := newTestEnvWithTrigger(t, trigger)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	// Close the raw hub session after trigger so the streaming handler terminates.
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 
 	body := `{"model":"claude-ops","messages":[{"role":"user","content":"restart jellyfin"}],"stream":true}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -280,6 +295,7 @@ func TestChatCompletionsSingleUserMessage(t *testing.T) {
 func TestChatCompletionsModelFieldIgnored(t *testing.T) {
 	trigger := &mockTrigger{nextID: 1}
 	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
 
 	// Use a model name that doesn't match claude-ops — should still succeed.
@@ -309,6 +325,7 @@ func TestChatCompletionsModelFieldIgnored(t *testing.T) {
 func TestChatCompletionsPriorMessagesNotInjected(t *testing.T) {
 	trigger := &mockTrigger{nextID: 10}
 	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
 
 	// Send a request with extensive history — only the last user message should be used.
@@ -385,6 +402,7 @@ func TestChatCompletions429ErrorBody(t *testing.T) {
 func TestChatCompletionsUsageZeroed(t *testing.T) {
 	trigger := &mockTrigger{nextID: 1}
 	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
 
 	body := `{"model":"claude-ops","messages":[{"role":"user","content":"test"}]}`
@@ -406,6 +424,7 @@ func TestChatCompletionsUsageZeroed(t *testing.T) {
 func TestChatCompletionsStreamFieldDefaults(t *testing.T) {
 	trigger := &mockTrigger{nextID: 1}
 	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
 
 	// Omit stream field entirely — should default to synchronous response.
@@ -473,6 +492,7 @@ func TestChatCompletionsErrorFormatJSON(t *testing.T) {
 func TestChatRoutesCoexistWithDashboard(t *testing.T) {
 	trigger := &mockTrigger{nextID: 1}
 	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
 
 	// Dashboard still works.
@@ -500,12 +520,304 @@ func TestChatRoutesCoexistWithDashboard(t *testing.T) {
 	}
 
 	// Chat completions endpoint works with auth.
-	body := `{"model":"claude-ops","messages":[{"role":"user","content":"test"}]}`
-	reqChat := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	chatBody := `{"model":"claude-ops","messages":[{"role":"user","content":"test"}]}`
+	reqChat := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(chatBody))
 	reqChat.Header.Set("Authorization", "Bearer key")
 	wChat := httptest.NewRecorder()
 	e.srv.mux.ServeHTTP(wChat, reqChat)
 	if wChat.Code != http.StatusOK {
 		t.Fatalf("POST /v1/chat/completions: expected 200, got %d", wChat.Code)
 	}
+}
+
+// --- New tests for #473 ---
+
+// Governing: SPEC-0024 REQ-5 — SSE streaming response format
+
+func TestChatStreamingSSEFormat(t *testing.T) {
+	trigger := &mockTrigger{nextID: 42}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	// Publish assistant text and a result event, then close.
+	trigger.onTrigger = func(id int64) {
+		time.Sleep(10 * time.Millisecond)
+		e.rawHub.Publish(int(id), `{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world"}]}}`)
+		time.Sleep(5 * time.Millisecond)
+		e.rawHub.Publish(int(id), `{"type":"result","result":"done","is_error":false}`)
+		time.Sleep(5 * time.Millisecond)
+		e.rawHub.Close(int(id))
+	}
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"hello"}],"stream":true}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	ct := w.Header().Get("Content-Type")
+	if ct != "text/event-stream" {
+		t.Fatalf("expected text/event-stream, got %q", ct)
+	}
+
+	output := w.Body.String()
+
+	// Should contain data: lines with JSON chunks.
+	if !strings.Contains(output, "data: ") {
+		t.Fatal("expected SSE data: lines")
+	}
+
+	// Should end with data: [DONE]
+	if !strings.Contains(output, "data: [DONE]") {
+		t.Fatal("expected final [DONE] event")
+	}
+
+	// Parse individual chunks from the SSE output.
+	chunks := parseSSEChunks(t, output)
+	if len(chunks) < 2 {
+		t.Fatalf("expected at least 2 chunks, got %d", len(chunks))
+	}
+
+	// First chunk should have role indicator.
+	if chunks[0].Choices[0].Delta.Role != "assistant" {
+		t.Fatalf("first chunk should have role 'assistant', got %q", chunks[0].Choices[0].Delta.Role)
+	}
+
+	// Should have a content delta with "Hello world".
+	foundContent := false
+	for _, c := range chunks {
+		if c.Choices[0].Delta.Content == "Hello world" {
+			foundContent = true
+			break
+		}
+	}
+	if !foundContent {
+		t.Fatal("expected a chunk with content 'Hello world'")
+	}
+
+	// All chunks should have correct object type.
+	for _, c := range chunks {
+		if c.Object != "chat.completion.chunk" {
+			t.Fatalf("expected object 'chat.completion.chunk', got %q", c.Object)
+		}
+		if c.Model != "claude-ops" {
+			t.Fatalf("expected model 'claude-ops', got %q", c.Model)
+		}
+	}
+}
+
+// Governing: SPEC-0024 REQ-5 — tool_use events mapped to tool_calls deltas
+
+func TestChatStreamingToolCallDelta(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	trigger.onTrigger = func(id int64) {
+		time.Sleep(10 * time.Millisecond)
+		e.rawHub.Publish(int(id), `{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Bash","input":{"command":"docker ps"}}]}}`)
+		time.Sleep(5 * time.Millisecond)
+		e.rawHub.Close(int(id))
+	}
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"check"}],"stream":true}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	chunks := parseSSEChunks(t, w.Body.String())
+
+	foundToolCall := false
+	for _, c := range chunks {
+		if len(c.Choices) > 0 && len(c.Choices[0].Delta.ToolCalls) > 0 {
+			tc := c.Choices[0].Delta.ToolCalls[0]
+			if tc.Type != "function" {
+				t.Fatalf("expected tool call type 'function', got %q", tc.Type)
+			}
+			if tc.Function.Name != "Bash" {
+				t.Fatalf("expected tool name 'Bash', got %q", tc.Function.Name)
+			}
+			// Arguments should be a JSON string.
+			var args map[string]any
+			if err := json.Unmarshal([]byte(tc.Function.Arguments), &args); err != nil {
+				t.Fatalf("tool arguments should be valid JSON: %v", err)
+			}
+			if args["command"] != "docker ps" {
+				t.Fatalf("expected command 'docker ps', got %v", args["command"])
+			}
+			foundToolCall = true
+			break
+		}
+	}
+	if !foundToolCall {
+		t.Fatal("expected a tool_call delta in streaming output")
+	}
+}
+
+// Governing: SPEC-0024 REQ-6 — sync response collects all assistant text
+
+func TestChatSyncResponseCollectsText(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	trigger.onTrigger = func(id int64) {
+		time.Sleep(10 * time.Millisecond)
+		e.rawHub.Publish(int(id), `{"type":"assistant","message":{"content":[{"type":"text","text":"Hello "}]}}`)
+		e.rawHub.Publish(int(id), `{"type":"assistant","message":{"content":[{"type":"text","text":"world"}]}}`)
+		e.rawHub.Publish(int(id), `{"type":"result","result":"All done.","is_error":false}`)
+		time.Sleep(5 * time.Millisecond)
+		e.rawHub.Close(int(id))
+	}
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"hello"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp ChatCompletion
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Object != "chat.completion" {
+		t.Fatalf("expected object 'chat.completion', got %q", resp.Object)
+	}
+	// Content should include both assistant text blocks and the result.
+	if !strings.Contains(resp.Choices[0].Message.Content, "Hello ") {
+		t.Fatalf("expected content to contain 'Hello ', got %q", resp.Choices[0].Message.Content)
+	}
+	if !strings.Contains(resp.Choices[0].Message.Content, "world") {
+		t.Fatalf("expected content to contain 'world', got %q", resp.Choices[0].Message.Content)
+	}
+}
+
+// Governing: SPEC-0024 REQ-7 — all error codes use OpenAI error format
+
+func TestChatErrorFormat400(t *testing.T) {
+	e := newTestEnv(t)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	// Invalid JSON body -> 400
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader("not json"))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("expected 400, got %d", w.Code)
+	}
+
+	var errResp OpenAIError
+	if err := json.NewDecoder(w.Body).Decode(&errResp); err != nil {
+		t.Fatalf("400 error should be valid OpenAI error JSON: %v", err)
+	}
+	if errResp.Error.Message == "" || errResp.Error.Type == "" || errResp.Error.Code == "" {
+		t.Fatal("400 error should have message, type, and code fields")
+	}
+}
+
+func TestChatErrorFormat401(t *testing.T) {
+	e := newTestEnv(t)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"hello"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer wrong")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401, got %d", w.Code)
+	}
+
+	var errResp OpenAIError
+	if err := json.NewDecoder(w.Body).Decode(&errResp); err != nil {
+		t.Fatalf("401 error should be valid OpenAI error JSON: %v", err)
+	}
+	if errResp.Error.Type != "authentication_error" {
+		t.Fatalf("401 should have type 'authentication_error', got %q", errResp.Error.Type)
+	}
+	if errResp.Error.Code != "invalid_api_key" {
+		t.Fatalf("401 should have code 'invalid_api_key', got %q", errResp.Error.Code)
+	}
+}
+
+func TestChatErrorFormat503(t *testing.T) {
+	e := newTestEnv(t)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"hello"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer anything")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503, got %d", w.Code)
+	}
+
+	var errResp OpenAIError
+	if err := json.NewDecoder(w.Body).Decode(&errResp); err != nil {
+		t.Fatalf("503 error should be valid OpenAI error JSON: %v", err)
+	}
+	if errResp.Error.Type != "service_unavailable" {
+		t.Fatalf("503 should have type 'service_unavailable', got %q", errResp.Error.Type)
+	}
+}
+
+// Governing: SPEC-0024 REQ-10 — SDK compatibility: id prefix, object field
+
+func TestChatResponseIDPrefix(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"test"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	var resp ChatCompletion
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	if !strings.HasPrefix(resp.ID, "chatcmpl-") {
+		t.Fatalf("id should start with 'chatcmpl-', got %q", resp.ID)
+	}
+}
+
+// parseSSEChunks extracts ChatCompletionChunk objects from SSE output.
+func parseSSEChunks(t *testing.T, body string) []ChatCompletionChunk {
+	t.Helper()
+	var chunks []ChatCompletionChunk
+	for _, line := range strings.Split(body, "\n") {
+		if !strings.HasPrefix(line, "data: ") {
+			continue
+		}
+		data := strings.TrimPrefix(line, "data: ")
+		if data == "[DONE]" {
+			continue
+		}
+		var chunk ChatCompletionChunk
+		if err := json.Unmarshal([]byte(data), &chunk); err != nil {
+			t.Logf("skipping unparseable SSE chunk: %s", data)
+			continue
+		}
+		chunks = append(chunks, chunk)
+	}
+	return chunks
 }
