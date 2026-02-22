@@ -210,9 +210,36 @@ If a service requires browser-based investigation, escalate to Tier 2 via the ha
 
 ## Step 6: Report or Escalate
 
+<!-- Governing: SPEC-0004 REQ-5 — Three Notification Event Categories -->
+<!-- Governing: SPEC-0004 REQ-6 — Notification Message Format -->
+<!-- Governing: SPEC-0004 REQ-9 — Multiple Simultaneous Targets -->
+
+### Notification Event Categories
+
+Tier 1 supports two notification event categories:
+
+1. **Daily Digest** — Sent once per day summarizing all health check results and uptime statistics. Check `last_daily_digest` in the cooldown state; if not sent today, compose and send one.
+2. **Human Attention Alert** — Sent immediately when a service is in cooldown and still failing, indicating manual intervention is required.
+
+When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silently (no errors). When set, it may contain multiple comma-separated Apprise URLs — the same notification is delivered to ALL configured targets simultaneously.
+
 ### All healthy
 - Update `last_run` in the cooldown state file
-- If a daily digest is due (check `last_daily_digest`), compose and send one via Apprise (if configured)
+- If a daily digest is due (check `last_daily_digest`), compose and send one via Apprise (if configured):
+
+```bash
+apprise -t "Claude Ops: Daily Health Summary" \
+  -b "Services checked: <count>
+Healthy: <count>
+Degraded: <count> (<details if any>)
+Down: <count> (<details if any>)
+In cooldown: <count>" \
+  "$CLAUDEOPS_APPRISE_URLS"
+```
+
+The daily digest body MUST include: total services checked, count of healthy/degraded/down/in-cooldown services, and details for any non-healthy services.
+
+- Update `last_daily_digest` in the cooldown state after sending
 - Exit
 
 ### Issues found
@@ -246,7 +273,19 @@ If a service requires browser-based investigation, escalate to Tier 2 via the ha
 - Write the handoff file using the Write tool and exit normally. The Go supervisor will read the handoff and spawn the next tier automatically.
 
 ### Services in cooldown
-- For services where cooldown limits are reached, send a notification via Apprise (if configured) indicating "needs human attention"
+- For services where cooldown limits are reached, send a human attention alert via Apprise (if configured):
+
+```bash
+apprise -t "Claude Ops: Needs human attention — <service>" \
+  -b "Issue: <what is wrong>
+Cooldown limit reached: <restart_count>/2 restarts in 4h window
+Previous attempts: <summary of what was tried>
+Current state: <service status>" \
+  "$CLAUDEOPS_APPRISE_URLS"
+```
+
+The human attention alert body MUST include: issue description, cooldown state, and what was previously attempted.
+
 - Do not escalate — cooldown means we've already tried
 
 ## Event Reporting

@@ -262,14 +262,31 @@ After every remediation attempt (restart or redeployment), emit a `[COOLDOWN:...
 
 ## Step 5: Report Results
 
+<!-- Governing: SPEC-0004 REQ-5 — Three Notification Event Categories -->
+<!-- Governing: SPEC-0004 REQ-6 — Notification Message Format -->
+<!-- Governing: SPEC-0004 REQ-9 — Multiple Simultaneous Targets -->
+
+### Notification Event Categories
+
+Tier 2 supports two notification event categories:
+
+1. **Auto-Remediation Report** — Sent immediately after a successful remediation, describing the issue, action taken, and verification result.
+2. **Human Attention Alert** — Sent immediately when remediation fails or cooldown limits are exceeded, indicating manual intervention is required.
+
+When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silently (no errors). When set, it may contain multiple comma-separated Apprise URLs — the same notification is delivered to ALL configured targets simultaneously.
+
 ### Fixed
-Send a notification via Apprise (if `$CLAUDEOPS_APPRISE_URLS` is set):
+Send an auto-remediation report via Apprise (if `$CLAUDEOPS_APPRISE_URLS` is set):
 
 ```bash
 apprise -t "Claude Ops: Auto-remediated <service>" \
-  -b "Issue: <what was wrong>. Action: <what you did>. Status: <verification result>" \
+  -b "Issue: <what was wrong>
+Action: <what remediation was performed>
+Status: <verification result, e.g. HTTP 200 OK (145ms)>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
+
+The auto-remediation body MUST include: what was wrong (the detected issue), what action was taken (the remediation performed), and the verification result (post-remediation health check result).
 
 ### Cannot fix (needs Tier 3)
 Write a structured handoff file to `/state/handoff.json` with the following schema:
@@ -298,13 +315,18 @@ Write a structured handoff file to `/state/handoff.json` with the following sche
 - Write the handoff file using the Write tool and exit normally. The Go supervisor will read the handoff and spawn Tier 3 automatically.
 
 ### Cannot fix (cooldown exceeded)
-Send urgent notification:
+Send a human attention alert via Apprise:
 
 ```bash
 apprise -t "Claude Ops: Needs human attention — <service>" \
-  -b "Issue: <description>. Cooldown limit reached. Attempts: <what was tried>." \
+  -b "Issue: <what is wrong>
+Attempted: <what remediation was tried>
+Why stopped: Cooldown limit exceeded — <restart_count>/2 restarts in 4h window
+Current state: <service status and any relevant details>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
+
+The human attention alert body MUST include: issue description, what was attempted, why remediation was stopped, and current system state or recommended next steps.
 
 ## Output Format
 
