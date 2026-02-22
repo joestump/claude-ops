@@ -311,6 +311,7 @@ func (s *Server) parseTemplates() {
 }
 
 // Governing: SPEC-0008 REQ-14 — Static Asset Embedding (static files served from embed.FS)
+// Governing: SPEC-0008 REQ-10 — dashboard pages: overview, session view, cooldowns, config, events, memories.
 func (s *Server) registerRoutes() {
 	staticSub, _ := fs.Sub(staticFS, "static")
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
