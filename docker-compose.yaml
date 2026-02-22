@@ -42,4 +42,7 @@ services:
       - "9222:9222"
     environment:
       - CONNECTION_TIMEOUT=120000
+      # Governing: SPEC-0014 REQ "Isolated Browser Contexts"
+      # — incognito mode ensures no cookies, local storage, or session tokens
+      # persist between tasks or leak between services.
       - CHROME_FLAGS=--incognito
