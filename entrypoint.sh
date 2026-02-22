@@ -121,10 +121,17 @@ while true; do
     #            SPEC-0010 REQ-2 (Subprocess Invocation from Bash — CLI flags for all config, non-interactive, piped output)
     # Governing: SPEC-0010 REQ-7 — Non-Interactive Output via -p (--print) piped through tee
     # Governing: SPEC-0010 REQ-6 — --append-system-prompt injects ENV_CONTEXT at runtime
-    # Run Claude with tier 1 prompt
     # Governing: SPEC-0010 REQ-3 (--model), REQ-4 (--prompt-file)
     # Governing: SPEC-0010 REQ-5 — --allowedTools and --disallowedTools enforce
     # tool filtering at CLI runtime, independent of prompt-level instructions.
+    # Governing: SPEC-0003 REQ-8 (Subagent Tier Isolation)
+    # Tier 1 runs as a direct CLI invocation with restricted --allowedTools.
+    # Tiers 2 and 3 are spawned as separate subagents via the Task tool from
+    # the preceding tier (or by the Go supervisor reading handoff.json).
+    # Each subagent receives its own tier-specific prompt and permission boundaries.
+    # Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net)
+    # Cooldown state at $STATE_DIR/cooldown.json is initialized here and read
+    # by every tier before any remediation action.
     claude \
         --model "${MODEL}" \
         -p "$(cat "${PROMPT_FILE}")" \

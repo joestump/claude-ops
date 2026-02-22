@@ -274,7 +274,9 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 <!-- Governing: SPEC-0007 REQ-14 — Tier 1 reads cooldown state -->
 ## Step 4: Read Cooldown State
 
-Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. Note any services in cooldown.
+<!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
+
+Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. Note any services in cooldown. The cooldown system acts as a **secondary safety net** that limits the blast radius of repeated remediation, independent of the permission tier.
 
 ## Step 5: Evaluate Results
 
@@ -346,8 +348,11 @@ The daily digest body MUST include: total services checked, count of healthy/deg
 ### Issues found
 
 <!-- Governing: SPEC-0016 REQ "Tier Prompt Changes" — writes handoff file instead of using Task tool for escalation -->
+<!-- Governing: SPEC-0003 REQ-8 (Subagent Tier Isolation) -->
 
 **You are Tier 1 (observe only). You MUST NOT attempt remediation. You MUST escalate to Tier 2.**
+
+Each escalation tier runs as a **separate subagent** with its own prompt context and permission boundaries. When you escalate, the Go supervisor spawns the next tier as an isolated agent — it receives its own tier-specific prompt, not yours.
 
 1. Summarize all failures: which services, what checks failed, error details
 2. Build the escalation context as a structured JSON object with the following schema:
@@ -375,11 +380,13 @@ The daily digest body MUST include: total services checked, count of healthy/deg
 }
 ```
 
+<<<<<<< HEAD
 3. Include every failed service in `services_affected` and every failed check in `check_results`
 4. Include the full current cooldown state (from `/state/cooldown.json`) in `cooldown_state`
 5. Include the SSH host access map (from Step 2.5) in `ssh_access_map`
 6. Leave `investigation_findings` and `remediation_attempted` empty — Tier 2 will populate these if it needs to escalate further
 7. Write the handoff file to `/state/handoff.json` using the Write tool. The Go supervisor will read the handoff and spawn the next tier automatically.
+8. **You MUST pass the full context** of your findings in the handoff. The Tier 2 subagent SHOULD NOT need to re-run the health checks you already performed.
 
 ### Services in cooldown
 <!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation -->
