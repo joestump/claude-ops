@@ -1,3 +1,4 @@
+-- Governing: SPEC-0013 REQ "Events Table" (id, session_id, level, service, message, created_at)
 -- +goose Up
 CREATE TABLE events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
