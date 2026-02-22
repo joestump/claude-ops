@@ -18,12 +18,14 @@ import (
 )
 
 type mockTrigger struct {
-	running bool
-	nextID  int64
-	nextErr error
+	running    bool
+	nextID     int64
+	nextErr    error
+	lastPrompt string // captures the prompt passed to TriggerAdHoc
 }
 
 func (m *mockTrigger) TriggerAdHoc(prompt string) (int64, error) {
+	m.lastPrompt = prompt
 	if m.nextErr != nil {
 		return 0, m.nextErr
 	}

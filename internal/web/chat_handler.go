@@ -12,7 +12,7 @@ import (
 // Governing: SPEC-0024 REQ-1 (Endpoint Registration), REQ-2 (Authentication), ADR-0020
 
 // handleChatCompletions handles POST /v1/chat/completions.
-// Governing: SPEC-0024 REQ-2 (Authentication), REQ-3 (Request Parsing), REQ-4 (Session Triggering), ADR-0020
+// Governing: SPEC-0024 REQ-2 (Authentication), REQ-3 (Request Parsing), REQ-4 (Session Triggering), REQ-9 (Stateless Sessions), ADR-0020
 func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Governing: SPEC-0024 REQ-2 — read key from env on each request (supports rotation without restart)
 	apiKey := os.Getenv("CLAUDEOPS_CHAT_API_KEY")
@@ -37,6 +37,8 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Governing: SPEC-0024 REQ-3 — extract last user message as prompt
+	// Governing: SPEC-0024 REQ-9 (Stateless Sessions) — only last user message is used;
+	// messages history from the client is NOT injected as conversation context.
 	var prompt string
 	for i := len(req.Messages) - 1; i >= 0; i-- {
 		if req.Messages[i].Role == "user" {
@@ -58,7 +60,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Return a minimal synchronous response indicating the session was triggered.
-	// Full streaming (REQ-5/REQ-6) is implemented in #472/#473.
+	// Full streaming (REQ-5) and synchronous wait (REQ-6) are implemented in #473.
 	// Governing: SPEC-0024 REQ-6 (Synchronous Response) — non-streaming placeholder
 	w.Header().Set("Content-Type", "application/json")
 	resp := ChatCompletion{
