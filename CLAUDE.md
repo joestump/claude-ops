@@ -202,6 +202,10 @@ These Docker-level restrictions provide defense-in-depth that does not depend on
 
 ## Cooldown Rules
 
+<!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
+
+The cooldown system acts as a secondary safety net that limits the blast radius of repeated remediation actions, independent of the permission tier.
+
 Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `/state/cooldown.json`) before taking any remediation action. The file is valid JSON, readable and writable using standard shell tools (`cat`, `jq`, `python3`). No custom parsers or binary formats are needed.
 
 - **Max 2 container restarts** per service per 4-hour sliding window
@@ -241,6 +245,10 @@ apprise -t "Title" -b "Message body" "$CLAUDEOPS_APPRISE_URLS"
 
 <!-- Governing: SPEC-0010 REQ-9 (Subagent Spawning via Task Tool — tiered escalation without custom orchestration code) -->
 ## Model Escalation
+
+<!-- Governing: SPEC-0003 REQ-8 (Subagent Tier Isolation) -->
+
+Each escalation tier runs as a **separate subagent** with its own prompt context and permission boundaries. When a lower tier escalates, the Go supervisor spawns the higher tier as an isolated agent that receives its own tier-specific prompt — permissions are not inherited from the lower tier.
 
 When spawning subagents for escalation, use the Task tool:
 

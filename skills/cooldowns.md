@@ -1,5 +1,9 @@
 <!-- Governing: SPEC-0007 REQ-1 (state file location), REQ-10 (agent tooling), REQ-11 (human readability) -->
+<!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
+
 # Skill: Cooldown Management
+
+The cooldown system acts as a **secondary safety net** that limits the blast radius of repeated remediation actions, independent of the permission tier. Even if an agent has permission to remediate, the cooldown state provides an additional check point where the agent MUST stop and notify instead of acting if limits are exceeded.
 
 Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `/state/cooldown.json`) before taking any remediation action. The file is valid JSON, readable and writable with `cat`, `jq`, or `python3` -- no custom parsers needed.
 
@@ -8,7 +12,7 @@ Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `
 - **Max 2 container restarts** per service per 4-hour window
 - **Max 1 full redeployment** (Ansible/Helm) per service per 24-hour window
 - If the cooldown limit is exceeded: stop retrying, send a notification marked "needs human attention"
-- Reset counters when a service is confirmed healthy for 2 consecutive checks
+- Reset counters when a service is confirmed healthy for **2 consecutive check cycles**
 - Always update the state file after any remediation attempt or health check
 
 <!-- Governing: SPEC-0007 REQ-13 — Cooldown State Data Model -->
