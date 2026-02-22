@@ -97,3 +97,10 @@ After inspecting logs:
 If inspection fails:
 1. Report: `[skill:container-health] ERROR: No suitable tool found for container inspection`
 2. Include which tools were attempted.
+
+## Dry-Run Behavior
+
+When `CLAUDEOPS_DRY_RUN=true`:
+- This is a read-only skill; all operations MAY still execute in dry-run mode.
+- MUST still perform tool discovery and selection.
+- Log: `[skill:container-health] DRY RUN: Executing read-only container inspection on <host> using <tool>`

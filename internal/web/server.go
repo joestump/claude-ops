@@ -15,7 +15,6 @@ import (
 	"github.com/joestump/claude-ops/api"
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
-	"github.com/joestump/claude-ops/internal/gitprovider"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 )
@@ -53,25 +52,23 @@ type SessionTrigger interface {
 // Governing: SPEC-0008 REQ-2 (Web Server — HTTP on configurable port, default 8080)
 // Server is the HTTP server for the Claude Ops dashboard.
 type Server struct {
-	cfg      *config.Config
-	hub      SSEHub
-	db       *db.DB
-	mgr      SessionTrigger
-	registry *gitprovider.Registry
-	mux      *http.ServeMux
-	tmpl     *template.Template
-	server   *http.Server
+	cfg    *config.Config
+	hub    SSEHub
+	db     *db.DB
+	mgr    SessionTrigger
+	mux    *http.ServeMux
+	tmpl   *template.Template
+	server *http.Server
 }
 
 // New creates a new web server. Pass nil for hub if SSE streaming is not yet available.
-func New(cfg *config.Config, hub SSEHub, database *db.DB, mgr SessionTrigger, registry *gitprovider.Registry) *Server {
+func New(cfg *config.Config, hub SSEHub, database *db.DB, mgr SessionTrigger) *Server {
 	s := &Server{
-		cfg:      cfg,
-		hub:      hub,
-		db:       database,
-		mgr:      mgr,
-		registry: registry,
-		mux:      http.NewServeMux(),
+		cfg: cfg,
+		hub: hub,
+		db:  database,
+		mgr: mgr,
+		mux: http.NewServeMux(),
 	}
 
 	s.parseTemplates()
@@ -351,9 +348,7 @@ func (s *Server) registerRoutes() {
 	// Governing: SPEC-0017 REQ-12 "Config Get Endpoint", REQ-13 "Config Update Endpoint"
 	s.mux.HandleFunc("GET /api/v1/config", s.handleAPIGetConfig)
 	s.mux.HandleFunc("PUT /api/v1/config", s.handleAPIUpdateConfig)
-	// Governing: SPEC-0018 REQ-7, REQ-8, REQ-10, REQ-11 — PR creation and listing endpoints
-	s.mux.HandleFunc("POST /api/v1/prs", s.handleAPICreatePR)
-	s.mux.HandleFunc("GET /api/v1/prs", s.handleAPIListPRs)
+	// Governing: SPEC-0023 REQ-9 — PR API endpoints removed; PR operations are now skill-based (git-pr.md).
 
 	// Governing: SPEC-0024 REQ-1 (Endpoint Registration), ADR-0020
 	// OpenAI-compatible chat endpoint — /v1/ prefix matches OpenAI base URL convention
