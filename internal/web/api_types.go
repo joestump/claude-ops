@@ -5,6 +5,7 @@ import (
 	"github.com/joestump/claude-ops/internal/gitprovider"
 )
 
+// Governing: SPEC-0017 REQ-2 "JSON Content Type" — all types serialize as application/json
 // --- API Response Wrappers ---
 
 // APISessionsResponse wraps a list of sessions for JSON API responses.
@@ -29,6 +30,7 @@ type APICooldownsResponse struct {
 
 // --- API Resource Types ---
 
+// Governing: SPEC-0017 REQ-3 "Sessions List Endpoint", REQ-4 "Session Detail Endpoint"
 // APISession is the JSON representation of a session.
 type APISession struct {
 	ID              int64        `json:"id"`
@@ -50,6 +52,7 @@ type APISession struct {
 	ChainCost       *float64     `json:"chain_cost,omitempty"`
 }
 
+// Governing: SPEC-0017 REQ-6 "Events List Endpoint"
 // APIEvent is the JSON representation of an event.
 type APIEvent struct {
 	ID        int64   `json:"id"`
@@ -60,6 +63,7 @@ type APIEvent struct {
 	CreatedAt string  `json:"created_at"`
 }
 
+// Governing: SPEC-0017 REQ-7 "Memories List Endpoint", REQ-8 "Memory Create Endpoint", REQ-9 "Memory Update Endpoint"
 // APIMemory is the JSON representation of a memory.
 type APIMemory struct {
 	ID          int64   `json:"id"`
@@ -74,6 +78,7 @@ type APIMemory struct {
 	Tier        int     `json:"tier"`
 }
 
+// Governing: SPEC-0017 REQ-11 "Cooldowns List Endpoint"
 // APICooldown is the JSON representation of a cooldown summary.
 type APICooldown struct {
 	Service    string `json:"service"`
@@ -82,6 +87,7 @@ type APICooldown struct {
 	LastAction string `json:"last_action"`
 }
 
+// Governing: SPEC-0017 REQ-12 "Config Get Endpoint", REQ-13 "Config Update Endpoint"
 // APIConfig is the JSON representation of runtime configuration.
 type APIConfig struct {
 	Interval   int    `json:"interval"`
