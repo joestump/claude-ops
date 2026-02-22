@@ -108,6 +108,7 @@ while true; do
 
     # Governing: SPEC-0004 REQ-1 (single env var config),
     #            SPEC-0004 REQ-2 (graceful degradation — only pass when set),
+    #            SPEC-0004 REQ-3 (CLI-Based Invocation — agent invokes `apprise` CLI via Bash),
     #            SPEC-0004 REQ-4 (env var passthrough to agent context),
     #            SPEC-0010 REQ-6 — Apprise URLs conditionally included
     # Pass Apprise URLs if configured; skip silently when unset (REQ-2).

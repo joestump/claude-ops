@@ -339,7 +339,9 @@ Tier 2 supports two notification event categories:
 When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silently (no errors). When set, it may contain multiple comma-separated Apprise URLs — the same notification is delivered to ALL configured targets simultaneously.
 
 ### Fixed
-Send an auto-remediation report via Apprise (if `$CLAUDEOPS_APPRISE_URLS` is set):
+<!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation -->
+
+Send an auto-remediation report via Apprise (if `$CLAUDEOPS_APPRISE_URLS` is set). Always invoke `apprise` as a CLI command via Bash — never as a Python library or import:
 
 ```bash
 apprise -t "Claude Ops: Auto-remediated <service>" \
@@ -350,6 +352,10 @@ Status: <verification result, e.g. HTTP 200 OK (145ms)>" \
 ```
 
 The auto-remediation body MUST include: what was wrong (the detected issue), what action was taken (the remediation performed), and the verification result (post-remediation health check result).
+
+<!-- Governing: SPEC-0004 REQ-10 — No Delivery Guarantee or Retry -->
+
+If the `apprise` command fails (non-zero exit code), log the failure and continue — do NOT retry the notification. Notification delivery is best-effort and MUST NOT block the remediation cycle.
 
 ### Cannot fix (needs Tier 3)
 
@@ -386,7 +392,8 @@ Build the escalation context as a structured JSON object with the following sche
 - The Tier 3 agent MUST NOT re-run basic checks or re-attempt remediations that already failed
 
 ### Cannot fix (cooldown exceeded)
-Send a human attention alert via Apprise:
+<!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation, REQ-10 — No Delivery Guarantee or Retry -->
+Send a human attention alert via Apprise. If the notification fails, log and continue — do not retry:
 
 ```bash
 apprise -t "Claude Ops: Needs human attention — <service>" \

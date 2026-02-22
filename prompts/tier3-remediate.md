@@ -346,9 +346,11 @@ Tier 3 MUST always send a notification. There is no silent exit at this tier.
 
 ## Step 5: Report
 
+<!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation -->
 <!-- Governing: SPEC-0004 REQ-5 — Three Notification Event Categories -->
 <!-- Governing: SPEC-0004 REQ-6 — Notification Message Format -->
 <!-- Governing: SPEC-0004 REQ-9 — Multiple Simultaneous Targets -->
+<!-- Governing: SPEC-0004 REQ-10 — No Delivery Guarantee or Retry -->
 
 ### Notification Event Categories
 
@@ -357,7 +359,9 @@ Tier 3 supports two notification event categories:
 1. **Tier 3 Remediation Report** — Sent after a successful remediation, including root cause analysis, step-by-step actions, verification, and follow-up recommendations.
 2. **Human Attention Alert** — Sent when remediation fails or cooldown limits are exceeded, indicating manual intervention is required.
 
-Tier 3 MUST always send a notification at the end of its execution, regardless of outcome. When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silently (no errors). When set, it may contain multiple comma-separated Apprise URLs — the same notification is delivered to ALL configured targets simultaneously.
+Tier 3 MUST always send a notification at the end of its execution, regardless of outcome. Always invoke `apprise` as a CLI command via Bash — never as a Python library or import. When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silently (no errors). When set, it may contain multiple comma-separated Apprise URLs — the same notification is delivered to ALL configured targets simultaneously.
+
+If any `apprise` invocation fails (non-zero exit code), log the failure and continue — do NOT retry the notification. Notification delivery is best-effort and MUST NOT block Tier 3 operations.
 
 ### Fixed
 

@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Governing: SPEC-0004 REQ-8 (Docker Image Installation — apprise via pip3)
 # Governing: SPEC-0009 REQ "Dockerfile Structure" — apprise for notifications
 # Apprise for notifications (supports 80+ services)
+# Governing: SPEC-0004 REQ-3 — Installed as CLI tool, invoked via `apprise` command in agent Bash commands
 RUN pip3 install --break-system-packages --retries 3 --timeout 120 apprise
 
 # Governing: SPEC-0010 REQ-1 (CLI Installation via npm), SPEC-0009 REQ "Dockerfile Structure" — Claude Code CLI
