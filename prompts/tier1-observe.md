@@ -308,8 +308,9 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 ## Step 4: Read Cooldown State
 
 <!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
+<!-- Governing: SPEC-0007 REQ-8, REQ-9 — Last Run and Daily Digest Tracking -->
 
-Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. Note any services in cooldown. The cooldown system acts as a **secondary safety net** that limits the blast radius of repeated remediation, independent of the permission tier.
+Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. Note any services in cooldown. Also check the `last_daily_digest` field to determine if a daily digest is due (null or more than 24 hours ago). The cooldown system acts as a **secondary safety net** that limits the blast radius of repeated remediation, independent of the permission tier.
 
 ## Step 5: Evaluate Results
 
@@ -356,8 +357,10 @@ Tier 1 supports two notification event categories:
 When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silently (no errors). When set, it may contain multiple comma-separated Apprise URLs — the same notification is delivered to ALL configured targets simultaneously.
 
 ### All healthy
-- Update `last_run` in the cooldown state file
-- If a daily digest is due (check `last_daily_digest`), compose and send one via Apprise (if configured):
+<!-- Governing: SPEC-0007 REQ-8 — Last Run Tracking -->
+- Update `last_run` in the cooldown state file with the current UTC timestamp in ISO 8601 format (e.g., `2025-06-15T10:30:00Z`). This MUST happen at the end of every iteration, regardless of outcome.
+<!-- Governing: SPEC-0007 REQ-9 — Daily Digest Tracking -->
+- If a daily digest is due (check `last_daily_digest` — send if null or more than 24 hours ago), compose and send one via Apprise (if configured). After sending, update `last_daily_digest` with the current UTC timestamp.
 
 <!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation -->
 

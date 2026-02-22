@@ -293,8 +293,10 @@ Apply the appropriate remediation from `/app/playbooks/` and any repo-contribute
 2. `chown`/`chmod` the affected paths
 3. Restart the service if needed
 
-After each remediation:
-- Update the cooldown state file
+<!-- Governing: SPEC-0007 REQ-7 — State Update After Remediation -->
+
+After each remediation attempt (whether successful or not):
+- Update the cooldown state file immediately: increment the restart or redeployment count, record the timestamp (ISO 8601 UTC), and note the outcome (success/failure)
 - Verify the fix by re-checking the service
 
 <!-- Governing: SPEC-0018 REQ-9 "Permission Tier Integration" — Tier 2 permitted to create PRs for non-structural changes -->

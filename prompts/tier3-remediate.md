@@ -273,6 +273,9 @@ Do NOT probe for or use alternative remote access methods (Docker TCP API on por
 
 <!-- Governing: SPEC-0002 REQ-10 — Agent Reads Checks at Runtime -->
 <!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating -->
+<!-- Governing: SPEC-0007 REQ-7 — State Update After Remediation -->
+
+**After every remediation attempt** (whether successful or not), immediately update the cooldown state file: increment the restart or redeployment count, record the timestamp (ISO 8601 UTC), and note the outcome (success/failure). This applies to all remediation types below.
 
 Read the applicable playbook files from `/app/playbooks/` and `.claude-ops/playbooks/` from mounted repos at runtime. Do NOT rely on cached or pre-compiled instructions — always re-read playbook files before executing them. **Before executing any playbook, check its minimum tier requirement.** As Tier 3, you may execute all playbooks regardless of their minimum tier.
 
