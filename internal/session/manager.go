@@ -491,6 +491,7 @@ type contentBlock struct {
 // FormatStreamEvent parses a raw NDJSON line and returns a human-readable
 // formatted string for display in the terminal and SSE hub. Returns "" for
 // events that should be suppressed (e.g. unknown types, non-init system events).
+// Governing: SPEC-0011 "Event Parsing and Formatting" — formats system, assistant, user, result events
 func FormatStreamEvent(raw string) string {
 	var evt streamEvent
 	if err := json.Unmarshal([]byte(raw), &evt); err != nil {
@@ -631,6 +632,7 @@ func stripANSI(s string) string {
 // FormatStreamEventHTML returns an HTML-formatted version of a stream event
 // with rich markup mimicking the Claude CLI terminal experience. Suitable for
 // SSE delivery and browser display. Returns "" for suppressed events.
+// Governing: SPEC-0011 "Event Parsing and Formatting" — HTML variant for browser display
 func FormatStreamEventHTML(raw string) string {
 	var evt streamEvent
 	if err := json.Unmarshal([]byte(raw), &evt); err != nil {
@@ -894,6 +896,7 @@ func WrapLogLine(num int, ts string, content string) string {
 }
 
 // ParseTimestampedLogLine splits a log line into timestamp and raw JSON.
+// Governing: SPEC-0011 "Log File Formatting on Read Path" — parse timestamped NDJSON for display
 // Log lines may be in timestamped format "2006-01-02T15:04:05Z\t{json}" or
 // legacy format with just raw JSON.
 func ParseTimestampedLogLine(line string) (ts time.Time, raw string, hasTS bool) {
