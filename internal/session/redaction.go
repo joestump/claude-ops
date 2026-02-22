@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Governing: SPEC-0014 REQ "Log Redaction of Credential Values" — replaces BROWSER_CRED_* values with [REDACTED:...] placeholders
 // RedactionFilter scans output for known credential values and replaces them
 // with [REDACTED:VAR_NAME] placeholders. It builds a replacement dictionary
 // from BROWSER_CRED_* environment variables at construction time.
@@ -14,6 +15,7 @@ type RedactionFilter struct {
 	replacements map[string]string // credential value -> "[REDACTED:VAR_NAME]"
 }
 
+// Governing: SPEC-0014 REQ "Log Redaction of Credential Values" — URL-encoded variants and short-value warnings
 // NewRedactionFilter creates a RedactionFilter by scanning os.Environ() for
 // BROWSER_CRED_* variables. Both raw and URL-encoded variants of each value
 // are added to the replacement dictionary. Values shorter than 4 characters

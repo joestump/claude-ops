@@ -27,7 +27,7 @@ type Manager struct {
 	db       *db.DB
 	hub      *hub.Hub
 	runner   ProcessRunner
-	redactor *RedactionFilter
+	redactor *RedactionFilter // Governing: SPEC-0014 REQ "Log Redaction of Credential Values" — applied to all output streams
 
 	// PreSessionHook is called before each session starts.
 	// If it returns an error, the session is skipped.
@@ -335,6 +335,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		scanner.Buffer(make([]byte, 0, 1024*1024), 1024*1024)
 		var lineNum int
 		for scanner.Scan() {
+			// Governing: SPEC-0014 REQ "Log Redaction of Credential Values" — redact before any output channel
 			raw := m.redactor.Redact(scanner.Text())
 			ts := time.Now().UTC()
 
