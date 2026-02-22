@@ -12,6 +12,8 @@ import (
 	"time"
 )
 
+// Governing: SPEC-0018 REQ-3 "Gitea Provider Implementation" — GitProvider via Gitea v1 REST API
+//
 // GiteaProvider implements GitProvider for Gitea instances using the v1 REST API.
 type GiteaProvider struct {
 	baseURL string

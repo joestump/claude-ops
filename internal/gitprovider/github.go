@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+// Governing: SPEC-0018 REQ-2 "GitHub Provider Implementation" — GitProvider via GitHub REST API
+//
 // GitHubProvider implements GitProvider using the GitHub REST API.
 type GitHubProvider struct {
 	token   string
