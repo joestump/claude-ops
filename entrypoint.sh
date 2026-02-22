@@ -27,6 +27,8 @@ echo "  Tier: ${CLAUDEOPS_TIER}"
 echo "  Dry run: ${DRY_RUN}"
 echo ""
 
+# Governing: SPEC-0007 REQ-1 (state file at $CLAUDEOPS_STATE_DIR/cooldown.json),
+#            SPEC-0007 REQ-2 (initialize if missing, never overwrite existing)
 # Ensure state file exists
 if [ ! -f "${STATE_DIR}/cooldown.json" ]; then
     echo '{"services":{},"last_run":null,"last_daily_digest":null}' > "${STATE_DIR}/cooldown.json"

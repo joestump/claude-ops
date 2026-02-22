@@ -169,9 +169,10 @@ These actions ALWAYS require a human. Never do any of these:
 - Drop or truncate database tables
 - Modify this runbook or any prompt files
 
+<!-- Governing: SPEC-0007 REQ-1 (state file location), REQ-10 (agent tooling), REQ-11 (human readability) -->
 ## Cooldown Rules
 
-Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` before taking any remediation action.
+Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `/state/cooldown.json`) before taking any remediation action. The file is valid JSON, readable and writable using standard shell tools (`cat`, `jq`, `python3`). No custom parsers or binary formats are needed.
 
 - **Max 2 container restarts** per service per 4-hour window
 - **Max 1 full redeployment** (Ansible/Helm) per service per 24-hour window
