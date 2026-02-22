@@ -65,9 +65,18 @@ When a service recovers, its cooldown counters MUST be reset — but only after 
 ### Rules
 
 1. **Healthy check**: When a service passes all health checks, increment its `consecutive_healthy` counter by 1.
-2. **Two consecutive healthy checks**: When `consecutive_healthy` reaches 2, reset the service's `restart_count` to 0, `redeploy_count` to 0, and clear `last_restart` and `last_redeploy`. Then reset `consecutive_healthy` to 0.
-3. **Unhealthy check**: When a service fails any health check, reset its `consecutive_healthy` to 0 immediately. Do NOT modify the existing cooldown counters (`restart_count`, `redeploy_count`).
+2. **Two consecutive healthy checks**: When `consecutive_healthy` reaches 2, reset the service's `restarts` array to `[]`, `redeployments` array to `[]`, and reset `consecutive_healthy` to 0.
+3. **Unhealthy check**: When a service fails any health check, reset its `consecutive_healthy` to 0 immediately. Do NOT modify the existing cooldown arrays (`restarts`, `redeployments`).
 4. **Partial recovery does not count**: If a service is healthy in one check but unhealthy in the next, the streak is broken and the counter restarts from 0.
+
+### jq Example
+
+```bash
+# On 2nd consecutive healthy check, clear arrays and reset streak:
+jq --arg svc "nginx" \
+  '.services[$svc].restarts = [] | .services[$svc].redeployments = [] | .services[$svc].consecutive_healthy = 0' \
+  /state/cooldown.json > /state/cooldown.json.tmp && mv /state/cooldown.json.tmp /state/cooldown.json
+```
 
 ### When to Evaluate
 

@@ -326,11 +326,11 @@ Categorize each service:
 
 After categorizing services, update the `consecutive_healthy` counter in `/state/cooldown.json` for each service that has cooldown state:
 
-1. **For each healthy service**: Increment `consecutive_healthy` by 1. If it reaches **2**, reset `restart_count` to 0, `redeploy_count` to 0, clear `last_restart` and `last_redeploy` to null, then reset `consecutive_healthy` to 0.
-2. **For each unhealthy service** (degraded or down): Reset `consecutive_healthy` to 0. Do NOT modify existing cooldown counters.
+1. **For each healthy service**: Increment `consecutive_healthy` by 1. If it reaches **2**, reset `restarts` array to `[]`, `redeployments` array to `[]`, then reset `consecutive_healthy` to 0.
+2. **For each unhealthy service** (degraded or down): Reset `consecutive_healthy` to 0. Do NOT modify existing cooldown arrays.
 3. Write the updated cooldown state back to the file.
 
-A single healthy check is NOT sufficient to reset counters. The service MUST be healthy for 2 consecutive check runs before counters are cleared. See `/app/skills/cooldowns.md` for full rules.
+A single healthy check is NOT sufficient to reset counters. The service MUST be healthy for 2 consecutive check runs before counters are cleared. See `/app/skills/cooldowns.md` for full rules and jq examples.
 
 <!-- Governing: SPEC-0014 "Tier 2+ Permission Gate" — Tier 1 denied browser authentication -->
 ## Browser Automation
