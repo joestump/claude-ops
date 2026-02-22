@@ -326,6 +326,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 			raw := m.redactor.Redact(scanner.Text())
 			ts := time.Now().UTC()
 
+			// Governing: SPEC-0011 "Raw NDJSON Log Preservation" (every raw line written unmodified for auditability)
 			// Write timestamped JSON to log file for forensic analysis.
 			_, _ = fmt.Fprintf(logFile, "%s\t%s\n", ts.Format(time.RFC3339Nano), raw)
 
