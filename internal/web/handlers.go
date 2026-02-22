@@ -349,6 +349,7 @@ func (s *Server) handleCooldowns(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "cooldowns.html", data)
 }
 
+// Governing: SPEC-0015 "Dashboard Memories Page" — /memories with service/category filters and HTMX polling
 // handleMemories renders the memories list with optional filters.
 func (s *Server) handleMemories(w http.ResponseWriter, r *http.Request) {
 	var serviceFilter *string
@@ -385,6 +386,7 @@ func (s *Server) handleMemories(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "memories.html", data)
 }
 
+// Governing: SPEC-0015 "Dashboard Memory CRUD" — operator creates memories manually (session_id=NULL)
 // handleMemoryCreate handles POST /memories to create a new memory.
 func (s *Server) handleMemoryCreate(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
@@ -432,6 +434,7 @@ func (s *Server) handleMemoryCreate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/memories", http.StatusSeeOther)
 }
 
+// Governing: SPEC-0015 "Dashboard Memory CRUD" — operator edits observation, confidence, active status
 // handleMemoryUpdate handles POST /memories/{id}/update.
 func (s *Server) handleMemoryUpdate(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
@@ -466,6 +469,7 @@ func (s *Server) handleMemoryUpdate(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/memories", http.StatusSeeOther)
 }
 
+// Governing: SPEC-0015 "Dashboard Memory CRUD" — operator permanently deletes a memory
 // handleMemoryDelete handles POST /memories/{id}/delete.
 func (s *Server) handleMemoryDelete(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")

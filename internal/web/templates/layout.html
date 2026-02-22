@@ -48,6 +48,7 @@
                     </a>
                 </li>
                 <li>
+                    {{/* Governing: SPEC-0015 "Dashboard Memories Page" — sidebar nav between Events and Cooldowns */}}
                     <a href="/memories"
                        class="nav-link{{if eq .Page "memories.html"}} nav-active{{end}}"
                        hx-get="/memories" hx-target="#main" hx-push-url="true">
