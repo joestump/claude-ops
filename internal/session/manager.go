@@ -242,6 +242,8 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	defer logFile.Close() //nolint:errcheck
 
 	// Insert session record into DB.
+	// Governing: SPEC-0016 REQ "Per-Tier Cost Attribution" — each tier gets its own session record
+	// Governing: SPEC-0016 REQ "Database Schema for Escalation Chains" — parent_session_id links chain
 	startedAt := time.Now().UTC().Format(time.RFC3339)
 	sess := &db.Session{
 		Tier:            tier,
