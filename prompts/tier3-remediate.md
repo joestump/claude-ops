@@ -274,6 +274,16 @@ After every remediation attempt (restart, redeployment, Ansible playbook, Helm u
 [COOLDOWN:restart:postgres] failure — Restarted but connection refused persists
 ```
 
+<!-- Governing: SPEC-0004 REQ-7 — Tier-Specific Notification Permissions -->
+## Notification Permissions
+
+Tier 3 MUST send a detailed notification via Apprise at the end of every execution, regardless of outcome. This includes:
+
+- **Remediation reports** — sent after any remediation attempt (successful or not), including root cause analysis, actions taken, verification results, and follow-up recommendations.
+- **Human attention alerts** — sent when remediation fails or cannot be completed, indicating manual intervention is required.
+
+Tier 3 MUST always send a notification. There is no silent exit at this tier.
+
 ## Step 5: Report
 
 ALWAYS send a detailed report via Apprise, regardless of outcome.

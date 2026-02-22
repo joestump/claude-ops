@@ -260,6 +260,14 @@ After every remediation attempt (restart or redeployment), emit a `[COOLDOWN:...
 [COOLDOWN:restart:sonarr] failure — Restarted but OOM killed again within 2 minutes
 ```
 
+<!-- Governing: SPEC-0004 REQ-7 — Tier-Specific Notification Permissions -->
+## Notification Permissions
+
+Tier 2 MUST send the following notifications via Apprise (if `$CLAUDEOPS_APPRISE_URLS` is configured):
+
+- **Auto-remediation reports** — sent immediately after a successful remediation, describing the issue, action taken, and verification result.
+- **Human attention alerts** — sent immediately when remediation fails or cooldown limits are exceeded, indicating manual intervention is required.
+
 ## Step 5: Report Results
 
 ### Fixed

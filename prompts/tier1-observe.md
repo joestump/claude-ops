@@ -208,6 +208,16 @@ Browser authentication is NOT permitted at Tier 1. You may check if a login page
 
 If a service requires browser-based investigation, escalate to Tier 2 via the handoff file.
 
+<!-- Governing: SPEC-0004 REQ-7 — Tier-Specific Notification Permissions -->
+## Notification Permissions
+
+Tier 1 MAY send the following notifications via Apprise (if `$CLAUDEOPS_APPRISE_URLS` is configured):
+
+- **Daily digest** — a once-per-day summary of all health check results and uptime statistics.
+- **Cooldown-exceeded alerts** — when a service is in cooldown and requires human attention.
+
+Tier 1 MUST NOT send auto-remediation reports or detailed remediation notifications. Those are Tier 2 and Tier 3 responsibilities.
+
 ## Step 6: Report or Escalate
 
 ### All healthy
