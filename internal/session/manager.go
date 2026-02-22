@@ -267,6 +267,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	}
 
 	// Build environment context string.
+	// Governing: SPEC-0015 REQ "Prompt Injection via buildMemoryContext" (memory context appended to --append-system-prompt)
 	envCtx := m.buildEnvContext()
 	if memCtx := m.buildMemoryContext(); memCtx != "" {
 		envCtx += "\n\n" + memCtx
@@ -1024,6 +1025,8 @@ func (m *Manager) insertCooldown(sessionID int64, tier int, pc parsedCooldown) {
 	}
 }
 
+// Governing: SPEC-0015 REQ "Token Budget Enforcement" (2000-token default, chars/4 estimation)
+// Governing: SPEC-0015 REQ "Memory Context Format" (grouped by service, category tag, confidence score)
 // buildMemoryContext queries active memories and formats them as a structured
 // markdown block for injection into the system prompt. It respects the
 // configured MemoryBudget (estimated as characters / 4).
