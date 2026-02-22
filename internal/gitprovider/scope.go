@@ -6,6 +6,8 @@ import (
 	"strings"
 )
 
+// Governing: SPEC-0018 REQ-6 "Allowed and Disallowed Change Scopes" — allowlist of agent-modifiable paths
+//
 // allowedPatterns lists the file path patterns the agent may propose changes to.
 var allowedPatterns = []string{
 	"checks/*.md",
@@ -16,6 +18,8 @@ var allowedPatterns = []string{
 	"CLAUDE-OPS.md",
 }
 
+// Governing: SPEC-0018 REQ-6 "Allowed and Disallowed Change Scopes" — denylist of protected paths
+//
 // deniedPatterns lists the file path patterns the agent must never modify.
 var deniedPatterns = []string{
 	"prompts/*.md",
@@ -28,6 +32,8 @@ var deniedPatterns = []string{
 	"*.env*",
 }
 
+// Governing: SPEC-0018 REQ-6 "Allowed and Disallowed Change Scopes" — validates all files against allow/deny lists
+//
 // ValidateScope checks that every file in the changeset is within the allowed
 // scope for agent-proposed changes. It returns an error describing the first
 // violation found.
