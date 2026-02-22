@@ -1,3 +1,4 @@
+# Governing: SPEC-0017 REQ-15 "OpenAPI Specification File", REQ-19 "Backward Compatibility"
 openapi: "3.1.0"
 info:
   title: Claude Ops API

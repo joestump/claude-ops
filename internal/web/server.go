@@ -335,7 +335,7 @@ func (s *Server) registerRoutes() {
 	// API v1
 	// Governing: SPEC-0017 REQ-1 "API Route Registration" — all /api/v1/ routes on same ServeMux
 	// Governing: SPEC-0017 REQ-14 "Health Endpoint"
-	// Governing: SPEC-0017 REQ-19 "Backward Compatibility" — HTML routes above remain unchanged
+	// Governing: SPEC-0017 REQ-19 "Backward Compatibility" — HTML routes above remain unchanged; all endpoints under /api/v1 prefix
 	s.mux.HandleFunc("GET /api/v1/health", s.handleAPIHealth)
 	// Governing: SPEC-0017 REQ-3, REQ-4, REQ-5 — session list, detail, and trigger endpoints
 	s.mux.HandleFunc("GET /api/v1/sessions", s.handleAPIListSessions)
@@ -354,7 +354,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/v1/prs", s.handleAPICreatePR)
 	s.mux.HandleFunc("GET /api/v1/prs", s.handleAPIListPRs)
 
-	// Governing: SPEC-0017 REQ-15 "OpenAPI Specification File" — embedded YAML at /api/openapi.yaml
+	// Governing: SPEC-0017 REQ-15 "OpenAPI Specification File" — embedded YAML at /api/openapi.yaml, REQ-16 "Swagger UI"
 	s.mux.HandleFunc("GET /api/openapi.yaml", s.handleOpenAPISpec)
 	// Governing: SPEC-0017 REQ-16 "Swagger UI" — embedded static assets at /api/docs/
 	swaggerSub, _ := fs.Sub(api.SwaggerUIFS, "swagger-ui")
@@ -395,6 +395,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, name string, dat
 	}
 }
 
+// Governing: SPEC-0017 REQ-15 "OpenAPI Specification File" — serves embedded openapi.yaml with YAML content type
 func (s *Server) handleOpenAPISpec(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/yaml")
 	_, _ = w.Write(api.OpenAPISpec)
