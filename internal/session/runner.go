@@ -12,8 +12,9 @@ import (
 // tests can substitute a mock implementation.
 // Governing: SPEC-0008 REQ-5 "CLI subprocess creation" — uses os/exec.Command to invoke the claude CLI binary.
 // Governing: SPEC-0008 REQ-7 — subprocess lifecycle management (startup, completion, crash handling).
+// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement" — disallowedTools param for command-prefix blocklisting.
 type ProcessRunner interface {
-	Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (stdout io.ReadCloser, wait func() error, err error)
+	Start(ctx context.Context, model string, promptContent string, allowedTools string, disallowedTools string, appendSystemPrompt string) (stdout io.ReadCloser, wait func() error, err error)
 }
 
 // CLIRunner implements ProcessRunner by spawning the real `claude` CLI binary.
@@ -25,19 +26,24 @@ type CLIRunner struct{}
 // It returns a reader for stdout, a wait function that blocks until the
 // process exits, and any startup error.
 // Governing: SPEC-0008 REQ-5 "CLI subprocess creation"
-// — passes model, prompt content, allowed tools, and system prompt arguments
+// — passes model, prompt content, allowed tools, disallowed tools, and system prompt arguments
 // matching the entrypoint.sh invocation pattern via os/exec.Command.
-func (r *CLIRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (io.ReadCloser, func() error, error) {
+func (r *CLIRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, disallowedTools string, appendSystemPrompt string) (io.ReadCloser, func() error, error) {
 	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
-	// — enforces tool restrictions at CLI runtime, not just prompt level.
+	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement"
+	// — enforces tool restrictions at CLI runtime via --allowedTools whitelist
+	// and --disallowedTools command-prefix blocklist, not just prompt level.
 	args := []string{
 		"--model", model,
 		"-p", promptContent,
 		"--output-format", "stream-json",
 		"--verbose",
 		"--allowedTools", allowedTools,
-		"--append-system-prompt", "Environment: " + appendSystemPrompt,
 	}
+	if disallowedTools != "" {
+		args = append(args, "--disallowedTools", disallowedTools)
+	}
+	args = append(args, "--append-system-prompt", "Environment: "+appendSystemPrompt)
 
 	cmd := exec.Command("claude", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // Governing: SPEC-0008 REQ-7 — process group isolation for signal forwarding.

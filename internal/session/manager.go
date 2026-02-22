@@ -324,7 +324,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	// Governing: SPEC-0008 REQ-5 "CLI subprocess creation"
 	// — uses ProcessRunner (os/exec) to invoke the claude CLI with model,
 	// prompt content, allowed tools, and system prompt arguments.
-	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, m.cfg.AllowedTools, envCtx)
+	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement"
+	// — passes both --allowedTools and --disallowedTools to the CLI subprocess.
+	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, m.cfg.AllowedTools, m.cfg.DisallowedTools, envCtx)
 	if err != nil {
 		m.finalizeSession(sessionID, "failed", nil, &logPath)
 		return 0, fmt.Errorf("start claude: %w", err)

@@ -334,7 +334,7 @@ type pipeRunner struct {
 	waitCalled bool
 }
 
-func (p *pipeRunner) Start(_ context.Context, _ string, _ string, _ string, _ string) (io.ReadCloser, func() error, error) {
+func (p *pipeRunner) Start(_ context.Context, _ string, _ string, _ string, _ string, _ string) (io.ReadCloser, func() error, error) {
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return nil, nil, err

@@ -43,6 +43,9 @@ func main() {
 	f.String("repos-dir", "/repos", "directory for cloned repositories")
 	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
 	f.String("allowed-tools", "Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch", "comma-separated Claude tools")
+	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement"
+	// Default to Tier 1 blocklist (most restrictive). Override via CLAUDEOPS_DISALLOWED_TOOLS.
+	f.String("disallowed-tools", "Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr create:*),Bash(gh pr merge:*),Bash(tea pr create:*),Bash(git push:*),Bash(git commit:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*),Bash(apprise:*)", "comma-separated disallowed tool patterns")
 	f.Bool("dry-run", false, "skip actual remediation actions")
 	f.Bool("verbose", false, "enable verbose Claude CLI output")
 	f.String("apprise-urls", "", "Apprise notification URLs")
@@ -70,6 +73,7 @@ func main() {
 	bindFlag("results_dir", "results-dir")
 	bindFlag("repos_dir", "repos-dir")
 	bindFlag("allowed_tools", "allowed-tools")
+	bindFlag("disallowed_tools", "disallowed-tools")
 	bindFlag("dry_run", "dry-run")
 	bindFlag("verbose", "verbose")
 	bindFlag("apprise_urls", "apprise-urls")
