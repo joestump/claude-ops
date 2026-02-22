@@ -37,7 +37,10 @@ echo ""
 
 # Governing: SPEC-0007 REQ-1 (state file at $CLAUDEOPS_STATE_DIR/cooldown.json),
 #            SPEC-0007 REQ-2 (initialize if missing, never overwrite existing)
-# Ensure state file exists
+# Governing: SPEC-0007 REQ-8 (last_run tracking), REQ-9 (daily digest tracking)
+# Initialize cooldown state file with last_run and last_daily_digest fields.
+# The agent updates last_run at the end of every iteration (REQ-8) and
+# last_daily_digest when a daily digest is sent (REQ-9).
 if [ ! -f "${STATE_DIR}/cooldown.json" ]; then
     echo '{"services":{},"last_run":null,"last_daily_digest":null}' > "${STATE_DIR}/cooldown.json"
 fi
