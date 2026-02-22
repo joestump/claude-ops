@@ -48,6 +48,7 @@ If either step fails, fix the issues before pushing. No exceptions.
 
 Use the `/release` skill (`.claude/skills/release.md`) to create tagged releases. Releases are created with `gh release create` — never through the GitHub UI. The skill handles version bumping, release note generation, and pre-flight checks.
 
+<!-- Governing: SPEC-0010 REQ-11 (Zero Application Code Constraint — no src/, no compiled artifacts, CLI-provided features only) -->
 ## Architecture
 
 This is not a traditional codebase — there is no application code to compile or test. Claude Ops is an **AI agent runbook**: markdown documents that the Claude Code CLI reads and executes at runtime.
@@ -215,6 +216,7 @@ apprise -t "Title" -b "Message body" "$CLAUDEOPS_APPRISE_URLS"
 - **Tier 2** MUST send auto-remediation reports after successful remediations. MUST send human attention alerts when remediation fails or cooldown limits are exceeded.
 - **Tier 3** MUST send a detailed notification at the end of every execution, regardless of outcome.
 
+<!-- Governing: SPEC-0010 REQ-9 (Subagent Spawning via Task Tool — tiered escalation without custom orchestration code) -->
 ## Model Escalation
 
 When spawning subagents for escalation, use the Task tool:

@@ -40,6 +40,7 @@ if [ ! -f "${STATE_DIR}/cooldown.json" ]; then
     echo '{"services":{},"last_run":null,"last_daily_digest":null}' > "${STATE_DIR}/cooldown.json"
 fi
 
+# Governing: SPEC-0010 REQ-8 (MCP Server Configuration — merge repo configs into baseline before each CLI invocation)
 # Merge MCP configs from mounted repos into the baseline config.
 # Each repo can provide .claude-ops/mcp.json with additional MCP servers.
 # These are merged (repo configs added to baseline) before each run.
@@ -111,7 +112,7 @@ while true; do
         --allowedTools "${ALLOWED_TOOLS}" \
         --disallowedTools "${DISALLOWED_TOOLS}" \
         --append-system-prompt "Environment: ${ENV_CONTEXT}" \
-        2>&1 | tee -a "${LOG_FILE}" || true
+        2>&1 | tee -a "${LOG_FILE}" || true  # Governing: SPEC-0010 REQ-10 (Error Handling — || true prevents set -e from terminating loop)
 
     RUN_END=$(date -u +%Y-%m-%dT%H:%M:%SZ)
     echo "[${RUN_END}] Run complete. Sleeping ${INTERVAL}s..."
