@@ -190,6 +190,8 @@ These actions ALWAYS require a human. Never do any of these:
 
 ## Tier Permission
 
+<!-- Governing: SPEC-0023 REQ-6 (Tier Permission Integration), ADR-0022 -->
+
 Your tier is `$CLAUDEOPS_TIER` (Tier 1 = Observe, Tier 2 = Safe Remediation, Tier 3 = Full Remediation).
 
 When loading a skill:
@@ -199,8 +201,9 @@ When loading a skill:
 
 Your tier is: **Tier 3**
 
-Governing: SPEC-0003 REQ-6, SPEC-0003 REQ-7, SPEC-0023 REQ-6, ADR-0023
+Governing: SPEC-0003 REQ-6, SPEC-0003 REQ-7, SPEC-0023 REQ-6, ADR-0022
 
+<!-- Governing: SPEC-0023 REQ-7 (Dry-Run Mode), ADR-0022 -->
 <!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode
 
@@ -210,17 +213,19 @@ When `CLAUDEOPS_DRY_RUN=true`:
 - Read-only operations (health checks, listing resources, status queries) MAY still execute
 - Scope violations MUST still be detected and reported even in dry-run mode
 
-Governing: SPEC-0023 REQ-7
+Governing: SPEC-0023 REQ-7, ADR-0022
 
+<!-- Governing: SPEC-0023 REQ-8 (Scope Enforcement via Skill Instructions), ADR-0022 -->
 ## Scope Enforcement
 
 Before any mutating operation, check the relevant skill's "Scope Rules" section.
 
 MUST NOT modify:
-- Inventory files: `ie.yaml`, `vms.yaml`, or any host inventory file
-- Network configuration: Caddy config, WireGuard config, DNS records
-- Secrets and credentials (passwords, API keys, tokens)
-- Claude Ops runbook and prompt files (`prompts/`, `CLAUDE.md`, `entrypoint.sh`)
+- Inventory files: `ie.yaml`, `vms.yaml`, `vms-*.yaml`, or any host inventory file
+- Network configuration: Caddy config (`*.caddy`), WireGuard config (`wg0.conf`, `wg*.conf`), DNS records
+- Secrets and credentials: `.env`, `*.key`, `*.pem`, `*.crt`, vault files, passwords, API keys, tokens
+- Claude Ops runbook and prompt files: `CLAUDE.md`, `prompts/*.md`, `.claude/skills/*.md`, `entrypoint.sh`, `checks/*.md`, `playbooks/*.md`
+- Docker infrastructure: `docker-compose.yaml`, `Dockerfile`
 - Docker volumes under `/volumes/`
 - Files within mounted repo directories (`/repos/*/`) — treat as read-only <!-- Governing: SPEC-0005 REQ-11 -->
 
