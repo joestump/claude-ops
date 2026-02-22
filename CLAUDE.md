@@ -193,19 +193,20 @@ Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `
 
 ## Notifications via Apprise
 
-<!-- Governing: SPEC-0004 REQ-1 (single env var), REQ-2 (graceful degradation when unset) -->
+<!-- Governing: SPEC-0004 REQ-1 (single env var), REQ-2 (graceful degradation when unset), REQ-3 (CLI-Based Invocation) -->
 
-Notifications are sent using the `apprise` CLI, which supports 80+ services (email, ntfy, Slack, Discord, Telegram, etc.) through URL-based configuration.
+Notifications are sent using the `apprise` CLI, which supports 80+ services (email, ntfy, Slack, Discord, Telegram, etc.) through URL-based configuration. Always invoke Apprise as a CLI command via Bash — never as a Python library or import.
 
 ```bash
 # Send a notification
 apprise -t "Title" -b "Message body" "$CLAUDEOPS_APPRISE_URLS"
-
-# Urgent notifications (services that support priority)
-apprise -t "Title" -b "Message body" "$CLAUDEOPS_APPRISE_URLS"
 ```
 
 `$CLAUDEOPS_APPRISE_URLS` contains one or more comma-separated Apprise URLs. If the variable is empty or unset, skip notifications silently (don't error).
+
+<!-- Governing: SPEC-0004 REQ-10 — No Delivery Guarantee or Retry -->
+
+**Reliability**: If an `apprise` invocation fails (non-zero exit code, network error, misconfigured URL), log the failure but do NOT retry the notification. Continue the current health check or remediation cycle normally. Notification delivery is best-effort — a failed notification MUST NOT block or interrupt operations.
 
 ### When to notify
 - **Daily digest**: once per day, summarize all checks and uptime stats

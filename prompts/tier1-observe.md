@@ -313,6 +313,8 @@ When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silentl
 - Update `last_run` in the cooldown state file
 - If a daily digest is due (check `last_daily_digest`), compose and send one via Apprise (if configured):
 
+<!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation -->
+
 ```bash
 apprise -t "Claude Ops: Daily Health Summary" \
   -b "Services checked: <count>
@@ -322,6 +324,8 @@ Down: <count> (<details if any>)
 In cooldown: <count>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
+
+Always invoke `apprise` as a CLI command via Bash — never as a Python library or import. If the command fails, log the failure and continue — do not retry (SPEC-0004 REQ-10).
 
 The daily digest body MUST include: total services checked, count of healthy/degraded/down/in-cooldown services, and details for any non-healthy services.
 
@@ -367,6 +371,7 @@ The daily digest body MUST include: total services checked, count of healthy/deg
 7. Write the handoff file to `/state/handoff.json` using the Write tool. The Go supervisor will read the handoff and spawn the next tier automatically.
 
 ### Services in cooldown
+<!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation -->
 - For services where cooldown limits are reached, send a human attention alert via Apprise (if configured):
 
 ```bash
@@ -379,6 +384,7 @@ Current state: <service status>" \
 ```
 
 The human attention alert body MUST include: issue description, cooldown state, and what was previously attempted.
+- If the Apprise invocation fails, log the failure and continue — do not retry (SPEC-0004 REQ-10)
 
 - Do not escalate — cooldown means we've already tried
 
