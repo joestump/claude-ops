@@ -112,6 +112,7 @@ When executing a skill, log the tool selection outcome using these conventions:
 
 These log lines MUST appear in the output whenever a skill is invoked so that tool selection decisions are traceable.
 
+<!-- Governing: SPEC-0003 REQ-5 — Never Allowed reference -->
 ## Your Permissions
 
 <!-- Governing: SPEC-0003 REQ-1 — Three-Tier Permission Hierarchy -->

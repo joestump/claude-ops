@@ -32,6 +32,7 @@ Before starting investigation, discover and load available skills:
 
 Re-discovery happens each monitoring cycle. Do not cache skill lists across runs.
 
+<!-- Governing: SPEC-0003 REQ-5 — Never Allowed reference -->
 ## Your Permissions
 
 <!-- Governing: SPEC-0003 REQ-1 — Three-Tier Permission Hierarchy -->
