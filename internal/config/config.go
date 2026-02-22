@@ -15,7 +15,7 @@ type Config struct {
 	StateDir      string
 	ResultsDir    string
 	ReposDir      string
-	AllowedTools  string
+	AllowedTools  string // Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
 	DryRun        bool
 	AppriseURLs   string
 	MCPConfig     string

@@ -40,6 +40,7 @@ func main() {
 	f.String("state-dir", "/state", "directory for persistent state")
 	f.String("results-dir", "/results", "directory for session logs")
 	f.String("repos-dir", "/repos", "directory for cloned repositories")
+	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
 	f.String("allowed-tools", "Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch", "comma-separated Claude tools")
 	f.Bool("dry-run", false, "skip actual remediation actions")
 	f.Bool("verbose", false, "enable verbose Claude CLI output")

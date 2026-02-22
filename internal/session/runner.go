@@ -21,6 +21,8 @@ type CLIRunner struct{}
 // It returns a reader for stdout, a wait function that blocks until the
 // process exits, and any startup error.
 func (r *CLIRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (io.ReadCloser, func() error, error) {
+	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
+	// — enforces tool restrictions at CLI runtime, not just prompt level.
 	args := []string{
 		"--model", model,
 		"-p", promptContent,
