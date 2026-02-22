@@ -2,11 +2,13 @@
 
 # Database Health Checks
 
+<!-- Governing: SPEC-0002 REQ-5 — Embedded Command Examples -->
+
 ## PostgreSQL
 
 ### How to Check
 
-Use the Postgres MCP server or CLI:
+Use the Postgres MCP server or CLI. Connect to the database at the hostname defined in the inventory — never localhost unless the inventory explicitly says so.
 
 ```sql
 -- Connection count
@@ -36,9 +38,11 @@ WHERE state != 'idle' AND now() - pg_stat_activity.query_start > interval '5 min
 
 ### Warning Signs
 
+<!-- Governing: SPEC-0002 REQ-6 — Contextual Adaptation -->
+
 - Connection count > 80% of max: approaching limit
-- Dead tuple ratio > 0.2: autovacuum may be struggling
-- Long-running queries: potential locks or runaway queries
+- Dead tuple ratio > 0.2: autovacuum may be struggling. Some tables with high write throughput (e.g., session tables, event logs) may naturally have higher ratios — consider the table's purpose before flagging.
+- Long-running queries: potential locks or runaway queries. Some services run intentional long queries (reporting, migrations) — check the query content before flagging.
 
 ## MariaDB / MySQL
 
@@ -54,6 +58,8 @@ SHOW PROCESSLIST;
 -- Table status for a database
 SHOW TABLE STATUS FROM <database>;
 ```
+
+Replace `<database>` with the actual database name from the service configuration.
 
 ### What's Healthy
 

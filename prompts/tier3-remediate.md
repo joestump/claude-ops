@@ -208,6 +208,10 @@ Do NOT probe for or use alternative remote access methods (Docker TCP API on por
 
 ## Step 4: Remediate
 
+<!-- Governing: SPEC-0002 REQ-10 — Agent Reads Checks at Runtime -->
+
+Read the applicable playbook files from `/app/playbooks/` and `.claude-ops/playbooks/` from mounted repos at runtime. Do NOT rely on cached or pre-compiled instructions — always re-read playbook files before executing them.
+
 ### Ansible redeployment
 1. Identify the correct playbook and inventory from the mounted repo
 2. Run: `ansible-playbook -i <inventory> <playbook> --limit <host> --tags <service> -v`

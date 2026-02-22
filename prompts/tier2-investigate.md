@@ -200,6 +200,10 @@ Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.j
 
 ## Step 4: Remediate
 
+<!-- Governing: SPEC-0002 REQ-10 — Agent Reads Checks at Runtime -->
+
+Read the applicable playbook files from `/app/playbooks/` and `.claude-ops/playbooks/` from mounted repos at runtime. Do NOT rely on cached or pre-compiled instructions — always re-read playbook files before executing them. This ensures changes to playbook documents take effect immediately.
+
 Apply the appropriate remediation from `/app/playbooks/`. Common patterns:
 
 ### Container restart

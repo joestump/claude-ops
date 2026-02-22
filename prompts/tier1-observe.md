@@ -193,6 +193,10 @@ Cache the map for the rest of this cycle. It will be included in the handoff fil
 
 ## Step 3: Health Checks
 
+<!-- Governing: SPEC-0002 REQ-10 — Agent Reads Checks at Runtime -->
+
+**Runtime reading requirement**: Read all check files from `/app/checks/` and `.claude-ops/checks/` from mounted repos at the start of every monitoring cycle. Do NOT cache or reuse check instructions from previous cycles — always re-read the files. This ensures that any changes to check documents take effect immediately on the next cycle.
+
 Run checks ONLY against the hosts and services discovered from repos. **Never check localhost or the local Docker daemon unless a repo's CLAUDE-OPS.md explicitly defines localhost as a target host.**
 
 ### HTTP Health

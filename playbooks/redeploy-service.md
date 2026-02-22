@@ -22,6 +22,8 @@
 
 ## Ansible Redeployment
 
+<!-- Governing: SPEC-0002 REQ-5 — Embedded Command Examples -->
+
 1. **Identify the playbook and inventory**
    - Find the repo with `service-discovery` or `redeployment` capability
    - Locate the correct playbook for this service
@@ -32,12 +34,16 @@
    ansible-playbook -i <inventory> <playbook> --limit <host> --tags <service> -v
    ```
 
+   Replace `<inventory>` with the inventory file path from the mounted repo (e.g., `ie.yaml`). Replace `<playbook>` with the service's playbook. Replace `<host>` with the target host or group from the inventory. Replace `<service>` with the Ansible tag for the service being redeployed.
+
 3. **Monitor output**
+   <!-- Governing: SPEC-0002 REQ-6 — Contextual Adaptation -->
    - Watch for task failures
    - Note any changed/failed tasks
+   - If a task fails due to a transient issue (e.g., network timeout pulling an image), it may be worth retrying that specific step rather than the full playbook
 
 4. **Verify**
-   - Wait for containers to start
+   - Wait for containers to start (allow more time for services that perform database migrations on startup)
    - Run health checks
    - Check dependent services
 
@@ -45,10 +51,12 @@
 
 1. **Locate the compose file** and use the SSH command from the host access map (e.g., `ssh <user>@<host> [sudo] docker compose ...`):
    ```bash
-   docker compose -f <compose-file> down <service>
-   docker compose -f <compose-file> pull <service>
-   docker compose -f <compose-file> up -d <service>
+   ssh <user>@<host> "cd <compose-dir> && docker compose -f <compose-file> down <service>"
+   ssh <user>@<host> "cd <compose-dir> && docker compose -f <compose-file> pull <service>"
+   ssh <user>@<host> "cd <compose-dir> && docker compose -f <compose-file> up -d <service>"
    ```
+
+   Replace `<user>` and `<host>` with SSH credentials from the host access map. Replace `<compose-dir>` with the directory containing the compose file. Replace `<compose-file>` with the compose filename. Replace `<service>` with the service name within the compose file.
 
 2. **Verify**
    - Wait for container healthy status
@@ -60,6 +68,8 @@
    ```bash
    helm upgrade <release> <chart> -f <values> -n <namespace> --wait --timeout 5m
    ```
+
+   Replace `<release>` with the Helm release name. Replace `<chart>` with the chart path or reference. Replace `<values>` with the values file path. Replace `<namespace>` with the Kubernetes namespace.
 
 2. **Verify**
    - Check rollout status: `kubectl rollout status deployment/<name> -n <namespace>`

@@ -8,6 +8,8 @@ For every service that has a DNS hostname configured (e.g., `<subdomain>.<domain
 
 ## How to Check
 
+<!-- Governing: SPEC-0002 REQ-5 — Embedded Command Examples -->
+
 ```bash
 # Resolve the hostname
 dig +short <hostname>
@@ -18,6 +20,8 @@ dig +short CNAME <hostname>
 # Verify against expected IP
 dig +short A <hostname>
 ```
+
+Replace `<hostname>` with the service's actual DNS name from the inventory (e.g., `jellyfin.example.com`). If the inventory provides an expected IP, compare the resolved value against it.
 
 ## What's Healthy
 
