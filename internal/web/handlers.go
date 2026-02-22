@@ -153,6 +153,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 
 // handleSession renders a single session detail view.
 // Governing: SPEC-0008 REQ-10 — session view page: streaming output, tier level, and target service.
+// Governing: SPEC-0011 "Session Page Layout" — back link, header, metadata, response, activity log, log path.
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -226,6 +227,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Governing: SPEC-0011 "Log File Formatting on Read Path" — format NDJSON log line-by-line.
 	// Read and format log file contents if available.
 	// Log files contain timestamped NDJSON from --output-format stream-json.
 	// Format: "2006-01-02T15:04:05Z\t{json}" per line (or legacy raw JSON).
@@ -271,6 +273,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 // handleSessionStream opens an SSE connection for a running session.
 // Governing: SPEC-0008 REQ-3 — HTMX-Based Interactivity (hx-ext="sse" for real-time streaming)
 // Governing: SPEC-0008 REQ-10 — session view real-time streaming via SSE.
+// Governing: SPEC-0011 "SSE Streaming of Formatted Events" — deliver formatted lines to browsers via SSE.
 func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)

@@ -516,7 +516,7 @@ type contentBlock struct {
 // FormatStreamEvent parses a raw NDJSON line and returns a human-readable
 // formatted string for display in the terminal and SSE hub. Returns "" for
 // events that should be suppressed (e.g. unknown types, non-init system events).
-// Governing: SPEC-0011 "Event Parsing and Formatting" — formats system, assistant, user, result events
+// Governing: SPEC-0011 "Event Parsing and Formatting" — formats system, assistant, user, result events; format NDJSON events for display.
 func FormatStreamEvent(raw string) string {
 	var evt streamEvent
 	if err := json.Unmarshal([]byte(raw), &evt); err != nil {
@@ -657,7 +657,7 @@ func stripANSI(s string) string {
 // FormatStreamEventHTML returns an HTML-formatted version of a stream event
 // with rich markup mimicking the Claude CLI terminal experience. Suitable for
 // SSE delivery and browser display. Returns "" for suppressed events.
-// Governing: SPEC-0011 "Event Parsing and Formatting" — HTML variant for browser display
+// Governing: SPEC-0011 "Event Parsing and Formatting" — HTML variant for browser display; HTML-formatted events for SSE and log replay.
 func FormatStreamEventHTML(raw string) string {
 	var evt streamEvent
 	if err := json.Unmarshal([]byte(raw), &evt); err != nil {

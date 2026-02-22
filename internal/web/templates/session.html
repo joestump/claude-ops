@@ -84,7 +84,8 @@
     </div>
     {{end}}
 
-    {{/* Response — rendered markdown at the top */}}
+    {{/* Governing: SPEC-0011 "Session Page Layout" — response card above activity log */}}
+    {{/* Governing: SPEC-0011 "Markdown Response Rendering" — renderMarkdown via goldmark */}}
     {{if .Session.Response}}
     <section class="mb-6">
         <h2 class="section-heading">Response</h2>
@@ -94,7 +95,8 @@
     </section>
     {{end}}
 
-    {{/* Activity log — CLI output */}}
+    {{/* Governing: SPEC-0011 "Session Page Layout" — activity log section */}}
+    {{/* Governing: SPEC-0011 "SSE Streaming of Formatted Events" — hx-ext=sse for running sessions */}}
     <section>
         <h2 class="section-heading">Activity Log</h2>
         {{if eq .Session.Status "running"}}
