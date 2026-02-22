@@ -161,6 +161,7 @@ func run(cmd *cobra.Command, args []string) error {
 		}
 	}()
 
+	// Governing: SPEC-0008 REQ-13 — graceful shutdown: forward signals, cancel context, drain sessions.
 	// Set up signal handling.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -177,7 +178,7 @@ func run(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("session manager: %w", err)
 	}
 
-	// Gracefully shut down web server.
+	// Governing: SPEC-0008 REQ-13 — graceful web server shutdown with timeout.
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*1e9)
 	defer shutdownCancel()
 	if err := webServer.Shutdown(shutdownCtx); err != nil {

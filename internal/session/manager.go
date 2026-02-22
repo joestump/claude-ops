@@ -218,6 +218,7 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 // runTier executes a single Claude CLI session for a specific tier.
 // It returns the session ID and any error.
 // promptOverride is used for ad-hoc sessions (non-nil pointer); promptFile is used otherwise.
+// Governing: SPEC-0008 REQ-7 — full subprocess lifecycle (start, stream, wait, exit code, crash handling).
 func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFile string, parentSessionID *int64, handoffContext string, trigger string, promptOverride *string) (int64, error) {
 	// Governing: SPEC-0008 REQ-5 "Session already running"
 	// — guards against starting a second session for the same tier.
@@ -399,6 +400,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		}
 	}()
 
+	// Governing: SPEC-0008 REQ-7 — subprocess lifecycle: drain stdout before Wait to avoid data loss.
 	// Wait for all stdout to be consumed BEFORE calling cmd.Wait().
 	// cmd.Wait() closes the stdout pipe; calling it first can discard
 	// buffered data (including the result event with cost/turns metadata).
@@ -450,6 +452,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		return sessionID, nil
 
 	case <-ctx.Done():
+		// Governing: SPEC-0008 REQ-13 — context cancellation triggers graceful session teardown.
 		exitCode := 137
 		m.finalizeSession(sessionID, "timed_out", &exitCode, &logPath)
 		m.hub.Close(hubID)

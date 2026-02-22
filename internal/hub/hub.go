@@ -42,6 +42,7 @@ func (s *session) append(line string) {
 // Hub fans out session output lines to multiple SSE subscribers.
 // It buffers the last defaultBufferCap lines per session so late-joining
 // clients receive catchup output before live streaming.
+// Governing: SPEC-0008 REQ-6 — real-time session output streaming via SSE fan-out.
 type Hub struct {
 	mu       sync.Mutex
 	sessions map[int]*session
