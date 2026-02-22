@@ -22,6 +22,7 @@ Use these paths (hardcoded defaults — do NOT rely on environment variable expa
 ## Skill Discovery
 
 <!-- Governing: SPEC-0023 REQ-2 — Skill Discovery and Loading -->
+<!-- Governing: SPEC-0005 REQ-7 — Custom Skills -->
 
 Before starting investigation, discover and load available skills:
 
@@ -175,11 +176,16 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 ## Repo Extension Discovery
 
 <!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
+<!-- Governing: SPEC-0005 REQ-4 — Extension Directory Discovery -->
+<!-- Governing: SPEC-0005 REQ-6 — Custom Playbooks -->
 
-In addition to skill discovery (above), discover repo-specific checks and playbooks:
+In addition to skill discovery (above), discover repo-specific checks and playbooks by scanning each mounted repo under `/repos/` for `.claude-ops/` extension directories:
 
 1. **Repo checks**: For each mounted repo under `/repos/`, check for `.claude-ops/checks/` and read any `.md` files found there. These extend the built-in checks and follow the same format requirements.
-2. **Repo playbooks**: For each mounted repo under `/repos/`, check for `.claude-ops/playbooks/` and read any `.md` files found there. These are remediation procedures specific to the repo's services. They follow the same format as built-in playbooks and MUST specify a minimum tier.
+2. **Repo playbooks**: For each mounted repo under `/repos/`, check for `.claude-ops/playbooks/` and read any `.md` files found there. These are remediation procedures specific to the repo's services. They follow the same format as built-in playbooks and MUST specify a minimum tier. Custom playbooks MUST follow the same tier permission model as built-in playbooks.
+3. **Missing subdirectories are not errors** — a repo may provide any subset of checks, playbooks, skills, and mcp.json.
+
+Custom playbooks from all mounted repos are available alongside built-in playbooks in `/app/playbooks/`.
 
 ## Playbook Tier Gating
 
