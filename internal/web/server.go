@@ -355,6 +355,11 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /api/v1/prs", s.handleAPICreatePR)
 	s.mux.HandleFunc("GET /api/v1/prs", s.handleAPIListPRs)
 
+	// Governing: SPEC-0024 REQ-1 (Endpoint Registration), ADR-0020
+	// OpenAI-compatible chat endpoint — /v1/ prefix matches OpenAI base URL convention
+	s.mux.HandleFunc("POST /v1/chat/completions", s.handleChatCompletions)
+	s.mux.HandleFunc("GET /v1/models", s.handleModels)
+
 	// Governing: SPEC-0017 REQ-15 "OpenAPI Specification File" — embedded YAML at /api/openapi.yaml, REQ-16 "Swagger UI"
 	s.mux.HandleFunc("GET /api/openapi.yaml", s.handleOpenAPISpec)
 	// Governing: SPEC-0017 REQ-16 "Swagger UI" — embedded static assets at /api/docs/
