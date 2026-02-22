@@ -26,13 +26,14 @@ Use these paths (hardcoded defaults — do NOT rely on environment variable expa
 
 <!-- Governing: SPEC-0023 REQ-2 — Skill Discovery and Loading -->
 <!-- Governing: SPEC-0005 REQ-7 — Custom Skills -->
+<!-- Governing: SPEC-0005 REQ-10 — Extension Tier Permission Enforcement -->
 
 Before starting remediation, discover and load available skills:
 
 1. **Baseline skills**: Read all `.md` files in `/app/.claude/skills/` — these are the built-in skills shipped with Claude Ops.
 2. **Repo skills**: For each mounted repo under `/repos/`, check for `.claude-ops/skills/` and read any `.md` files found there. These are custom skills provided by the repo owner.
 3. **Build a skill inventory**: For each skill file, note its name (from the `# Skill:` title), purpose, tier requirement, and required tools.
-4. **Check tier compatibility**: You are Tier 3 (full remediation). All skills are available to you.
+4. **Check tier compatibility**: You are Tier 3 (full remediation). All skills are available to you. All repo-provided extensions (checks, playbooks, skills) follow the same tier permission model as built-in extensions — at Tier 3, all extensions are accessible.
 5. **Check tool availability**: For each skill you plan to use, verify its required tools are available before invoking it. If a required tool is missing, log a warning and skip that skill.
 
 Re-discovery happens each monitoring cycle. Do not cache skill lists across runs.
@@ -212,6 +213,8 @@ Governing: SPEC-0023 REQ-8, ADR-0022
 ## Step 1: Review Context
 
 <!-- Governing: SPEC-0001 REQ-6 (Escalation Context Forwarding) -->
+<!-- Governing: SPEC-0005 REQ-12 — Unified Repo Map -->
+<!-- Governing: SPEC-0005 REQ-13 — Extension Composability -->
 
 Read the investigation findings from Tier 2. The handoff context includes:
 - Original failure summary (service names, check results, error messages from Tier 1)
@@ -219,6 +222,9 @@ Read the investigation findings from Tier 2. The handoff context includes:
 - Remediation actions attempted and their outcomes (from Tier 2)
 - Current cooldown state
 - SSH host access map
+- Unified repo map
+
+Read the **unified repo map** from the handoff file. This map (built by Tier 1, carried forward by Tier 2) contains all discovered repos, their capabilities, custom extensions, and rules. Use it to identify available remediation playbooks — both built-in (from `/app/playbooks/`) and custom (from repos' `.claude-ops/playbooks/`). Custom playbooks supplement built-in ones; both are available. At Tier 3, all extensions are accessible regardless of tier requirement. Do NOT re-scan repos — use the map from the handoff.
 
 <!-- Governing: SPEC-0020 "Tier Integration" — Tier 3 reuses the SSH access map from handoff -->
 Read the **SSH host access map** from the handoff file. The map tells you which user and method (`root`, `sudo`, `limited`, `unreachable`) to use for each host. If the handoff includes an `ssh_access_map` field, use it directly — do NOT re-probe SSH access. If the map is missing, read `/app/skills/ssh-discovery.md` and run the discovery routine before proceeding.

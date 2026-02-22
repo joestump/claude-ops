@@ -14,13 +14,14 @@ You must NOT do anything in the "Never Allowed" list in CLAUDE.md. Those operati
 
 <!-- Governing: SPEC-0023 REQ-2 — Skill Discovery and Loading -->
 <!-- Governing: SPEC-0005 REQ-7 — Custom Skills -->
+<!-- Governing: SPEC-0005 REQ-10 — Extension Tier Permission Enforcement -->
 
 Before running any checks, discover and load available skills:
 
 1. **Baseline skills**: Read all `.md` files in `/app/.claude/skills/` — these are the built-in skills shipped with Claude Ops.
 2. **Repo skills**: For each mounted repo under `/repos/`, check for `.claude-ops/skills/` and read any `.md` files found there. These are custom skills provided by the repo owner.
 3. **Build a skill inventory**: For each skill file, note its name (from the `# Skill:` title), purpose, tier requirement, and required tools.
-4. **Check tier compatibility**: You are Tier 1 (observe only). Skip any skills that require Tier 2 or Tier 3.
+4. **Check tier compatibility**: You are Tier 1 (observe only). Skip any skills that require Tier 2 or Tier 3. All repo-provided extensions (checks, playbooks, skills) MUST follow the same tier permission model as built-in extensions — a custom extension that requires Tier 2 or Tier 3 actions MUST NOT be executed at Tier 1.
 5. **Check tool availability**: For each skill you plan to use, verify its required tools are available before invoking it. If a required tool is missing, log a warning and skip that skill.
 
 Re-discovery happens each monitoring cycle. Do not cache skill lists across runs.
@@ -159,6 +160,8 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 <!-- Governing: SPEC-0005 REQ-1 (Repo Discovery via Directory Scanning), REQ-4 (Extension Directory Discovery) -->
 <!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
 <!-- Governing: SPEC-0005 REQ-11 — Read-Only Mount Convention -->
+<!-- Governing: SPEC-0005 REQ-12 — Unified Repo Map -->
+<!-- Governing: SPEC-0005 REQ-13 — Extension Composability -->
 
 **Read-only treatment**: All files within mounted repo directories (`/repos/*/`) MUST be treated as read-only. Do NOT modify, create, or delete any files within mounted repos during monitoring. Repos are typically mounted with the `:ro` Docker volume flag.
 
@@ -194,7 +197,25 @@ Scan `/repos` for mounted repositories. This scan MUST be performed every cycle 
    - `.claude-ops/skills/` — custom capabilities (maintenance tasks, reporting, etc.)
    - `.claude-ops/mcp.json` — additional MCP server definitions (merged into baseline by entrypoint before each cycle, with additive semantics and same-name override)
    - **Missing subdirectories are not errors** — a repo may provide any subset of these
-7. Build a unified map of available repos, their capabilities, extensions, and rules
+7. Build a **unified repo map** combining information from ALL discovered repos
+
+### Unified Repo Map
+
+After scanning all repos, you MUST have a unified understanding that combines:
+- **Repos**: Each repo's name, kind (Ansible, Docker, Helm, etc.), declared capabilities, and rules
+- **Services**: All services from all repos' inventories and manifests, with their monitoring configurations (URLs, ports, health endpoints)
+- **Extensions**: All custom checks, playbooks, and skills from all repos' `.claude-ops/` directories
+- **Remediations**: Available remediation playbooks (both built-in and custom) mapped to the services they can address
+
+This unified map is used throughout the monitoring cycle and MUST be included in the handoff file if escalation is needed, so higher tiers do not need to re-scan repos.
+
+### Extension Composability
+
+Extensions from multiple repos MUST compose without conflict:
+- If multiple repos provide checks (in `.claude-ops/checks/`), ALL checks from ALL repos MUST run alongside built-in checks
+- Custom playbooks supplement built-in playbooks — they do NOT replace them. Both built-in and custom playbooks are available for the agent to choose from when remediating
+- Custom skills from all repos are combined into a single skill inventory
+- The only coordination required between repos is MCP server naming (handled by the entrypoint merge)
 
 Find the inventory from whichever repo has `service-discovery` capability. **Only check services that are explicitly defined in a discovered repo's inventory. Never discover services by other means (docker ps, process lists, network scanning, etc.).**
 
@@ -273,10 +294,13 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 
 <!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
 <!-- Governing: SPEC-0005 REQ-5 — Custom Health Checks -->
+<!-- Governing: SPEC-0005 REQ-10 — Extension Tier Permission Enforcement -->
+<!-- Governing: SPEC-0005 REQ-13 — Extension Composability -->
 
 - For each mounted repo with `.claude-ops/checks/`, read and execute those checks alongside built-in checks
 - These extensions MUST follow the same format requirements as built-in checks (see REQ-2)
-- Custom checks from **all** mounted repos MUST be combined — if multiple repos define checks, all run
+- Custom checks from **all** mounted repos MUST be combined — if multiple repos define checks, all run (Checks from ALL repos MUST run — if two repos define checks for the same service or concern, both MUST execute)
+- Custom checks MUST follow the same tier permission model as built-in checks: if a custom check instructs you to perform an action beyond your tier's permissions (e.g., `docker restart` at Tier 1), you MUST NOT execute that action and MUST note it for escalation
 - These are additional checks defined by the repo owner for their specific services
 - Run them after the standard checks above
 
@@ -383,6 +407,16 @@ Each escalation tier runs as a **separate subagent** with its own prompt context
     "ie01.stump.rocks": { "user": "root", "method": "root", "can_docker": true },
     "pie01.stump.rocks": { "user": "pi", "method": "sudo", "can_docker": true }
   },
+  "repo_map": {
+    "infra-ansible": {
+      "kind": "Ansible infrastructure",
+      "capabilities": ["service-discovery", "redeployment"],
+      "rules": ["Never modify inventory files", "Always use --limit"],
+      "custom_checks": ["verify-backups.md"],
+      "custom_playbooks": ["redeploy-service.md"],
+      "custom_skills": []
+    }
+  },
   "cooldown_state": "<contents of /state/cooldown.json>",
   "investigation_findings": "",
   "remediation_attempted": ""
@@ -392,7 +426,8 @@ Each escalation tier runs as a **separate subagent** with its own prompt context
 3. Include every failed service in `services_affected` and every failed check in `check_results`
 4. Include the full current cooldown state (from `/state/cooldown.json`) in `cooldown_state`
 5. Include the SSH host access map (from Step 2.5) in `ssh_access_map`
-6. Leave `investigation_findings` and `remediation_attempted` empty — Tier 2 will populate these if it needs to escalate further
+6. Include the `repo_map` with all discovered repos, their capabilities, rules, and custom extensions so higher tiers do not need to re-scan repos
+7. Leave `investigation_findings` and `remediation_attempted` empty — Tier 2 will populate these if it needs to escalate further
 7. Write the handoff file to `/state/handoff.json` using the Write tool. The Go supervisor will read the handoff and spawn the next tier automatically.
 8. **You MUST pass the full context** of your findings in the handoff. The Tier 2 subagent SHOULD NOT need to re-run the health checks you already performed.
 
