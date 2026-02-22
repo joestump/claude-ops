@@ -121,6 +121,7 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 		fmt.Fprintf(os.Stderr, "decay stale memories: %v\n", err)
 	}
 
+	// Governing: SPEC-0016 "Handoff File Lifecycle" — delete stale handoff before new cycle
 	// Clean up any stale handoff file from a previous run.
 	if err := DeleteHandoff(m.cfg.StateDir); err != nil {
 		fmt.Fprintf(os.Stderr, "cleanup stale handoff: %v\n", err)
