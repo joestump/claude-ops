@@ -513,6 +513,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleTriggerSession triggers an ad-hoc session with a custom prompt.
+// Governing: SPEC-0012 "POST /sessions/trigger Endpoint" — form-encoded prompt, 400/409/200 responses
 func (s *Server) handleTriggerSession(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form data", http.StatusBadRequest)

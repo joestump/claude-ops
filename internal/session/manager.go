@@ -56,6 +56,7 @@ func New(cfg *config.Config, database *db.DB, h *hub.Hub, runner ProcessRunner) 
 // Governing: SPEC-0012 REQ "Busy Rejection When Session Already Running" (mutex check + channel buffer rejects concurrent triggers)
 // TriggerAdHoc sends a prompt to trigger an immediate session.
 // Returns the session ID once created, or error if busy.
+// Governing: SPEC-0012 "TriggerAdHoc Public API" — channel-based trigger, busy rejection
 func (m *Manager) TriggerAdHoc(prompt string) (int64, error) {
 	m.mu.Lock()
 	if m.running {
