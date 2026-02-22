@@ -13,6 +13,7 @@ You must NOT do anything in the "Never Allowed" list in CLAUDE.md. Those operati
 ## Step 0: Skill Discovery
 
 <!-- Governing: SPEC-0023 REQ-2 — Skill Discovery and Loading -->
+<!-- Governing: SPEC-0005 REQ-7 — Custom Skills -->
 
 Before running any checks, discover and load available skills:
 
@@ -155,7 +156,7 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 
 ## Step 1: Discover Infrastructure Repos
 
-<!-- Governing: SPEC-0005 REQ-1 (Repo Discovery via Directory Scanning) -->
+<!-- Governing: SPEC-0005 REQ-1 (Repo Discovery via Directory Scanning), REQ-4 (Extension Directory Discovery) -->
 <!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
 
 Scan `/repos` for mounted repositories. This scan MUST be performed every cycle so that newly mounted or removed repos are detected without requiring a container restart.
@@ -187,6 +188,8 @@ Scan `/repos` for mounted repositories. This scan MUST be performed every cycle 
    - `.claude-ops/checks/` — additional health checks to run alongside built-in checks
    - `.claude-ops/playbooks/` — remediation procedures specific to this repo's services
    - `.claude-ops/skills/` — custom capabilities (maintenance tasks, reporting, etc.)
+   - `.claude-ops/mcp.json` — additional MCP server definitions (merged by entrypoint)
+   - **Missing subdirectories are not errors** — a repo may provide any subset of these
 7. Build a unified map of available repos, their capabilities, extensions, and rules
 
 Find the inventory from whichever repo has `service-discovery` capability. **Only check services that are explicitly defined in a discovered repo's inventory. Never discover services by other means (docker ps, process lists, network scanning, etc.).**
@@ -265,9 +268,11 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 ### Repo-Specific Checks
 
 <!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
+<!-- Governing: SPEC-0005 REQ-5 — Custom Health Checks -->
 
-- For each mounted repo with `.claude-ops/checks/`, read and execute those checks
+- For each mounted repo with `.claude-ops/checks/`, read and execute those checks alongside built-in checks
 - These extensions MUST follow the same format requirements as built-in checks (see REQ-2)
+- Custom checks from **all** mounted repos MUST be combined — if multiple repos define checks, all run
 - These are additional checks defined by the repo owner for their specific services
 - Run them after the standard checks above
 
@@ -380,7 +385,6 @@ Each escalation tier runs as a **separate subagent** with its own prompt context
 }
 ```
 
-<<<<<<< HEAD
 3. Include every failed service in `services_affected` and every failed check in `check_results`
 4. Include the full current cooldown state (from `/state/cooldown.json`) in `cooldown_state`
 5. Include the SSH host access map (from Step 2.5) in `ssh_access_map`
