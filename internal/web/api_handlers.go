@@ -197,11 +197,7 @@ func (s *Server) handleAPITriggerSession(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusCreated, toAPISession(*sess))
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-6 "Events List Endpoint" — GET /api/v1/events with level/service filters
-=======
-// Governing: SPEC-0017 REQ-6 "Events List Endpoint", REQ-18 "Pagination"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPIListEvents returns a paginated, filterable list of events.
 func (s *Server) handleAPIListEvents(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r, 100)
@@ -229,11 +225,7 @@ func (s *Server) handleAPIListEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, APIEventsResponse{Events: toAPIEvents(events)})
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-7 "Memories List Endpoint" — GET /api/v1/memories with service/category filters
-=======
-// Governing: SPEC-0017 REQ-7 "Memories List Endpoint", REQ-18 "Pagination"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPIListMemories returns a paginated, filterable list of memories.
 func (s *Server) handleAPIListMemories(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r, 200)
@@ -261,11 +253,7 @@ func (s *Server) handleAPIListMemories(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, APIMemoriesResponse{Memories: toAPIMemories(memories)})
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-8 "Memory Create Endpoint" — POST /api/v1/memories with JSON body
-=======
-// Governing: SPEC-0017 REQ-8 "Memory Create Endpoint"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPICreateMemory creates a new memory from a JSON request body.
 func (s *Server) handleAPICreateMemory(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
@@ -316,11 +304,7 @@ func (s *Server) handleAPICreateMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toAPIMemory(*created))
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-9 "Memory Update Endpoint" — PUT /api/v1/memories/{id} with JSON body
-=======
-// Governing: SPEC-0017 REQ-9 "Memory Update Endpoint"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPIUpdateMemory updates a memory from a JSON request body.
 func (s *Server) handleAPIUpdateMemory(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
@@ -378,11 +362,7 @@ func (s *Server) handleAPIUpdateMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toAPIMemory(*updated))
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-10 "Memory Delete Endpoint" — DELETE /api/v1/memories/{id}
-=======
-// Governing: SPEC-0017 REQ-10 "Memory Delete Endpoint"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPIDeleteMemory deletes a memory by ID.
 func (s *Server) handleAPIDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -411,11 +391,7 @@ func (s *Server) handleAPIDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-11 "Cooldowns List Endpoint" — GET /api/v1/cooldowns
-=======
-// Governing: SPEC-0017 REQ-11 "Cooldowns List Endpoint"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPIListCooldowns returns cooldown action summaries for the last 24 hours.
 func (s *Server) handleAPIListCooldowns(w http.ResponseWriter, r *http.Request) {
 	cooldowns, err := s.db.ListRecentCooldowns(24 * time.Hour)
@@ -428,11 +404,7 @@ func (s *Server) handleAPIListCooldowns(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusOK, APICooldownsResponse{Cooldowns: toAPICooldowns(cooldowns)})
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-12 "Config Get Endpoint" — GET /api/v1/config
-=======
-// Governing: SPEC-0017 REQ-12 "Config Get Endpoint"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPIGetConfig returns the current runtime configuration.
 func (s *Server) handleAPIGetConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, APIConfig{
@@ -449,11 +421,7 @@ func (s *Server) handleAPIGetConfig(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-<<<<<<< HEAD
 // Governing: SPEC-0017 REQ-13 "Config Update Endpoint" — PUT /api/v1/config (partial update)
-=======
-// Governing: SPEC-0017 REQ-13 "Config Update Endpoint"
->>>>>>> 9f3d98f (Add governing comments for SPEC-0017 API Routes & Basics)
 // handleAPIUpdateConfig applies partial configuration updates from a JSON body.
 func (s *Server) handleAPIUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
