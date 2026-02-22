@@ -62,6 +62,7 @@ func (s *Server) handleAPIHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// Governing: SPEC-0017 REQ-3 "Sessions List Endpoint" — GET /api/v1/sessions with limit/offset pagination
 // handleAPIListSessions returns a paginated list of sessions.
 func (s *Server) handleAPIListSessions(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r, 50)
@@ -80,6 +81,7 @@ func (s *Server) handleAPIListSessions(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, APISessionsResponse{Sessions: toAPISessions(sessions)})
 }
 
+// Governing: SPEC-0017 REQ-4 "Session Detail Endpoint" — GET /api/v1/sessions/{id} with chain details
 // handleAPIGetSession returns a single session with escalation chain details.
 func (s *Server) handleAPIGetSession(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -155,6 +157,7 @@ func (s *Server) handleAPIGetSession(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, apiSess)
 }
 
+// Governing: SPEC-0017 REQ-5 "Session Trigger Endpoint" — POST /api/v1/sessions/trigger with JSON body
 // handleAPITriggerSession triggers an ad-hoc session from a JSON request body.
 func (s *Server) handleAPITriggerSession(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {

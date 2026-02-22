@@ -331,6 +331,7 @@ func (s *Server) registerRoutes() {
 
 	// API v1
 	s.mux.HandleFunc("GET /api/v1/health", s.handleAPIHealth)
+	// Governing: SPEC-0017 REQ-3, REQ-4, REQ-5 — session list, detail, and trigger endpoints
 	s.mux.HandleFunc("GET /api/v1/sessions", s.handleAPIListSessions)
 	s.mux.HandleFunc("GET /api/v1/sessions/{id}", s.handleAPIGetSession)
 	s.mux.HandleFunc("POST /api/v1/sessions/trigger", s.handleAPITriggerSession)
