@@ -5,6 +5,8 @@ import (
 	"strings"
 )
 
+// Governing: SPEC-0018 REQ-5 "Branch Naming Convention" — claude-ops/{type}/{slug} format
+//
 // GenerateBranchName creates a branch name from the change type and title.
 // The format is claude-ops/{changeType}/{slug} where slug is the title
 // lowercased, non-alphanumeric characters replaced by hyphens, consecutive
