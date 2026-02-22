@@ -255,6 +255,7 @@ For each failed service, dig deeper:
 ## Step 3: Check Cooldown
 
 <!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
+<!-- Governing: SPEC-0007 REQ-4 (max 2 restarts per 4h), REQ-5 (max 1 redeployment per 24h) -->
 
 Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json` before any remediation. The cooldown system acts as a **secondary safety net** that limits the blast radius of repeated remediation, independent of the permission tier. If cooldown limit is exceeded, skip to Step 5 (Notify).
 

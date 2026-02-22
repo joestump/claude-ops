@@ -209,6 +209,7 @@ These Docker-level restrictions provide defense-in-depth that does not depend on
 ## Cooldown Rules
 
 <!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
+<!-- Governing: SPEC-0007 REQ-4 (restart limit), REQ-5 (redeployment limit) -->
 
 The cooldown system acts as a secondary safety net that limits the blast radius of repeated remediation actions, independent of the permission tier.
 

@@ -1,4 +1,4 @@
-<!-- Governing: SPEC-0007 REQ-1 (state file location), REQ-10 (agent tooling), REQ-11 (human readability) -->
+<!-- Governing: SPEC-0007 REQ-1 (state file location), REQ-4 (max 2 restarts per 4h), REQ-5 (max 1 redeployment per 24h), REQ-10 (agent tooling), REQ-11 (human readability) -->
 <!-- Governing: SPEC-0003 REQ-9 (Cooldown as Secondary Safety Net) -->
 
 # Skill: Cooldown Management
