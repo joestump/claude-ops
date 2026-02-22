@@ -2,6 +2,8 @@
 
 # Playbook: Redeploy Service
 
+<!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating, REQ-3 — Playbook Document Structure -->
+
 **Tier**: 3 (Opus) only
 
 ## When to Use

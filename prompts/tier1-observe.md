@@ -151,6 +151,7 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 ## Step 1: Discover Infrastructure Repos
 
 <!-- Governing: SPEC-0005 REQ-1 (Repo Discovery via Directory Scanning) -->
+<!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
 
 Scan `/repos` for mounted repositories. This scan MUST be performed every cycle so that newly mounted or removed repos are detected without requiring a container restart.
 
@@ -257,7 +258,11 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 - Check for service-specific health indicators (see `/app/checks/services.md`)
 
 ### Repo-Specific Checks
+
+<!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
+
 - For each mounted repo with `.claude-ops/checks/`, read and execute those checks
+- These extensions MUST follow the same format requirements as built-in checks (see REQ-2)
 - These are additional checks defined by the repo owner for their specific services
 - Run them after the standard checks above
 
