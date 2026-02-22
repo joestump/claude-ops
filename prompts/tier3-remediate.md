@@ -198,6 +198,8 @@ With the full picture, determine the actual root cause:
 
 Read `/app/skills/cooldowns.md` for cooldown rules, then read `/state/cooldown.json`. If cooldown limit is exceeded, skip to Step 5 (report as needs human attention).
 
+<!-- Governing: SPEC-0020 "Command Prefix Based on Access Method" — SSH prefix per host access map -->
+<!-- Governing: SPEC-0020 "Write Command Gating" — limited-access hosts restricted to read commands -->
 ## Remote Host Access
 
 **Always use SSH** for all remote host operations. Consult the host access map (from the handoff file) and `/app/skills/ssh-discovery.md` to construct the correct SSH command for each host:
@@ -229,6 +231,7 @@ Read the applicable playbook files from `/app/playbooks/` and `.claude-ops/playb
 4. Verify pods are healthy
 5. Update cooldown state
 
+<!-- Governing: SPEC-0020 "Command Prefix Based on Access Method", "Write Command Gating" -->
 ### Container recreation
 Use the correct SSH user and sudo prefix from the host access map (see `/app/skills/ssh-discovery.md`). If the host has `method: limited`, follow the Limited Access Fallback below instead.
 1. `ssh <user>@<host> [sudo] "cd <compose-dir> && docker compose down <service>"`
