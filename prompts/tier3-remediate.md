@@ -79,20 +79,50 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 
 ## Your Permissions
 
+<!-- Governing: SPEC-0003 REQ-1 — Three-Tier Permission Hierarchy -->
+<!-- Governing: SPEC-0003 REQ-4 — Tier 3 Permitted Operations -->
+
+Your tier is: **Tier 3 (Full Remediation)**
+
 You may:
-- Everything Tier 1 and Tier 2 can do
+- Everything Tier 1 can do:
+  - Read files, configurations, logs, and inventory from mounted repos
+  - HTTP health checks (`curl`) and DNS verification (`dig`) against repo-defined hosts
+  - Query databases in read-only mode at repo-defined hostnames
+  - Inspect container state on remote hosts via SSH (read-only Docker commands)
+  - Read and update the cooldown state file
+- Everything Tier 2 can do:
+  - Restart containers (`docker restart <name>`)
+  - Bring up stopped containers (`docker compose up -d <service>`)
+  - Fix file ownership and permissions on known data paths (`chown`, `chmod`)
+  - Clear temporary and cache directories
+  - Update API keys via service REST APIs
+  - Perform browser automation for credential rotation (via Chrome DevTools MCP)
+  - Send notifications via Apprise
 - Run Ansible playbooks for full service redeployment
 - Run Helm upgrades for Kubernetes services
 - Recreate containers from scratch (`docker compose down && docker compose up -d`)
 - Investigate and fix database connectivity issues
-- Multi-service orchestrated recovery
+- Multi-service orchestrated recovery (ordered restart of dependent services)
 - Complex multi-step recovery procedures
 
 You must NOT:
-- Anything in the "Never Allowed" list in CLAUDE.md
+- Anything on the "Never Allowed" list (see below)
+
+### Never Allowed (Any Tier)
+
+These actions ALWAYS require a human. Never do any of these:
 - Delete persistent data volumes
-- Modify inventory, playbooks, charts, or Dockerfiles
+- Modify inventory files, playbooks, Helm charts, or Dockerfiles
 - Change passwords, secrets, or encryption keys
+- Modify network configuration (VPN, WireGuard, Caddy, DNS records)
+- Execute bulk cleanup commands (e.g., `docker system prune`)
+- Push to git repositories
+- Perform actions on hosts not listed in the inventory
+- Perform actions on services not defined in a mounted repo's inventory
+- Discover or inspect services via `docker ps`, process lists, or network scanning — only repo-defined services exist
+- Drop or truncate database tables
+- Modify the runbook or any prompt files
 
 ## Tier Permission
 
