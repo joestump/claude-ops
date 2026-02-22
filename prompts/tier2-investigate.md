@@ -282,6 +282,7 @@ Read and follow `/app/skills/events.md` for event marker format and guidelines.
 
 ## Memory Recording
 
+<!-- Governing: SPEC-0015 "Prompt Integration for Memory Markers" — instructs LLM to emit [MEMORY:category:service] markers -->
 Read and follow `/app/skills/memories.md` for memory marker format, categories, and guidelines.
 
 ## Cooldown Tracking
