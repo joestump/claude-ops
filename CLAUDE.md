@@ -173,11 +173,12 @@ These actions ALWAYS require a human. Never do any of these:
 
 Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` before taking any remediation action.
 
-- **Max 2 container restarts** per service per 4-hour window
-- **Max 1 full redeployment** (Ansible/Helm) per service per 24-hour window
+- **Max 2 container restarts** per service per 4-hour sliding window
+- **Max 1 full redeployment** (Ansible/Helm) per service per 24-hour sliding window
 - If the cooldown limit is exceeded: stop retrying, send a notification marked "needs human attention"
 - Reset counters when a service is confirmed healthy for 2 consecutive checks
 - Always update the state file after any remediation attempt or health check
+- Only one agent container may write to the state file at a time (single-writer model; see `skills/cooldowns.md`)
 
 ## Notifications via Apprise
 
