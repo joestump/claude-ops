@@ -8,8 +8,11 @@ MODEL="${CLAUDEOPS_TIER1_MODEL:-haiku}"
 STATE_DIR="${CLAUDEOPS_STATE_DIR:-/state}"
 RESULTS_DIR="${CLAUDEOPS_RESULTS_DIR:-/results}"
 REPOS_DIR="${CLAUDEOPS_REPOS_DIR:-/repos}"
+# Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
+# — restricts available tools at the CLI runtime level, providing defense-in-depth
+# for the permission tier model. Tier 1 default: read-only tools.
 ALLOWED_TOOLS="${CLAUDEOPS_ALLOWED_TOOLS:-Bash,Read,Grep,Glob,Task,WebFetch}"
-# Governing: ADR-0023 (AllowedTools-Based Tier Enforcement)
+# Governing: ADR-0023 (AllowedTools-Based Tier Enforcement), SPEC-0010 REQ-5
 # Default to Tier 1 blocklist (most restrictive)
 DISALLOWED_TOOLS="${CLAUDEOPS_DISALLOWED_TOOLS:-Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr create:*),Bash(gh pr merge:*),Bash(tea pr create:*),Bash(git push:*),Bash(git commit:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*),Bash(apprise:*)}"
 CLAUDEOPS_TIER="${CLAUDEOPS_TIER:-1}"
@@ -95,6 +98,8 @@ while true; do
 
     # Governing: SPEC-0010 REQ-2 (Subprocess Invocation from Bash — CLI flags for all config, non-interactive, piped output)
     # Run Claude with tier 1 prompt
+    # Governing: SPEC-0010 REQ-5 — --allowedTools and --disallowedTools enforce
+    # tool filtering at CLI runtime, independent of prompt-level instructions.
     claude \
         --model "${MODEL}" \
         -p "$(cat "${PROMPT_FILE}")" \

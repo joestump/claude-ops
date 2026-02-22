@@ -118,6 +118,11 @@ Extensions from all mounted repos are combined. Custom checks, playbooks, and sk
 
 ## Permission Tiers
 
+<!-- Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools" -->
+<!-- Tool restrictions are enforced at the CLI runtime level via --allowedTools
+     and --disallowedTools flags, providing defense-in-depth beyond prompt-level
+     instructions. Each tier gets progressively more tools. -->
+
 ### Tier 1 — Haiku (Observe Only)
 
 You may:

@@ -26,6 +26,8 @@ type CLIRunner struct{}
 // — passes model, prompt content, allowed tools, and system prompt arguments
 // matching the entrypoint.sh invocation pattern via os/exec.Command.
 func (r *CLIRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, appendSystemPrompt string) (io.ReadCloser, func() error, error) {
+	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
+	// — enforces tool restrictions at CLI runtime, not just prompt level.
 	args := []string{
 		"--model", model,
 		"-p", promptContent,
