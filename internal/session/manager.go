@@ -103,6 +103,7 @@ func (m *Manager) runAdHoc(ctx context.Context, prompt string) {
 	m.runEscalationChain(ctx, "manual", &prompt)
 }
 
+// Governing: SPEC-0016 "Supervisor Escalation Logic" — controls all escalation decisions
 // runEscalationChain runs Tier 1 and escalates to higher tiers if the agent
 // writes a handoff file requesting it. promptOverride is used for ad-hoc
 // sessions where the first tier uses a custom prompt instead of the standard
@@ -134,6 +135,7 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 	handoffContext := ""
 	currentTrigger := trigger
 
+	// Governing: SPEC-0016 "Supervisor Escalation Logic" — MaxTier enforces tier limit
 	for currentTier <= m.cfg.MaxTier {
 		model := tierModels[currentTier]
 		promptFile := tierPrompts[currentTier]
@@ -171,6 +173,7 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 			break
 		}
 
+		// Governing: SPEC-0016 "Supervisor Escalation Logic" — dry-run prevents escalation
 		// Dry-run mode: don't actually escalate.
 		if m.cfg.DryRun && h.RecommendedTier >= 2 {
 			fmt.Printf("[%s] DRY RUN: would escalate to tier %d for services %v\n",
@@ -241,6 +244,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	}
 	defer logFile.Close() //nolint:errcheck
 
+	// Governing: SPEC-0016 "Supervisor Escalation Logic" — session record with parent_session_id
 	// Insert session record into DB.
 	startedAt := time.Now().UTC().Format(time.RFC3339)
 	sess := &db.Session{
