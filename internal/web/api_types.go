@@ -2,7 +2,6 @@ package web
 
 import (
 	"github.com/joestump/claude-ops/internal/db"
-	"github.com/joestump/claude-ops/internal/gitprovider"
 )
 
 // Governing: SPEC-0017 REQ-2 "JSON Content Type" — all types serialize as application/json
@@ -99,46 +98,9 @@ type APIConfig struct {
 	StateDir   string `json:"state_dir"`
 	ResultsDir string `json:"results_dir"`
 	ReposDir   string `json:"repos_dir"`
-	PREnabled  bool   `json:"pr_enabled"`
 }
 
-// --- PR API Types ---
-
-// APICreatePRRequest is the JSON body for POST /api/v1/prs.
-// Governing: SPEC-0018 REQ-9 "Permission Tier Integration" (Tier field), REQ-12 "Dry Run Mode".
-type APICreatePRRequest struct {
-	RepoOwner  string                   `json:"repo_owner"`
-	RepoName   string                   `json:"repo_name"`
-	CloneURL   string                   `json:"clone_url"`
-	Tier       int                      `json:"tier"` // Governing: SPEC-0018 REQ-9 — tier carried in request for enforcement.
-
-	Files      []gitprovider.FileChange `json:"files"`
-	Title      string                   `json:"title"`
-	Body       string                   `json:"body"`
-	BaseBranch string                   `json:"base_branch"`
-	ChangeType string                   `json:"change_type"`
-}
-
-// APICreatePRResponse is returned after creating a pull request.
-// Governing: SPEC-0018 REQ-12 "Dry Run Mode" — DryRun field signals no git operations were executed.
-type APICreatePRResponse struct {
-	Number int    `json:"number"`
-	URL    string `json:"url"`
-	Branch string `json:"branch"`
-	DryRun bool   `json:"dry_run,omitempty"`
-}
-
-// APIPRSummary is a lightweight representation of an open pull request.
-type APIPRSummary struct {
-	Number int      `json:"number"`
-	Title  string   `json:"title"`
-	Files  []string `json:"files"`
-}
-
-// APIPRListResponse wraps a list of PR summaries.
-type APIPRListResponse struct {
-	PRs []APIPRSummary `json:"prs"`
-}
+// Governing: SPEC-0023 REQ-9 — PR API types removed. PR operations are now skill-based (git-pr.md).
 
 // --- API Request Types ---
 

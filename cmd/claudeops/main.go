@@ -16,7 +16,6 @@ import (
 
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
-	"github.com/joestump/claude-ops/internal/gitprovider"
 	"github.com/joestump/claude-ops/internal/hub"
 	"github.com/joestump/claude-ops/internal/mcp"
 	"github.com/joestump/claude-ops/internal/session"
@@ -56,7 +55,6 @@ func main() {
 	f.String("tier3-prompt", "/app/prompts/tier3-remediate.md", "path to Tier 3 prompt file")
 	f.Int("memory-budget", 2000, "max tokens for memory context injection")
 	f.String("browser-allowed-origins", "", "comma-separated allowed origins for browser navigation")
-	f.Bool("pr-enabled", false, "enable PR creation via MCP and REST API (default: disabled)")
 	f.String("summary-model", "haiku", "Claude model for session summary generation")
 
 	// Bind flags to viper. Viper keys use underscores (tier1_model) so they
@@ -84,7 +82,6 @@ func main() {
 	bindFlag("tier3_prompt", "tier3-prompt")
 	bindFlag("memory_budget", "memory-budget")
 	bindFlag("browser_allowed_origins", "browser-allowed-origins")
-	bindFlag("pr_enabled", "pr-enabled")
 	bindFlag("summary_model", "summary-model")
 
 	// Governing: SPEC-0008 REQ-12 — environment variable compatibility (CLAUDEOPS_* prefix).
@@ -154,12 +151,10 @@ func run(cmd *cobra.Command, args []string) error {
 		return mcp.MergeConfigs(cfg.MCPConfig, cfg.ReposDir)
 	}
 
-	// Create git provider registry.
-	registry := gitprovider.NewRegistry()
-
 	// Governing: SPEC-0008 REQ-2 (Web Server — HTTP on configurable port, default 8080)
 	// Create and start web server (needs mgr for ad-hoc session triggers).
-	webServer := web.New(&cfg, sseHub, database, mgr, registry)
+	// Governing: SPEC-0023 REQ-9 — git provider registry removed; PR operations are now skill-based.
+	webServer := web.New(&cfg, sseHub, database, mgr)
 	go func() {
 		if err := webServer.Start(); err != nil {
 			log.Printf("web server error: %v", err)

@@ -13,7 +13,6 @@ import (
 
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
-	"github.com/joestump/claude-ops/internal/gitprovider"
 	"github.com/joestump/claude-ops/internal/hub"
 )
 
@@ -64,9 +63,8 @@ func newTestEnvWithTrigger(t *testing.T, trigger *mockTrigger) *testEnv {
 	}
 
 	h := hub.New()
-	registry := gitprovider.NewRegistry()
 	return &testEnv{
-		srv:     New(cfg, h, database, trigger, registry),
+		srv:     New(cfg, h, database, trigger),
 		hub:     h,
 		trigger: trigger,
 	}

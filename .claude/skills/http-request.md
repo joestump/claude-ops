@@ -115,6 +115,18 @@ After an API request:
 1. Confirm the response is valid JSON (or expected format).
 2. Report any error messages in the response body.
 
+## Scope Rules
+
+This skill MUST NOT:
+- Send HTTP requests to hosts not defined in repo inventories
+- Send mutating requests (POST, PUT, DELETE) at Tier 1
+- Modify authentication credentials or tokens via API calls without explicit playbook authorization
+- Send requests to localhost or 127.0.0.1 unless a repo's CLAUDE-OPS.md explicitly lists localhost as a target host
+
+If a scope violation is detected, the agent MUST:
+1. Refuse the operation.
+2. Report: `[skill:http-request] SCOPE VIOLATION: <reason>`
+
 ## Dry-Run Behavior
 
 When `CLAUDEOPS_DRY_RUN=true`:

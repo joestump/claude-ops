@@ -27,7 +27,6 @@ type Config struct {
 	Tier3Prompt   string
 	MemoryBudget          int
 	BrowserAllowedOrigins string
-	PREnabled             bool
 	// Governing: SPEC-0021 REQ "Summarization Model"
 	SummaryModel string
 }
@@ -55,7 +54,6 @@ func Load() Config {
 		Tier3Prompt:   viper.GetString("tier3_prompt"),
 		MemoryBudget:          viper.GetInt("memory_budget"),
 		BrowserAllowedOrigins: viper.GetString("browser_allowed_origins"),
-		PREnabled:             viper.GetBool("pr_enabled"),
 		SummaryModel:          viper.GetString("summary_model"),
 	}
 }

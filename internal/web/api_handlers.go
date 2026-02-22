@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/joestump/claude-ops/internal/db"
-	"github.com/joestump/claude-ops/internal/gitprovider"
 )
 
 // --- JSON Helpers ---
@@ -417,7 +416,6 @@ func (s *Server) handleAPIGetConfig(w http.ResponseWriter, r *http.Request) {
 		StateDir:   s.cfg.StateDir,
 		ResultsDir: s.cfg.ResultsDir,
 		ReposDir:   s.cfg.ReposDir,
-		PREnabled:  s.cfg.PREnabled,
 	})
 }
 
@@ -472,127 +470,10 @@ func (s *Server) handleAPIUpdateConfig(w http.ResponseWriter, r *http.Request) {
 		StateDir:   s.cfg.StateDir,
 		ResultsDir: s.cfg.ResultsDir,
 		ReposDir:   s.cfg.ReposDir,
-		PREnabled:  s.cfg.PREnabled,
 	})
 }
 
-// Governing: SPEC-0018 REQ-7 "PR Body Context Requirements", REQ-8 "Duplicate PR Prevention",
-//            REQ-10 "Agent MUST NOT Merge Own PRs", REQ-11 "Notification on PR Creation"
-//
-// handleAPICreatePR creates a branch, commits files, and opens a pull request.
-func (s *Server) handleAPICreatePR(w http.ResponseWriter, r *http.Request) {
-	if !s.cfg.PREnabled {
-		writeError(w, http.StatusForbidden, "PR creation is disabled (set CLAUDEOPS_PR_ENABLED=true to enable)")
-		return
-	}
-
-	var req APICreatePRRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid request body")
-		return
-	}
-
-	if req.RepoOwner == "" || req.RepoName == "" || req.Title == "" || len(req.Files) == 0 {
-		writeError(w, http.StatusBadRequest, "repo_owner, repo_name, title, and files are required")
-		return
-	}
-
-	if err := gitprovider.ValidateScope(req.Files); err != nil {
-		writeError(w, http.StatusForbidden, err.Error())
-		return
-	}
-
-	// Governing: SPEC-0018 REQ-9 "Permission Tier Integration" — tier gate enforced at API level.
-	if err := gitprovider.ValidateTier(req.Tier, req.Files); err != nil {
-		writeError(w, http.StatusForbidden, err.Error())
-		return
-	}
-
-	// Governing: SPEC-0018 REQ-12 "Dry Run Mode" — log proposed PR details without executing git operations.
-	if s.cfg.DryRun {
-		log.Printf("[PR] Dry run: would create PR '%s' for %s/%s", req.Title, req.RepoOwner, req.RepoName)
-		writeJSON(w, http.StatusOK, APICreatePRResponse{DryRun: true})
-		return
-	}
-
-	repo := gitprovider.RepoRef{Owner: req.RepoOwner, Name: req.RepoName, CloneURL: req.CloneURL}
-	provider, err := s.registry.Resolve(repo, nil)
-	if err != nil {
-		writeError(w, http.StatusNotFound, fmt.Sprintf("no git provider for repo: %v", err))
-		return
-	}
-
-	branch := gitprovider.GenerateBranchName(req.ChangeType, req.Title)
-	baseBranch := req.BaseBranch
-	if baseBranch == "" {
-		baseBranch = "main"
-	}
-
-	if err := provider.CreateBranch(r.Context(), repo, branch, baseBranch); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("create branch: %v", err))
-		return
-	}
-
-	if err := provider.CommitFiles(r.Context(), repo, branch, req.Title, req.Files); err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("commit files: %v", err))
-		return
-	}
-
-	prReq := gitprovider.PRRequest{
-		Title:      req.Title,
-		Body:       req.Body,
-		HeadBranch: branch,
-		BaseBranch: baseBranch,
-		Labels:     []string{"claude-ops", "automated"},
-	}
-	result, err := provider.CreatePR(r.Context(), repo, prReq)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("create PR: %v", err))
-		return
-	}
-
-	log.Printf("[PR] Created PR #%d at %s for %s/%s", result.Number, result.URL, req.RepoOwner, req.RepoName)
-	writeJSON(w, http.StatusCreated, APICreatePRResponse{
-		Number: result.Number,
-		URL:    result.URL,
-		Branch: branch,
-	})
-}
-
-// Governing: SPEC-0018 REQ-8 "Duplicate PR Prevention" — list open PRs by claude-ops label for overlap check
-// handleAPIListPRs lists open pull requests for a repository filtered by the claude-ops label.
-func (s *Server) handleAPIListPRs(w http.ResponseWriter, r *http.Request) {
-	owner := r.URL.Query().Get("repo_owner")
-	name := r.URL.Query().Get("repo_name")
-	cloneURL := r.URL.Query().Get("clone_url")
-
-	if owner == "" || name == "" {
-		writeError(w, http.StatusBadRequest, "repo_owner and repo_name query params required")
-		return
-	}
-
-	repo := gitprovider.RepoRef{Owner: owner, Name: name, CloneURL: cloneURL}
-	provider, err := s.registry.Resolve(repo, nil)
-	if err != nil {
-		writeError(w, http.StatusNotFound, fmt.Sprintf("no git provider: %v", err))
-		return
-	}
-
-	filter := gitprovider.PRFilter{Labels: []string{"claude-ops"}}
-	prs, err := provider.ListOpenPRs(r.Context(), repo, filter)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, fmt.Sprintf("list PRs: %v", err))
-		return
-	}
-
-	apiPRs := make([]APIPRSummary, len(prs))
-	for i, pr := range prs {
-		apiPRs[i] = APIPRSummary{
-			Number: pr.Number,
-			Title:  pr.Title,
-			Files:  pr.Files,
-		}
-	}
-	writeJSON(w, http.StatusOK, APIPRListResponse{PRs: apiPRs})
-}
+// Governing: SPEC-0023 REQ-9 — PR API handlers removed. PR operations are now skill-based (git-pr.md).
+// The handleAPICreatePR and handleAPIListPRs handlers, along with the gitprovider package,
+// have been replaced by the git-pr skill which uses adaptive tool discovery (MCP → CLI → HTTP).
 

@@ -139,6 +139,18 @@ After listing issues:
 After viewing an issue:
 1. Confirm the issue details were retrieved (title, state, body).
 
+## Scope Rules
+
+This skill MUST NOT:
+- Create or modify issues on repositories not defined in repo inventories
+- Close or delete issues — only humans may close issues
+- Modify issue labels that control deployment or CI/CD workflows (e.g., `deploy`, `release`)
+- Create issues with content that includes secrets, credentials, or internal IP addresses
+
+If a scope violation is detected, the agent MUST:
+1. Refuse the operation.
+2. Report: `[skill:issue-tracking] SCOPE VIOLATION: <reason>`
+
 ## Dry-Run Behavior
 
 When `CLAUDEOPS_DRY_RUN=true`:
