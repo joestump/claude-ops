@@ -188,6 +188,7 @@ func (s *Server) handleAPITriggerSession(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, http.StatusCreated, toAPISession(*sess))
 }
 
+// Governing: SPEC-0017 REQ-6 "Events List Endpoint" — GET /api/v1/events with level/service filters
 // handleAPIListEvents returns a paginated, filterable list of events.
 func (s *Server) handleAPIListEvents(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r, 100)
@@ -215,6 +216,7 @@ func (s *Server) handleAPIListEvents(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, APIEventsResponse{Events: toAPIEvents(events)})
 }
 
+// Governing: SPEC-0017 REQ-7 "Memories List Endpoint" — GET /api/v1/memories with service/category filters
 // handleAPIListMemories returns a paginated, filterable list of memories.
 func (s *Server) handleAPIListMemories(w http.ResponseWriter, r *http.Request) {
 	limit, offset, err := parseLimitOffset(r, 200)
@@ -242,6 +244,7 @@ func (s *Server) handleAPIListMemories(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, APIMemoriesResponse{Memories: toAPIMemories(memories)})
 }
 
+// Governing: SPEC-0017 REQ-8 "Memory Create Endpoint" — POST /api/v1/memories with JSON body
 // handleAPICreateMemory creates a new memory from a JSON request body.
 func (s *Server) handleAPICreateMemory(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
@@ -292,6 +295,7 @@ func (s *Server) handleAPICreateMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toAPIMemory(*created))
 }
 
+// Governing: SPEC-0017 REQ-9 "Memory Update Endpoint" — PUT /api/v1/memories/{id} with JSON body
 // handleAPIUpdateMemory updates a memory from a JSON request body.
 func (s *Server) handleAPIUpdateMemory(w http.ResponseWriter, r *http.Request) {
 	if !requireJSON(w, r) {
@@ -349,6 +353,7 @@ func (s *Server) handleAPIUpdateMemory(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, toAPIMemory(*updated))
 }
 
+// Governing: SPEC-0017 REQ-10 "Memory Delete Endpoint" — DELETE /api/v1/memories/{id}
 // handleAPIDeleteMemory deletes a memory by ID.
 func (s *Server) handleAPIDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	id, err := strconv.ParseInt(r.PathValue("id"), 10, 64)
@@ -377,6 +382,7 @@ func (s *Server) handleAPIDeleteMemory(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// Governing: SPEC-0017 REQ-11 "Cooldowns List Endpoint" — GET /api/v1/cooldowns
 // handleAPIListCooldowns returns cooldown action summaries for the last 24 hours.
 func (s *Server) handleAPIListCooldowns(w http.ResponseWriter, r *http.Request) {
 	cooldowns, err := s.db.ListRecentCooldowns(24 * time.Hour)
