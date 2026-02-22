@@ -6,6 +6,7 @@ import (
 	"strings"
 )
 
+// Governing: SPEC-0014 REQ "Credential Injection via Environment Variables" (BROWSER_CRED_* env vars, Tier 2+ gate)
 // ResolveCredential looks up a BROWSER_CRED_* environment variable by name,
 // enforcing Tier 2+ permissions and the BROWSER_CRED_ prefix convention.
 func ResolveCredential(tier int, envKey string) (string, error) {
@@ -22,6 +23,7 @@ func ResolveCredential(tier int, envKey string) (string, error) {
 	return value, nil
 }
 
+// Governing: SPEC-0014 REQ "URL Allowlist Enforcement" (BROWSER_ALLOWED_ORIGINS, init script blocks non-allowed origins)
 // BuildBrowserInitScript generates a JavaScript IIFE that restricts browser
 // navigation to the origins listed in the comma-separated allowedOrigins
 // string. If allowedOrigins is empty, it returns an empty string (the caller
