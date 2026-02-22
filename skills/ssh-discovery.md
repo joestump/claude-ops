@@ -111,6 +111,8 @@ Log the discovery result for each host:
 - **Unreachable**: `SSH discovery: <host> -> unreachable (tried: root, <manifest_user>, ubuntu, debian, pi, admin)`
 
 <!-- Governing: SPEC-0020 "Tier Integration" — all tiers consult the access map for SSH command construction -->
+<!-- Governing: SPEC-0020 "Command Prefix Based on Access Method" — select SSH prefix based on host access map entry -->
+
 
 ## Command Execution Rules
 
@@ -140,6 +142,7 @@ ssh <user>@<host> sudo docker ps
 ssh <user>@<host> <command>
 ```
 
+<!-- Governing: SPEC-0020 "Write Command Gating" — block write commands on limited-access hosts -->
 ### method: limited
 ```bash
 ssh <user>@<host> <command>

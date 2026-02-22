@@ -235,6 +235,7 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 - For services with DNS names: `dig +short <hostname>`
 - Verify it resolves to the expected IP/CNAME
 
+<!-- Governing: SPEC-0020 "Command Prefix Based on Access Method" — use host access map for SSH prefix -->
 ### Container State (Remote Only via SSH)
 - **Only if** the repo provides SSH access to the target host
 - **Use the host access map** (built in Step 2.5) to determine the SSH user and method for each host. See `/app/skills/ssh-discovery.md` for command construction rules.

@@ -174,6 +174,8 @@ Read the failure summary provided by Tier 1. The handoff context includes:
 <!-- Governing: SPEC-0020 "Tier Integration" — Tier 2 reuses the SSH access map from handoff -->
 Read the **SSH host access map** from the handoff file. The map tells you which user and method (`root`, `sudo`, `limited`, `unreachable`) to use for each host. If the handoff includes an `ssh_access_map` field, use it directly — do NOT re-probe SSH access. If the map is missing, read `/app/skills/ssh-discovery.md` and run the discovery routine before proceeding.
 
+<!-- Governing: SPEC-0020 "Command Prefix Based on Access Method" — SSH prefix per host access map -->
+<!-- Governing: SPEC-0020 "Write Command Gating" — limited-access hosts restricted to read commands -->
 ## Remote Host Access
 
 **Always use SSH** for all remote host operations. Consult the host access map (from the handoff file) and `/app/skills/ssh-discovery.md` to construct the correct SSH command for each host:
@@ -216,6 +218,7 @@ Read the applicable playbook files from `/app/playbooks/` and `.claude-ops/playb
 
 Apply the appropriate remediation from `/app/playbooks/`. Common patterns:
 
+<!-- Governing: SPEC-0020 "Command Prefix Based on Access Method", "Write Command Gating" -->
 ### Container restart
 1. Look up the host in the access map. Use the correct SSH user and sudo prefix per `/app/skills/ssh-discovery.md` (e.g., `ssh <user>@<host> sudo docker restart <container>` for sudo hosts, `ssh root@<host> docker restart <container>` for root hosts). If the host has `method: limited`, this remediation CANNOT be executed — follow the Limited Access Fallback below.
 2. Wait 15-30 seconds
