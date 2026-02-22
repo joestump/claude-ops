@@ -22,6 +22,7 @@ services:
       - CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS:-}
       - CLAUDEOPS_BROWSER_ALLOWED_ORIGINS=${CLAUDEOPS_BROWSER_ALLOWED_ORIGINS:-}
       - CLAUDEOPS_PR_ENABLED=${CLAUDEOPS_PR_ENABLED:-false}
+      - CLAUDEOPS_CHAT_API_KEY=${CLAUDEOPS_CHAT_API_KEY:-}
     ports:
       - "8080:8080"
     # Governing: SPEC-0007 REQ-3 — state directory backed by bind mount, persists across restarts/rebuilds

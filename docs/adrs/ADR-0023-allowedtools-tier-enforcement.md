@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
 decision-makers: Joe Stump
 resolves: ADR-0022 compensating controls requirement
