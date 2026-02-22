@@ -821,6 +821,7 @@ func parseEventMarkers(text string) []parsedEvent {
 
 // --- Memory markers ---
 
+// Governing: SPEC-0015 "Memory Marker Regex" — pattern for [MEMORY:category] and [MEMORY:category:service]
 // memoryMarkerRe matches [MEMORY:category] or [MEMORY:category:service] markers in assistant text.
 var memoryMarkerRe = regexp.MustCompile(`\[MEMORY:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
 
@@ -830,6 +831,7 @@ type parsedMemory struct {
 	Observation string
 }
 
+// Governing: SPEC-0015 "Memory Marker Format" — parses [MEMORY:category:service] from assistant text blocks
 // parseMemoryMarkers scans text for memory markers and returns parsed memories.
 func parseMemoryMarkers(text string) []parsedMemory {
 	var memories []parsedMemory
