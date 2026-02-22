@@ -1,3 +1,4 @@
+-- Governing: SPEC-0015 REQ "Memories Table Schema" (id, service, category, observation, confidence, active, created_at, updated_at, session_id, tier)
 -- +goose Up
 CREATE TABLE memories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
