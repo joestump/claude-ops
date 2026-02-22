@@ -16,6 +16,7 @@ import (
 )
 
 // handleIndex renders the overview dashboard.
+// Governing: SPEC-0008 REQ-10 — overview/home page: service summary and last check time.
 // Governing: SPEC-0021 REQ "TL;DR Page Rendering"
 // Governing: SPEC-0013 "Real-Time Overview" — serves polling endpoint for HTMX auto-refresh
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
@@ -151,6 +152,7 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleSession renders a single session detail view.
+// Governing: SPEC-0008 REQ-10 — session view page: streaming output, tier level, and target service.
 func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
@@ -268,6 +270,7 @@ func (s *Server) handleSession(w http.ResponseWriter, r *http.Request) {
 
 // handleSessionStream opens an SSE connection for a running session.
 // Governing: SPEC-0008 REQ-3 — HTMX-Based Interactivity (hx-ext="sse" for real-time streaming)
+// Governing: SPEC-0008 REQ-10 — session view real-time streaming via SSE.
 func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 	idStr := r.PathValue("id")
 	id, err := strconv.Atoi(idStr)
@@ -332,6 +335,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCooldowns renders the cooldown state.
+// Governing: SPEC-0008 REQ-10 — cooldown state page: per-service action counts and window expiry.
 func (s *Server) handleCooldowns(w http.ResponseWriter, r *http.Request) {
 	cooldowns, err := s.db.ListRecentCooldowns(24 * time.Hour)
 	if err != nil {
@@ -489,6 +493,7 @@ func (s *Server) handleMemoryDelete(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleConfigGet renders the configuration form.
+// Governing: SPEC-0008 REQ-10 — configuration page: runtime parameter display and modification.
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Interval              int
@@ -548,6 +553,7 @@ func (s *Server) handleTriggerSession(w http.ResponseWriter, r *http.Request) {
 
 // handleConfigPost processes configuration form submissions.
 // Governing: SPEC-0008 REQ-3 — HTMX-Based Interactivity (hx-post form submission with hx-swap)
+// Governing: SPEC-0008 REQ-10 — configuration changes take effect without container restart.
 func (s *Server) handleConfigPost(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		http.Error(w, "bad form data", http.StatusBadRequest)

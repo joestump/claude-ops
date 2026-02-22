@@ -6,6 +6,7 @@ import "github.com/spf13/viper"
 var Version = "dev"
 
 // Config holds all runtime configuration for Claude Ops.
+// Governing: SPEC-0008 REQ-12 — environment variable compatibility (CLAUDEOPS_* env vars via viper).
 type Config struct {
 	Interval      int
 	Prompt        string

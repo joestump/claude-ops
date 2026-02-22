@@ -83,6 +83,7 @@ func main() {
 	bindFlag("pr_enabled", "pr-enabled")
 	bindFlag("summary_model", "summary-model")
 
+	// Governing: SPEC-0008 REQ-12 — environment variable compatibility (CLAUDEOPS_* prefix).
 	// Bind CLAUDEOPS_* environment variables. AutomaticEnv with the prefix
 	// maps CLAUDEOPS_INTERVAL -> "interval", CLAUDEOPS_TIER1_MODEL -> "tier1_model", etc.
 	viper.SetEnvPrefix("CLAUDEOPS")
