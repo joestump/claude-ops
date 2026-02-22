@@ -1,3 +1,5 @@
+<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-8 (no build step), REQ-9 (self-documenting) -->
+
 # Service-Specific Checks
 
 These are checks for specific applications that go beyond basic HTTP/container health. Claude should identify which of these apply based on the services discovered in the inventory.
