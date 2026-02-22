@@ -5,6 +5,7 @@ import (
 	"fmt"
 )
 
+// Governing: SPEC-0018 REQ-13 "Environment Variable Configuration" — disabled state when config is missing
 // DisabledProvider implements GitProvider but returns an error on every
 // operation. It is used when a provider's required configuration (e.g.,
 // tokens) is missing, so the system can start without failing while still

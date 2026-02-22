@@ -6,11 +6,13 @@ import (
 	"strings"
 )
 
+// Governing: SPEC-0018 REQ-4 "Provider Registry and Discovery" — maps provider names to implementations
 // Registry maps provider names to GitProvider implementations.
 type Registry struct {
 	providers map[string]GitProvider
 }
 
+// Governing: SPEC-0018 REQ-13 "Environment Variable Configuration" — registers from env vars, disabled when missing
 // NewRegistry creates a Registry and registers providers based on environment
 // variables. Providers whose required config is missing are registered in a
 // disabled state so the system always starts successfully.
@@ -48,6 +50,7 @@ func (r *Registry) Register(name string, provider GitProvider) {
 	r.providers[name] = provider
 }
 
+// Governing: SPEC-0018 REQ-4 "Provider Registry and Discovery" — manifest first, then URL inference
 // Resolve selects the appropriate provider for a repo. It checks the manifest
 // first (explicit declaration), then infers from the clone URL.
 func (r *Registry) Resolve(repo RepoRef, manifest *Manifest) (GitProvider, error) {
@@ -73,6 +76,7 @@ func (r *Registry) ResolveByName(name string) (GitProvider, error) {
 	return p, nil
 }
 
+// Governing: SPEC-0018 REQ-4 "Provider Registry and Discovery" — github.com -> GitHub, GITEA_URL host -> Gitea
 // inferProvider maps a clone URL to a provider name based on known domain patterns.
 func inferProvider(cloneURL string) string {
 	lower := strings.ToLower(cloneURL)

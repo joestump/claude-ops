@@ -2,7 +2,7 @@ package gitprovider
 
 import "context"
 
-// Governing: SPEC-0018 REQ-1 "GitProvider Interface" — abstracts CreatePR, ListPRs, GetPRStatus across providers
+// Governing: SPEC-0018 REQ-1 "GitProvider Interface" — abstracts CreatePR, ListPRs, GetPRStatus across providers; six required methods in dedicated package
 //
 // GitProvider abstracts git hosting operations for PR-based workflows.
 // Each implementation targets a specific platform (GitHub, Gitea, etc.).
@@ -83,6 +83,7 @@ type PRSummary struct {
 	Files  []string // paths modified by the PR
 }
 
+// Governing: SPEC-0018 REQ-4 "Provider Registry and Discovery" — explicit declaration in CLAUDE-OPS.md manifest
 // Manifest holds the parsed Git Provider section from a repo's CLAUDE-OPS.md.
 type Manifest struct {
 	Provider   string // e.g., "github", "gitea"
