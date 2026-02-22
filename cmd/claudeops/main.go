@@ -23,6 +23,7 @@ import (
 	"github.com/joestump/claude-ops/internal/web"
 )
 
+// Governing: SPEC-0008 REQ-1 (Single Binary Entrypoint — compiles to static binary, replaces entrypoint.sh)
 func main() {
 	rootCmd := &cobra.Command{
 		Use:   "claudeops",
@@ -146,6 +147,7 @@ func run(cmd *cobra.Command, args []string) error {
 	// Create git provider registry.
 	registry := gitprovider.NewRegistry()
 
+	// Governing: SPEC-0008 REQ-2 (Web Server — HTTP on configurable port, default 8080)
 	// Create and start web server (needs mgr for ad-hoc session triggers).
 	webServer := web.New(&cfg, sseHub, database, mgr, registry)
 	go func() {

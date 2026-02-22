@@ -48,6 +48,7 @@ type SessionTrigger interface {
 	IsRunning() bool
 }
 
+// Governing: SPEC-0008 REQ-2 (Web Server — HTTP on configurable port, default 8080)
 // Server is the HTTP server for the Claude Ops dashboard.
 type Server struct {
 	cfg      *config.Config

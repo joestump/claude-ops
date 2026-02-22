@@ -1,3 +1,4 @@
+# Governing: SPEC-0008 REQ-1 (Single Binary Entrypoint — static binary replaces entrypoint.sh)
 # Build stage: compile Go binary
 FROM golang:1.24-alpine AS builder
 
