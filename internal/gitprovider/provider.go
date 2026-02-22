@@ -3,6 +3,7 @@ package gitprovider
 import "context"
 
 // Governing: SPEC-0018 REQ-1 "GitProvider Interface" — abstracts CreatePR, ListPRs, GetPRStatus across providers; six required methods in dedicated package
+// Governing: SPEC-0018 REQ-10 "Agent MUST NOT Merge Own PRs" — no MergePR method exposed
 //
 // GitProvider abstracts git hosting operations for PR-based workflows.
 // Each implementation targets a specific platform (GitHub, Gitea, etc.).
