@@ -1,4 +1,4 @@
-<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), REQ-3 (Playbook Document Structure), REQ-8 (no build step), REQ-9 (self-documenting) -->
+<!-- Governing: SPEC-0002 REQ-1 (markdown as sole instruction format), SPEC-0007 REQ-5 (max 1 redeployment per service per 24-hour window), REQ-3 (Playbook Document Structure), REQ-8 (no build step), REQ-9 (self-documenting) -->
 # Playbook: Redeploy Service
 
 <!-- Governing: SPEC-0002 REQ-11 — Playbook Tier Gating, REQ-3 — Playbook Document Structure -->
