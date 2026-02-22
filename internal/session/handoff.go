@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 )
 
+// Governing: SPEC-0016 "Handoff File Format" — versioned JSON schema at $CLAUDEOPS_STATE_DIR/handoff.json
 // Handoff carries context from one escalation tier to the next. The Tier 1
 // agent writes this file when it detects issues requiring higher-tier
 // intervention; the session manager reads it to decide whether (and how)
@@ -21,6 +22,7 @@ type Handoff struct {
 	CooldownState         json.RawMessage  `json:"cooldown_state,omitempty"`
 }
 
+// Governing: SPEC-0016 "Handoff File Format" — check result object structure
 // CheckResult records the outcome of a single health check performed by
 // a tier agent.
 type CheckResult struct {
@@ -34,6 +36,7 @@ type CheckResult struct {
 // handoffFileName is the well-known file name for the handoff payload.
 const handoffFileName = "handoff.json"
 
+// Governing: SPEC-0016 "Handoff File Lifecycle" — supervisor reads handoff after tier exit
 // ReadHandoff reads and parses the handoff file from stateDir.
 // Returns nil, nil if the file does not exist.
 func ReadHandoff(stateDir string) (*Handoff, error) {
@@ -53,6 +56,7 @@ func ReadHandoff(stateDir string) (*Handoff, error) {
 	return &h, nil
 }
 
+// Governing: SPEC-0016 "Handoff File Lifecycle" — supervisor deletes after read or on stale cleanup
 // DeleteHandoff removes the handoff file from stateDir.
 // Returns nil if the file does not exist.
 func DeleteHandoff(stateDir string) error {
@@ -63,6 +67,7 @@ func DeleteHandoff(stateDir string) error {
 	return nil
 }
 
+// Governing: SPEC-0016 "Handoff File Format" — rejects unrecognized schema_version, invalid tiers
 // ValidateHandoff checks that the handoff payload is well-formed and that the
 // recommended tier does not exceed maxTier.
 func ValidateHandoff(h *Handoff, maxTier int) error {
