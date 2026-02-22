@@ -37,6 +37,7 @@ services:
       # - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
       # Governing: SPEC-0009 REQ-4 "repos mount from operator-specified host paths"
       # Mount infrastructure repos for service discovery
+      # Governing: SPEC-0005 REQ-11 — repos SHOULD be mounted read-only (:ro)
       # - /path/to/home-cluster:/repos/ansible:ro
       # - /path/to/docker-mirror:/repos/docker-mirror:ro
 

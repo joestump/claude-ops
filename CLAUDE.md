@@ -70,7 +70,7 @@ This is not a traditional codebase — there is no application code to compile o
 
 - **Checks and playbooks are markdown, not scripts.** Claude reads `checks/*.md` and `playbooks/*.md` as instructions and executes the appropriate commands itself. This means "adding a check" = writing a markdown file describing what to check and how.
 - **Mounted repos extend the agent.** Infrastructure repos mounted under `/repos/` can include `CLAUDE-OPS.md` (manifest) and `.claude-ops/` (custom checks, playbooks, skills, MCP configs). See `docs/repo-mounting.md` for the full spec.
-- **MCP configs are merged at startup.** The entrypoint merges `.claude-ops/mcp.json` from all mounted repos into the baseline `.claude/mcp.json` before each run. Repo configs override baseline on name collision.
+- **MCP configs are merged at startup.** The entrypoint merges `.claude-ops/mcp.json` from all mounted repos into the baseline `.claude/mcp.json` before each run. Repo configs override baseline on name collision. Repos are processed in alphabetical order; later repos override earlier ones. <!-- Governing: SPEC-0005 REQ-9 -->
 - **Cooldown state persists in `$CLAUDEOPS_STATE_DIR/cooldown.json`.** Max 2 restarts/service/4h, max 1 redeployment/service/24h.
 
 ### Skills
@@ -118,6 +118,10 @@ For each repo, look for:
 If neither exists, infer the repo's purpose by reading `README.md`, examining directory structure, and inspecting config files. Record the repo as discovered with limited context — this is not an error.
 
 **If no repos are found (empty or missing repos directory), stop immediately. Do not fall back to scanning the local system.** Only check services explicitly defined in a mounted repo's inventory. Never discover services by other means — no `docker ps`, no process scanning, no network probing. If it's not in a repo, it doesn't exist to you.
+
+<!-- Governing: SPEC-0005 REQ-11 — Read-Only Mount Convention -->
+
+**Read-only mounts**: Mounted repos SHOULD be mounted with the `:ro` (read-only) Docker volume flag. The agent MUST treat all files within mounted repo directories as read-only during monitoring. Do NOT modify, create, or delete files within any mounted repo directory.
 
 Extensions from all mounted repos are combined. Custom checks, playbooks, and skills follow the same permission tiers as built-in ones.
 

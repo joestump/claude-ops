@@ -43,21 +43,30 @@ if [ ! -f "${STATE_DIR}/cooldown.json" ]; then
 fi
 
 # Governing: SPEC-0010 REQ-8 (MCP Server Configuration — merge repo configs into baseline before each CLI invocation)
+# Governing: SPEC-0005 REQ-9 — MCP Configuration Merging
 # Merge MCP configs from mounted repos into the baseline config.
 # Each repo can provide .claude-ops/mcp.json with additional MCP servers.
 # These are merged (repo configs added to baseline) before each run.
+# Semantics:
+#   - Additive: repo-defined servers are added to the baseline set
+#   - Override: if a repo defines a server with the same name as a baseline server,
+#     the repo version wins
+#   - Deterministic order: repos are processed in alphabetical order by directory name
+#     (natural glob expansion), so later repos override earlier ones on name collision
+#   - Baseline is preserved on first run and restored each cycle, ensuring removed repos
+#     or changed configs take effect
 merge_mcp_configs() {
     local baseline="/app/.claude/mcp.json.baseline"
 
-    # Save baseline on first run
+    # Save baseline on first run (SPEC-0005 REQ-9 scenario: baseline preserved)
     if [ ! -f "$baseline" ]; then
         cp "$MCP_CONFIG" "$baseline"
     fi
 
-    # Start from baseline
+    # Restore baseline each cycle (SPEC-0005 REQ-9 scenario: baseline restored)
     cp "$baseline" "$MCP_CONFIG"
 
-    # Find and merge all repo-level MCP configs
+    # Find and merge all repo-level MCP configs (alphabetical order via glob)
     for repo_mcp in "${REPOS_DIR}"/*/.claude-ops/mcp.json; do
         [ -f "$repo_mcp" ] || continue
         repo_name=$(basename "$(dirname "$(dirname "$repo_mcp")")")
