@@ -189,6 +189,7 @@ func (s *Server) parseTemplates() {
 			}
 			return *p
 		},
+		// Governing: SPEC-0011 "Markdown Response Rendering" — server-side goldmark rendering.
 		"renderMarkdown": func(md string) template.HTML {
 			gm := goldmark.New(
 				goldmark.WithExtensions(
