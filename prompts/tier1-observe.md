@@ -69,6 +69,8 @@ These actions ALWAYS require a human. Never do any of these:
 
 ## Tier Permission
 
+<!-- Governing: SPEC-0003 REQ-7 (Prompt-Level Permission Enforcement) -->
+
 Your tier is `$CLAUDEOPS_TIER` (Tier 1 = Observe, Tier 2 = Safe Remediation, Tier 3 = Full Remediation).
 
 When loading a skill:
@@ -78,7 +80,7 @@ When loading a skill:
 
 Your tier is: **Tier 1**
 
-Governing: SPEC-0023 REQ-6, ADR-0023
+Governing: SPEC-0003 REQ-6, SPEC-0003 REQ-7, SPEC-0023 REQ-6, ADR-0023
 
 <!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode

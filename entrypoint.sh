@@ -8,9 +8,12 @@ MODEL="${CLAUDEOPS_TIER1_MODEL:-haiku}"
 STATE_DIR="${CLAUDEOPS_STATE_DIR:-/state}"
 RESULTS_DIR="${CLAUDEOPS_RESULTS_DIR:-/results}"
 REPOS_DIR="${CLAUDEOPS_REPOS_DIR:-/repos}"
-# Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
+# Governing: SPEC-0003 REQ-6 (Tool-Level Enforcement via --allowedTools),
+#            SPEC-0003 REQ-11 (Permission Modification Without Rebuild),
+#            SPEC-0010 REQ-5 "Tool filtering via --allowedTools",
+#            ADR-0023 (AllowedTools-Based Tier Enforcement)
 # — restricts available tools at the CLI runtime level, providing defense-in-depth
-# for the permission tier model. Tier 1 default: read-only tools.
+# for the permission tier model. Configurable via env var — changes take effect on next container restart (REQ-11).
 ALLOWED_TOOLS="${CLAUDEOPS_ALLOWED_TOOLS:-Bash,Read,Grep,Glob,Task,WebFetch}"
 # Governing: ADR-0023 (AllowedTools-Based Tier Enforcement), SPEC-0010 REQ-5
 # Default to Tier 1 blocklist (most restrictive)
@@ -96,7 +99,9 @@ while true; do
         ENV_CONTEXT="${ENV_CONTEXT} CLAUDEOPS_APPRISE_URLS=${CLAUDEOPS_APPRISE_URLS}"
     fi
 
-    # Governing: SPEC-0010 REQ-2 (Subprocess Invocation from Bash — CLI flags for all config, non-interactive, piped output)
+    # Governing: SPEC-0003 REQ-6 (--allowedTools hard boundary),
+    #            SPEC-0003 REQ-11 (prompt read at runtime — changes take effect next cycle),
+    #            SPEC-0010 REQ-2 (Subprocess Invocation from Bash — CLI flags for all config, non-interactive, piped output)
     # Run Claude with tier 1 prompt
     # Governing: SPEC-0010 REQ-5 — --allowedTools and --disallowedTools enforce
     # tool filtering at CLI runtime, independent of prompt-level instructions.

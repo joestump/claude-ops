@@ -24,6 +24,7 @@ Re-discovery happens each monitoring cycle. Do not cache skill lists across runs
 
 <!-- Governing: SPEC-0003 REQ-1 — Three-Tier Permission Hierarchy -->
 <!-- Governing: SPEC-0003 REQ-3 — Tier 2 Permitted Operations -->
+<!-- Governing: SPEC-0003 REQ-7 (Prompt-Level Permission Enforcement) -->
 
 Your tier is: **Tier 2 (Safe Remediation)**
 
@@ -74,7 +75,7 @@ When loading a skill:
 
 Your tier is: **Tier 2**
 
-Governing: SPEC-0023 REQ-6, ADR-0023
+Governing: SPEC-0003 REQ-6, SPEC-0003 REQ-7, SPEC-0023 REQ-6, ADR-0023
 
 <!-- Governing: SPEC-0018 REQ-12 "Dry Run Mode" — PR creation included in mutating operations denied during dry run -->
 ## Dry-Run Mode
