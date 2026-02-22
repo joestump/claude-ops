@@ -28,6 +28,7 @@
                 <div class="meta-label">Duration</div>
                 <div class="font-mono text-xs">{{fmtDuration .Session.StartedAt .Session.EndedAt}}</div>
             </div>
+            <!-- Governing: SPEC-0012 REQ "Session Detail Shows Trigger Metadata" -->
             <div>
                 <div class="meta-label">Trigger</div>
                 <div>{{.Session.Trigger}}</div>
