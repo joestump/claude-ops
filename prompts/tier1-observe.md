@@ -158,6 +158,9 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 
 <!-- Governing: SPEC-0005 REQ-1 (Repo Discovery via Directory Scanning), REQ-4 (Extension Directory Discovery) -->
 <!-- Governing: SPEC-0002 REQ-7 — Repo-Specific Extensions via Markdown -->
+<!-- Governing: SPEC-0005 REQ-11 — Read-Only Mount Convention -->
+
+**Read-only treatment**: All files within mounted repo directories (`/repos/*/`) MUST be treated as read-only. Do NOT modify, create, or delete any files within mounted repos during monitoring. Repos are typically mounted with the `:ro` Docker volume flag.
 
 Scan `/repos` for mounted repositories. This scan MUST be performed every cycle so that newly mounted or removed repos are detected without requiring a container restart.
 
@@ -185,10 +188,11 @@ Scan `/repos` for mounted repositories. This scan MUST be performed every cycle 
    - Record that the repo was discovered but has limited operational context — this is not an error
 
 6. Check for a `.claude-ops/` directory containing repo-specific extensions:
+   <!-- Governing: SPEC-0005 REQ-9 — MCP Configuration Merging -->
    - `.claude-ops/checks/` — additional health checks to run alongside built-in checks
    - `.claude-ops/playbooks/` — remediation procedures specific to this repo's services
    - `.claude-ops/skills/` — custom capabilities (maintenance tasks, reporting, etc.)
-   - `.claude-ops/mcp.json` — additional MCP server definitions (merged by entrypoint)
+   - `.claude-ops/mcp.json` — additional MCP server definitions (merged into baseline by entrypoint before each cycle, with additive semantics and same-name override)
    - **Missing subdirectories are not errors** — a repo may provide any subset of these
 7. Build a unified map of available repos, their capabilities, extensions, and rules
 

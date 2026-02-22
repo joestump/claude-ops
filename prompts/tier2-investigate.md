@@ -113,6 +113,7 @@ MUST NOT modify:
 - Secrets and credentials (passwords, API keys, tokens)
 - Claude Ops runbook and prompt files (`prompts/`, `CLAUDE.md`, `entrypoint.sh`)
 - Docker volumes under `/volumes/`
+- Files within mounted repo directories (`/repos/*/`) — treat as read-only <!-- Governing: SPEC-0005 REQ-11 -->
 
 If an operation would violate a scope rule, MUST refuse and report:
 `[scope-violation] Refused: <operation> would modify <path>, which is denied by scope rule: <rule>`
