@@ -35,7 +35,7 @@ type Session struct {
 	DurationMs *int64
 	Trigger         string  // "scheduled" or "manual"
 	PromptText      *string // custom prompt text for ad-hoc sessions
-	ParentSessionID *int64  // links to parent session for escalation chains
+	ParentSessionID *int64  // Governing: SPEC-0016 REQ "Database Schema for Escalation Chains" — links to parent session
 	Summary         *string // LLM-generated summary of session response — Governing: SPEC-0021 REQ "Summary Persistence"
 }
 
@@ -190,6 +190,7 @@ func (d *DB) UpdateSessionStatus(id int64, status string) error {
 }
 
 // UpdateSessionResult stores the final response and metadata from a completed session.
+// Governing: SPEC-0016 REQ "Per-Tier Cost Attribution" — each tier records cost_usd, num_turns, duration_ms independently
 func (d *DB) UpdateSessionResult(id int64, response string, costUSD float64, numTurns int, durationMs int64) error {
 	_, err := d.conn.Exec(
 		`UPDATE sessions SET response = ?, cost_usd = ?, num_turns = ?, duration_ms = ? WHERE id = ?`,
@@ -502,6 +503,7 @@ func (d *DB) LatestSession() (*Session, error) {
 
 // GetEscalationChain walks parent_session_id links from the given session
 // to the root, then returns the chain ordered from root to leaf.
+// Governing: SPEC-0016 REQ "Database Schema for Escalation Chains" — full chain queryable
 func (d *DB) GetEscalationChain(sessionID int64) ([]Session, error) {
 	rows, err := d.conn.Query(`
 		WITH RECURSIVE chain(id) AS (
@@ -531,6 +533,7 @@ func (d *DB) GetEscalationChain(sessionID int64) ([]Session, error) {
 }
 
 // GetChildSessions returns direct child sessions of the given session.
+// Governing: SPEC-0016 REQ "Dashboard Escalation Chain Display" — child link for session detail
 func (d *DB) GetChildSessions(sessionID int64) ([]Session, error) {
 	rows, err := d.conn.Query(
 		`SELECT `+sessionColumns+` FROM sessions WHERE parent_session_id = ? ORDER BY id ASC`, sessionID,

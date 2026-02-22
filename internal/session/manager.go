@@ -258,6 +258,8 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 
 	// Governing: SPEC-0016 "Supervisor Escalation Logic" — session record with parent_session_id
 	// Insert session record into DB.
+	// Governing: SPEC-0016 REQ "Per-Tier Cost Attribution" — each tier gets its own session record
+	// Governing: SPEC-0016 REQ "Database Schema for Escalation Chains" — parent_session_id links chain
 	startedAt := time.Now().UTC().Format(time.RFC3339)
 	sess := &db.Session{
 		Tier:            tier,
