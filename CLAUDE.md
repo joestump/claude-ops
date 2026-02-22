@@ -198,6 +198,12 @@ apprise -t "Title" -b "Message body" "$CLAUDEOPS_APPRISE_URLS"
 - **Auto-remediated**: immediately after successful remediation — what was wrong, what you did, verification result
 - **Needs attention**: immediately when remediation fails or cooldown exceeded — what's wrong, what you tried, why it didn't work
 
+<!-- Governing: SPEC-0004 REQ-7 — Tier-Specific Notification Permissions -->
+### Notification permissions by tier
+- **Tier 1** MAY send daily digest notifications and cooldown-exceeded alerts.
+- **Tier 2** MUST send auto-remediation reports after successful remediations. MUST send human attention alerts when remediation fails or cooldown limits are exceeded.
+- **Tier 3** MUST send a detailed notification at the end of every execution, regardless of outcome.
+
 ## Model Escalation
 
 When spawning subagents for escalation, use the Task tool:
