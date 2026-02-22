@@ -1,3 +1,5 @@
+<!-- Governing: SPEC-0020 "SSH Probing Order", "SSH Connection Parameters" — probes root, manifest user, common defaults with BatchMode=yes and 5s timeout -->
+
 # Skill: SSH Access Discovery
 
 Discover the SSH access method for each managed host at the start of every monitoring cycle, before any health checks run. The result is a host access map that all tiers use to construct SSH commands for the rest of the run.
