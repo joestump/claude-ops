@@ -43,7 +43,19 @@ func (r *CLIRunner) Start(ctx context.Context, model string, promptContent strin
 	if disallowedTools != "" {
 		args = append(args, "--disallowedTools", disallowedTools)
 	}
-	args = append(args, "--append-system-prompt", "Environment: "+appendSystemPrompt)
+	// Governing: SPEC-0010 REQ-6 — runtime context injection via --append-system-prompt.
+	// Prepend an explicit autonomous-mode directive so it appears at the END of the system
+	// prompt (highest model priority). Without this, CLAUDE.md's developer-tooling context
+	// (build commands, ADRs, coding workflows) causes the agent to greet users and offer
+	// coding assistance instead of immediately executing the health check workflow.
+	const autonomousDirective = "AUTONOMOUS AGENT MODE: You are running as a scheduled, " +
+		"non-interactive infrastructure monitoring agent inside a Docker container. " +
+		"The CLAUDE.md in your working directory is the development guide for the Claude Ops " +
+		"codebase — you are NOT here to develop or modify it. Do NOT act as a coding assistant. " +
+		"Do NOT check git status, offer help menus, or ask for user direction. " +
+		"BEGIN IMMEDIATELY by executing the infrastructure health check workflow described " +
+		"in the user prompt above.\n\n"
+	args = append(args, "--append-system-prompt", autonomousDirective+"Environment: "+appendSystemPrompt)
 
 	cmd := exec.Command("claude", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // Governing: SPEC-0008 REQ-7 — process group isolation for signal forwarding.
