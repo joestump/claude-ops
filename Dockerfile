@@ -30,7 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     lsb-release \
     && rm -rf /var/lib/apt/lists/*
 
-# GitHub CLI, Docker CLI, HashiCorp (Vault + Terraform), Helm — add apt repos then install together
+# GitHub CLI, Docker CLI, HashiCorp (Vault + Terraform) — add apt repos then install together
 RUN mkdir -p /usr/share/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
        | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
@@ -44,17 +44,19 @@ RUN mkdir -p /usr/share/keyrings \
        | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
     && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
        > /etc/apt/sources.list.d/hashicorp.list \
-    && curl -fsSL https://baltocdn.com/helm/signing.asc \
-       | gpg --dearmor -o /usr/share/keyrings/helm-archive-keyring.gpg \
-    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/helm-archive-keyring.gpg] https://baltocdn.com/helm/stable/debian/ all main" \
-       > /etc/apt/sources.list.d/helm-stable-debian.list \
     && apt-get update && apt-get install -y --no-install-recommends \
        gh \
        docker-ce-cli \
        vault \
        terraform \
-       helm \
     && rm -rf /var/lib/apt/lists/*
+
+# Helm — baltocdn.com apt repo is unreachable from some CI environments; install binary from GitHub releases instead
+RUN ARCH=$(dpkg --print-architecture) \
+    && HELM_VERSION=3.17.1 \
+    && curl -fsSL "https://github.com/helm/helm/releases/download/v${HELM_VERSION}/helm-v${HELM_VERSION}-linux-${ARCH}.tar.gz" \
+       | tar -xz --strip-components=1 -C /usr/local/bin "linux-${ARCH}/helm" \
+    && chmod +x /usr/local/bin/helm
 
 # Gitea CLI (tea) — no apt repo; install binary for current arch
 RUN ARCH=$(dpkg --print-architecture) \
