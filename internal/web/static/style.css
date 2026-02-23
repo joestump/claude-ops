@@ -271,6 +271,14 @@
     max-width: 60ch;
 }
 
+/* Event marker line rendered as badge in the activity log */
+.term-event-block {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.125rem 0;
+}
+
 /* Tool result block */
 .term-result-block {
     margin: 0 0 0.5rem 0;

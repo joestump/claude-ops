@@ -769,7 +769,7 @@ func (s *Server) handleTriggerSession(w http.ResponseWriter, r *http.Request) {
 		log.Printf("handleTriggerSession: LLM routed %q → tier %d", prompt, startTier)
 	}
 
-	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier)
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier, "manual")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return

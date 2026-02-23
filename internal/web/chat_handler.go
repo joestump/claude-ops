@@ -71,7 +71,7 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	startTier := modelToTier(req.Model)
 
 	// Governing: SPEC-0024 REQ-4 — trigger ad-hoc session via existing session manager
-	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier)
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier, "api")
 	if err != nil {
 		// Governing: SPEC-0024 REQ-4 — session conflict returns 429
 		writeChatError(w, http.StatusTooManyRequests, "A session is already running. Try again shortly.", "rate_limit_error", "rate_limit_exceeded")

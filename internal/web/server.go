@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/joestump/claude-ops/api"
@@ -20,8 +21,10 @@ import (
 )
 
 // eventBadgeRe matches [EVENT:level] and [EVENT:level:service] markers in rendered HTML.
+// Accepts any level string so agent-generated variants (health-check, success, ok, etc.)
+// are captured and normalized rather than silently dropped.
 // Message capture stops before the next bracket marker or HTML tag.
-var eventBadgeRe = regexp.MustCompile(`\[EVENT:(info|warning|critical)(?::([a-zA-Z0-9_-]+))?\]\s*([^\[<]+)`)
+var eventBadgeRe = regexp.MustCompile(`\[EVENT:([a-zA-Z0-9_-]+)(?::([a-zA-Z0-9_-]+))?\]\s*([^\[<]+)`)
 
 // memoryBadgeRe matches [MEMORY:category] and [MEMORY:category:service] markers in rendered HTML.
 var memoryBadgeRe = regexp.MustCompile(`\[MEMORY:([a-z]+)(?::([a-zA-Z0-9_-]+))?\]\s*([^\[<]+)`)
@@ -46,7 +49,7 @@ type SSEHub interface {
 // SessionTrigger is the interface for triggering ad-hoc sessions.
 // Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
 type SessionTrigger interface {
-	TriggerAdHoc(prompt string, startTier int) (int64, error)
+	TriggerAdHoc(prompt string, startTier int, trigger string) (int64, error)
 	IsRunning() bool
 	Stop() bool
 }
@@ -218,17 +221,22 @@ func (s *Server) parseTemplates() {
 				return template.HTML(template.HTMLEscapeString(md))
 			}
 			// Replace [EVENT:level] and [EVENT:level:service] markers with dashboard badges.
+			// Normalize agent-generated level variants to the canonical set.
 			html := eventBadgeRe.ReplaceAllStringFunc(buf.String(), func(match string) string {
 				m := eventBadgeRe.FindStringSubmatch(match)
-				level, service, msg := m[1], m[2], m[3]
+				rawLevel, service, msg := m[1], m[2], m[3]
+				// Normalize to canonical level.
+				displayLevel := "info"
 				cls := "level-info"
-				switch level {
-				case "warning":
+				switch strings.ToLower(rawLevel) {
+				case "warning", "warn", "degraded":
+					displayLevel = "warning"
 					cls = "level-warning"
-				case "critical":
+				case "critical", "error", "err", "fatal", "failure", "failed":
+					displayLevel = "critical"
 					cls = "level-critical"
 				}
-				badge := `<span class="badge-pill ` + cls + `">` + level + `</span>`
+				badge := `<span class="badge-pill ` + cls + `">` + displayLevel + `</span>`
 				if service != "" {
 					badge += ` <span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">` + template.HTMLEscapeString(service) + `</span>`
 				}

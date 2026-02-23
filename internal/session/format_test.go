@@ -791,6 +791,59 @@ func TestFormatStreamEventHTML_HTMLEscaping(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
+// FormatStreamEventHTML – event badge rendering in assistant text
+// ---------------------------------------------------------------------------
+
+func TestFormatStreamEventHTML_AssistantTextEventBadge(t *testing.T) {
+	// Regression: [EVENT:health-check] (non-canonical level) must render as a badge,
+	// not as raw text. The level normalises to "info".
+	raw := `{"type":"assistant","message":{"content":[{"type":"text","text":"[EVENT:health-check] Tier 1 observation cycle complete: all monitored services operational."}]}}`
+	got := FormatStreamEventHTML(raw)
+	if strings.Contains(got, "[EVENT:health-check]") {
+		t.Error("raw [EVENT:...] marker should not appear in output — should be replaced by badge")
+	}
+	if !strings.Contains(got, "term-event-block") {
+		t.Error("expected term-event-block class for event marker line")
+	}
+	if !strings.Contains(got, "badge-pill") {
+		t.Error("expected badge-pill class")
+	}
+	if !strings.Contains(got, "level-info") {
+		t.Error("expected level-info class (health-check normalises to info)")
+	}
+	if !strings.Contains(got, "Tier 1 observation cycle complete") {
+		t.Error("expected message text in output")
+	}
+}
+
+func TestFormatStreamEventHTML_AssistantTextMixedEventAndPlain(t *testing.T) {
+	// Text block with an event marker line followed by plain text.
+	raw := `{"type":"assistant","message":{"content":[{"type":"text","text":"Checking services...\n[EVENT:info] All healthy\nDone."}]}}`
+	got := FormatStreamEventHTML(raw)
+	if !strings.Contains(got, "term-event-block") {
+		t.Error("expected term-event-block for event line")
+	}
+	if !strings.Contains(got, "term-assistant") {
+		t.Error("expected term-assistant class for plain text lines")
+	}
+}
+
+func TestFormatStreamEventHTML_AssistantTextNoEventMarker(t *testing.T) {
+	// Plain text without any event marker must use term-assistant class unchanged.
+	raw := `{"type":"assistant","message":{"content":[{"type":"text","text":"Everything is fine."}]}}`
+	got := FormatStreamEventHTML(raw)
+	if strings.Contains(got, "term-event-block") {
+		t.Error("no event marker present — should not have term-event-block class")
+	}
+	if !strings.Contains(got, "term-assistant") {
+		t.Error("expected term-assistant class for plain text")
+	}
+	if !strings.Contains(got, "Everything is fine.") {
+		t.Error("expected text content in output")
+	}
+}
+
+// ---------------------------------------------------------------------------
 // parseMarkers (generic DRY parser)
 // ---------------------------------------------------------------------------
 

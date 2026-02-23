@@ -18,11 +18,12 @@ import (
 	"github.com/joestump/claude-ops/internal/hub"
 )
 
-// adHocRequest carries the prompt and start tier for a manually triggered session.
+// adHocRequest carries the prompt, start tier, and trigger label for a manually triggered session.
 // Governing: SPEC-0024 REQ-4 (Session Triggering with startTier), ADR-0020 (Tier Selection)
 type adHocRequest struct {
 	prompt    string
 	startTier int
+	trigger   string // "manual" for web UI, "api" for Ollama/OpenAI API callers
 }
 
 // Governing: SPEC-0012 "Channel-Based Trigger in Session Manager"
@@ -78,7 +79,7 @@ func (m *Manager) RawHub() *hub.Hub {
 // Returns the session ID once created, or error if busy.
 // Governing: SPEC-0012 "TriggerAdHoc Public API" — channel-based trigger, busy rejection
 // Governing: SPEC-0024 REQ-4 (Session Triggering with startTier), ADR-0020 (Tier Selection)
-func (m *Manager) TriggerAdHoc(prompt string, startTier int) (int64, error) {
+func (m *Manager) TriggerAdHoc(prompt string, startTier int, trigger string) (int64, error) {
 	if prompt == "" {
 		return 0, fmt.Errorf("prompt is required")
 	}
@@ -86,6 +87,10 @@ func (m *Manager) TriggerAdHoc(prompt string, startTier int) (int64, error) {
 	// Clamp startTier to valid range.
 	if startTier < 1 || startTier > m.cfg.MaxTier {
 		startTier = 1
+	}
+
+	if trigger == "" {
+		trigger = "manual"
 	}
 
 	m.mu.Lock()
@@ -96,7 +101,7 @@ func (m *Manager) TriggerAdHoc(prompt string, startTier int) (int64, error) {
 	m.mu.Unlock()
 
 	select {
-	case m.triggerCh <- adHocRequest{prompt: prompt, startTier: startTier}:
+	case m.triggerCh <- adHocRequest{prompt: prompt, startTier: startTier, trigger: trigger}:
 		// Wait for the session ID to be assigned.
 		id := <-m.lastAdHocID
 		return id, nil
@@ -143,7 +148,7 @@ func (m *Manager) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case req := <-m.triggerCh:
-			m.runAdHoc(ctx, req.prompt, req.startTier)
+			m.runAdHoc(ctx, req.prompt, req.startTier, req.trigger)
 		case <-time.After(time.Duration(m.cfg.Interval) * time.Second):
 		}
 	}
@@ -151,8 +156,8 @@ func (m *Manager) Run(ctx context.Context) error {
 
 // Governing: SPEC-0012 REQ "Ad-Hoc Session Uses runOnce with Custom Prompt" (custom prompt via promptOverride, identical lifecycle to scheduled)
 // runAdHoc handles a manually triggered session with full escalation support.
-func (m *Manager) runAdHoc(ctx context.Context, prompt string, startTier int) {
-	m.runEscalationChain(ctx, "manual", &prompt, startTier)
+func (m *Manager) runAdHoc(ctx context.Context, prompt string, startTier int, trigger string) {
+	m.runEscalationChain(ctx, trigger, &prompt, startTier)
 }
 
 // Governing: SPEC-0016 "Supervisor Escalation Logic" — controls all escalation decisions
@@ -772,7 +777,7 @@ func FormatStreamEventHTML(raw string) string {
 			case "text":
 				text := strings.TrimSpace(stripANSI(block.Text))
 				if text != "" {
-					parts = append(parts, `<div class="term-line term-assistant">`+htmlEscape(text)+`</div>`)
+					parts = append(parts, renderAssistantTextHTML(text))
 				}
 			case "tool_use":
 				parts = append(parts, formatToolUseHTML(block))
@@ -821,6 +826,42 @@ func formatToolUseHTML(block contentBlock) string {
 	}
 	b.WriteString(`</div>`)
 	return b.String()
+}
+
+// renderAssistantTextHTML renders an assistant text block as HTML, converting
+// [EVENT:...] marker lines into styled badge elements so they are visually
+// distinct in the live activity log terminal (matching the Response card rendering).
+func renderAssistantTextHTML(text string) string {
+	var parts []string
+	for _, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		if m := eventMarkerRe.FindStringSubmatch(line); m != nil {
+			level := normalizeEventLevel(m[1])
+			service := m[2]
+			msg := strings.TrimSpace(m[3])
+			cls := "level-info"
+			switch level {
+			case "warning":
+				cls = "level-warning"
+			case "critical":
+				cls = "level-critical"
+			}
+			badge := `<span class="badge-pill ` + cls + `">` + level + `</span>`
+			if service != "" {
+				badge += ` <span class="text-xs font-mono text-muted">` + htmlEscape(service) + `</span>`
+			}
+			parts = append(parts, `<div class="term-event-block">`+badge+` `+htmlEscape(msg)+`</div>`)
+		} else {
+			parts = append(parts, `<div class="term-line term-assistant">`+htmlEscape(line)+`</div>`)
+		}
+	}
+	if len(parts) == 0 {
+		return ""
+	}
+	return strings.Join(parts, "")
 }
 
 // extractToolSummary pulls the most useful field from a tool's input for display.

@@ -130,7 +130,7 @@ func (s *Server) ollamaDispatch(w http.ResponseWriter, r *http.Request, generate
 	}
 
 	startTier := modelToTier(req.Model)
-	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier)
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier, "api")
 	if err != nil {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusTooManyRequests)

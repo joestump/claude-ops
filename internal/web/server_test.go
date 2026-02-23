@@ -22,13 +22,15 @@ type mockTrigger struct {
 	nextErr       error
 	lastPrompt    string // captures the prompt passed to TriggerAdHoc
 	lastStartTier int    // captures the startTier passed to TriggerAdHoc
+	lastTrigger   string // captures the trigger passed to TriggerAdHoc
 	onTrigger     func(id int64) // optional callback after trigger returns
 }
 
 // Governing: SPEC-0024 REQ-4 (Session Triggering with startTier), ADR-0020 (Tier Selection)
-func (m *mockTrigger) TriggerAdHoc(prompt string, startTier int) (int64, error) {
+func (m *mockTrigger) TriggerAdHoc(prompt string, startTier int, trigger string) (int64, error) {
 	m.lastPrompt = prompt
 	m.lastStartTier = startTier
+	m.lastTrigger = trigger
 	if m.nextErr != nil {
 		return 0, m.nextErr
 	}
