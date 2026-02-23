@@ -18,6 +18,13 @@ import (
 	"github.com/joestump/claude-ops/internal/hub"
 )
 
+// adHocRequest carries the prompt and start tier for a manually triggered session.
+// Governing: SPEC-0024 REQ-4 (Session Triggering with startTier), ADR-0020 (Tier Selection)
+type adHocRequest struct {
+	prompt    string
+	startTier int
+}
+
 // Governing: SPEC-0012 "Channel-Based Trigger in Session Manager"
 // Manager runs Claude CLI sessions on a recurring interval.
 // Governing: SPEC-0008 REQ-5 "Claude Code CLI Session Management"
@@ -39,7 +46,7 @@ type Manager struct {
 	running     bool
 	cmd         *exec.Cmd
 	// Governing: SPEC-0012 "Channel-Based Trigger in Session Manager" — buffered channel (size 1)
-	triggerCh   chan string
+	triggerCh   chan adHocRequest
 	lastAdHocID chan int64
 }
 
@@ -52,7 +59,7 @@ func New(cfg *config.Config, database *db.DB, h *hub.Hub, runner ProcessRunner) 
 		rawHub:      hub.New(), // Governing: SPEC-0024 REQ-5 — raw NDJSON hub for OpenAI streaming
 		runner:      runner,
 		redactor:    NewRedactionFilter(),
-		triggerCh:   make(chan string, 1),
+		triggerCh:   make(chan adHocRequest, 1),
 		lastAdHocID: make(chan int64, 1),
 	}
 }
@@ -68,9 +75,15 @@ func (m *Manager) RawHub() *hub.Hub {
 // TriggerAdHoc sends a prompt to trigger an immediate session.
 // Returns the session ID once created, or error if busy.
 // Governing: SPEC-0012 "TriggerAdHoc Public API" — channel-based trigger, busy rejection
-func (m *Manager) TriggerAdHoc(prompt string) (int64, error) {
+// Governing: SPEC-0024 REQ-4 (Session Triggering with startTier), ADR-0020 (Tier Selection)
+func (m *Manager) TriggerAdHoc(prompt string, startTier int) (int64, error) {
 	if prompt == "" {
 		return 0, fmt.Errorf("prompt is required")
+	}
+
+	// Clamp startTier to valid range.
+	if startTier < 1 || startTier > m.cfg.MaxTier {
+		startTier = 1
 	}
 
 	m.mu.Lock()
@@ -81,7 +94,7 @@ func (m *Manager) TriggerAdHoc(prompt string) (int64, error) {
 	m.mu.Unlock()
 
 	select {
-	case m.triggerCh <- prompt:
+	case m.triggerCh <- adHocRequest{prompt: prompt, startTier: startTier}:
 		// Wait for the session ID to be assigned.
 		id := <-m.lastAdHocID
 		return id, nil
@@ -105,7 +118,7 @@ func (m *Manager) IsRunning() bool {
 // — invokes sessions at the configured interval after each completion.
 func (m *Manager) Run(ctx context.Context) error {
 	for {
-		m.runEscalationChain(ctx, "scheduled", nil)
+		m.runEscalationChain(ctx, "scheduled", nil, 1)
 
 		fmt.Printf("[%s] Sleeping %ds until next run...\n\n",
 			time.Now().UTC().Format(time.RFC3339), m.cfg.Interval)
@@ -114,8 +127,8 @@ func (m *Manager) Run(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return nil
-		case prompt := <-m.triggerCh:
-			m.runAdHoc(ctx, prompt)
+		case req := <-m.triggerCh:
+			m.runAdHoc(ctx, req.prompt, req.startTier)
 		case <-time.After(time.Duration(m.cfg.Interval) * time.Second):
 		}
 	}
@@ -123,16 +136,16 @@ func (m *Manager) Run(ctx context.Context) error {
 
 // Governing: SPEC-0012 REQ "Ad-Hoc Session Uses runOnce with Custom Prompt" (custom prompt via promptOverride, identical lifecycle to scheduled)
 // runAdHoc handles a manually triggered session with full escalation support.
-func (m *Manager) runAdHoc(ctx context.Context, prompt string) {
-	m.runEscalationChain(ctx, "manual", &prompt)
+func (m *Manager) runAdHoc(ctx context.Context, prompt string, startTier int) {
+	m.runEscalationChain(ctx, "manual", &prompt, startTier)
 }
 
 // Governing: SPEC-0016 "Supervisor Escalation Logic" — controls all escalation decisions
-// runEscalationChain runs Tier 1 and escalates to higher tiers if the agent
+// runEscalationChain runs Tier 1 (or startTier) and escalates to higher tiers if the agent
 // writes a handoff file requesting it. promptOverride is used for ad-hoc
 // sessions where the first tier uses a custom prompt instead of the standard
 // prompt file.
-func (m *Manager) runEscalationChain(ctx context.Context, trigger string, promptOverride *string) {
+func (m *Manager) runEscalationChain(ctx context.Context, trigger string, promptOverride *string, startTier int) {
 	// Governing: SPEC-0015 "Staleness Decay" — 0.1/week after 30-day grace, deactivate below 0.3
 	// Decay stale memories before each escalation chain.
 	if err := m.db.DecayStaleMemories(30, 0.1); err != nil {
@@ -157,7 +170,7 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 	}
 
 	var parentSessionID *int64
-	currentTier := 1
+	currentTier := startTier
 	handoffContext := ""
 	currentTrigger := trigger
 
@@ -238,6 +251,27 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 		fmt.Printf("[%s] Escalating to tier %d for services %v\n",
 			time.Now().UTC().Format(time.RFC3339), currentTier, h.ServicesAffected)
 	}
+}
+
+// tierToolConfig returns the allowed and disallowed tool strings for the given tier,
+// falling back to the global AllowedTools/DisallowedTools if no per-tier config is set.
+// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
+func (m *Manager) tierToolConfig(tier int) (allowed, disallowed string) {
+	switch tier {
+	case 2:
+		if m.cfg.Tier2AllowedTools != "" {
+			return m.cfg.Tier2AllowedTools, m.cfg.Tier2DisallowedTools
+		}
+	case 3:
+		if m.cfg.Tier3AllowedTools != "" {
+			return m.cfg.Tier3AllowedTools, m.cfg.Tier3DisallowedTools
+		}
+	}
+	// Tier 1 or fallback
+	if m.cfg.Tier1AllowedTools != "" {
+		return m.cfg.Tier1AllowedTools, m.cfg.Tier1DisallowedTools
+	}
+	return m.cfg.AllowedTools, m.cfg.DisallowedTools
 }
 
 // runTier executes a single Claude CLI session for a specific tier.
@@ -343,7 +377,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	// prompt content, allowed tools, and system prompt arguments.
 	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement"
 	// — passes both --allowedTools and --disallowedTools to the CLI subprocess.
-	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, m.cfg.AllowedTools, m.cfg.DisallowedTools, envCtx)
+	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
+	allowedTools, disallowedTools := m.tierToolConfig(tier)
+	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, allowedTools, disallowedTools, envCtx)
 	if err != nil {
 		m.finalizeSession(sessionID, "failed", nil, &logPath)
 		return 0, fmt.Errorf("start claude: %w", err)

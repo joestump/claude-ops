@@ -18,6 +18,13 @@ type Config struct {
 	ReposDir      string
 	AllowedTools    string // Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
 	DisallowedTools string // Governing: ADR-0023 "AllowedTools-Based Tier Enforcement" — command-prefix blocklist per tier
+	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
+	Tier1AllowedTools    string
+	Tier1DisallowedTools string
+	Tier2AllowedTools    string
+	Tier2DisallowedTools string
+	Tier3AllowedTools    string
+	Tier3DisallowedTools string
 	DryRun        bool
 	AppriseURLs   string
 	MCPConfig     string
@@ -45,6 +52,12 @@ func Load() Config {
 		ReposDir:      viper.GetString("repos_dir"),
 		AllowedTools:    viper.GetString("allowed_tools"),
 		DisallowedTools: viper.GetString("disallowed_tools"),
+		Tier1AllowedTools:    viper.GetString("tier1_allowed_tools"),
+		Tier1DisallowedTools: viper.GetString("tier1_disallowed_tools"),
+		Tier2AllowedTools:    viper.GetString("tier2_allowed_tools"),
+		Tier2DisallowedTools: viper.GetString("tier2_disallowed_tools"),
+		Tier3AllowedTools:    viper.GetString("tier3_allowed_tools"),
+		Tier3DisallowedTools: viper.GetString("tier3_disallowed_tools"),
 		DryRun:        viper.GetBool("dry_run"),
 		AppriseURLs:   viper.GetString("apprise_urls"),
 		MCPConfig:     viper.GetString("mcp_config"),

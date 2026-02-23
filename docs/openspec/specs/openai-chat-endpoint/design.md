@@ -9,28 +9,32 @@ Client (iOS/Android app)
     │
     │  POST /v1/chat/completions
     │  Authorization: Bearer <key>
-    │  {"messages":[{"role":"user","content":"restart jellyfin"}],"stream":true}
+    │  {"model":"claude-ops-tier2","messages":[{"role":"user","content":"restart jellyfin"}],"stream":true}
     ▼
 internal/web/chat_handler.go
     │  1. Authenticate (constant-time compare vs CLAUDEOPS_CHAT_API_KEY)
     │  2. Extract last user message as prompt
-    │  3. Call Manager.TriggerAdHoc(prompt)  ──────────────────────────────┐
-    │  4. Subscribe to session output stream                                │
-    │                                                                       ▼
+    │  3. Map model field → startTier (claude-ops-tier2 → 2)
+    │  4. Call Manager.TriggerAdHoc(prompt, startTier)  ─────────────────────┐
+    │  5. Subscribe to session output stream                                  │
+    │                                                                         ▼
     │                                               internal/session/manager.go
-    │                                                   │  (existing ad-hoc trigger)
+    │                                                   │  runEscalationChain(startTier=2)
     │                                                   │  Spawns CLI subprocess
+    │                                                   │  --model tier2model
+    │                                                   │  --allowedTools Tier2AllowedTools
+    │                                                   │  --disallowedTools Tier2DisallowedTools
     │                                                   │  --output-format stream-json
     │                                                   │
     │                                               stream-json events
     │                                                   │
-    │  5. Transform stream-json events → OpenAI SSE chunks  ◄──────────────┘
+    │  6. Transform stream-json events → OpenAI SSE chunks  ◄────────────────┘
     │     (internal/web/openai.go)
     │
     ▼
 SSE stream to client:
-    data: {"choices":[{"delta":{"role":"assistant","content":"Checking..."}}]}
-    data: {"choices":[{"delta":{"tool_calls":[{"function":{"name":"Bash",...}}]}}]}
+    data: {"choices":[{"delta":{"role":"assistant","content":"Restarting jellyfin..."}}]}
+    data: {"choices":[{"delta":{"tool_calls":[{"function":{"name":"Bash","arguments":"{\"command\":\"docker restart jellyfin\"}"}}]}}]}
     data: [DONE]
 ```
 
@@ -129,10 +133,64 @@ type ToolFunction struct {
 
 These types are only used internally — they are not added to the OpenAPI spec at `/api/openapi.yaml` since `/v1/` routes are outside the `/api/v1/` namespace.
 
+## Tier Selection
+
+`handleChatCompletions` maps the `model` request field to a starting tier before calling `TriggerAdHoc`:
+
+```go
+func modelToTier(model string) int {
+    switch model {
+    case "claude-ops-tier2":
+        return 2
+    case "claude-ops-tier3":
+        return 3
+    default: // "claude-ops", "claude-ops-tier1", or any unrecognized value
+        return 1
+    }
+}
+```
+
+`TriggerAdHoc(prompt string, startTier int)` passes the tier to `runEscalationChain(ctx, trigger, promptOverride, startTier)`, which sets `currentTier = startTier` instead of always beginning at 1.
+
+## Per-Tier Tool Config
+
+`Config` gains six new fields (loaded from env vars with the `CLAUDEOPS_` prefix):
+
+```go
+Tier1AllowedTools    string // CLAUDEOPS_TIER1_ALLOWED_TOOLS
+Tier1DisallowedTools string // CLAUDEOPS_TIER1_DISALLOWED_TOOLS
+Tier2AllowedTools    string // CLAUDEOPS_TIER2_ALLOWED_TOOLS
+Tier2DisallowedTools string // CLAUDEOPS_TIER2_DISALLOWED_TOOLS
+Tier3AllowedTools    string // CLAUDEOPS_TIER3_ALLOWED_TOOLS
+Tier3DisallowedTools string // CLAUDEOPS_TIER3_DISALLOWED_TOOLS
+```
+
+`runTier` selects the appropriate values by tier number, falling back to the shared `AllowedTools`/`DisallowedTools` if the tier-specific fields are empty:
+
+```go
+func (m *Manager) tierToolConfig(tier int) (allowed, disallowed string) {
+    switch tier {
+    case 2:
+        if m.cfg.Tier2AllowedTools != "" {
+            return m.cfg.Tier2AllowedTools, m.cfg.Tier2DisallowedTools
+        }
+    case 3:
+        if m.cfg.Tier3AllowedTools != "" {
+            return m.cfg.Tier3AllowedTools, m.cfg.Tier3DisallowedTools
+        }
+    }
+    // Tier 1 or fallback
+    if m.cfg.Tier1AllowedTools != "" {
+        return m.cfg.Tier1AllowedTools, m.cfg.Tier1DisallowedTools
+    }
+    return m.cfg.AllowedTools, m.cfg.DisallowedTools
+}
+```
+
 ## Session Conflict Handling
 
 ```go
-err := s.sessionManager.TriggerAdHoc(prompt)
+err := s.sessionManager.TriggerAdHoc(prompt, startTier)
 if errors.Is(err, session.ErrSessionRunning) {
     w.WriteHeader(http.StatusTooManyRequests)
     json.NewEncoder(w).Encode(openAIError{
@@ -152,17 +210,13 @@ HTTP 429 is used (not 409) because OpenAI-compatible clients handle 429 as a ret
 
 ```go
 func (s *Server) handleModels(w http.ResponseWriter, r *http.Request) {
-    json.NewEncoder(w).Encode(map[string]interface{}{
-        "object": "list",
-        "data": []map[string]interface{}{
-            {
-                "id":       "claude-ops",
-                "object":   "model",
-                "created":  1700000000,
-                "owned_by": "claude-ops",
-            },
-        },
-    })
+    models := []map[string]any{
+        {"id": "claude-ops",       "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+        {"id": "claude-ops-tier1", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+        {"id": "claude-ops-tier2", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+        {"id": "claude-ops-tier3", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+    }
+    json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": models})
 }
 ```
 

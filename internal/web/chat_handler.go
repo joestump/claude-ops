@@ -13,6 +13,19 @@ import (
 
 // Governing: SPEC-0024 REQ-1 (Endpoint Registration), REQ-2 (Authentication), ADR-0020
 
+// modelToTier maps the OpenAI model field to a starting tier.
+// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
+func modelToTier(model string) int {
+	switch model {
+	case "claude-ops-tier2":
+		return 2
+	case "claude-ops-tier3":
+		return 3
+	default:
+		return 1
+	}
+}
+
 // handleChatCompletions handles POST /v1/chat/completions.
 // Governing: SPEC-0024 REQ-2 (Authentication), REQ-3 (Request Parsing), REQ-4 (Session Triggering),
 // REQ-5 (Streaming Response), REQ-6 (Synchronous Response), REQ-9 (Stateless Sessions), ADR-0020
@@ -54,12 +67,23 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
+	startTier := modelToTier(req.Model)
+
 	// Governing: SPEC-0024 REQ-4 — trigger ad-hoc session via existing session manager
-	sessionID, err := s.mgr.TriggerAdHoc(prompt)
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier)
 	if err != nil {
 		// Governing: SPEC-0024 REQ-4 — session conflict returns 429
 		writeChatError(w, http.StatusTooManyRequests, "A session is already running. Try again shortly.", "rate_limit_error", "rate_limit_exceeded")
 		return
+	}
+
+	// Determine the canonical model ID to echo in responses.
+	// Echo back whatever model the client sent; default to "claude-ops" if empty.
+	// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
+	responseModel := req.Model
+	if responseModel == "" {
+		responseModel = "claude-ops"
 	}
 
 	// Generate a request ID for the response.
@@ -67,15 +91,15 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	requestID := fmt.Sprintf("chatcmpl-%s", uuid.New().String())
 
 	if req.Stream {
-		s.handleChatStream(w, r, sessionID, requestID)
+		s.handleChatStream(w, r, sessionID, requestID, responseModel)
 	} else {
-		s.handleChatSync(w, r, sessionID, requestID)
+		s.handleChatSync(w, r, sessionID, requestID, responseModel)
 	}
 }
 
 // handleChatStream implements SSE streaming for stream:true requests.
 // Governing: SPEC-0024 REQ-5 (Streaming Response), ADR-0020
-func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request, sessionID int64, requestID string) {
+func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request, sessionID int64, requestID string, model string) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		writeChatError(w, http.StatusInternalServerError, "Streaming not supported", "server_error", "internal_error")
@@ -99,7 +123,7 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request, sessio
 	sendSSEChunk(w, flusher, requestID, ChatCompletionChunk{
 		ID:     requestID,
 		Object: "chat.completion.chunk",
-		Model:  "claude-ops",
+		Model:  model,
 		Choices: []Choice{{
 			Index: 0,
 			Delta: Delta{Role: "assistant"},
@@ -118,7 +142,7 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request, sessio
 				sendSSEChunk(w, flusher, requestID, ChatCompletionChunk{
 					ID:     requestID,
 					Object: "chat.completion.chunk",
-					Model:  "claude-ops",
+					Model:  model,
 					Choices: []Choice{{
 						Index:        0,
 						Delta:        Delta{},
@@ -130,7 +154,7 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request, sessio
 				return
 			}
 
-			chunks := s.rawEventToChunks(raw, requestID, &toolCallIndex)
+			chunks := s.rawEventToChunks(raw, requestID, model, &toolCallIndex)
 			for _, chunk := range chunks {
 				sendSSEChunk(w, flusher, requestID, chunk)
 			}
@@ -140,14 +164,14 @@ func (s *Server) handleChatStream(w http.ResponseWriter, r *http.Request, sessio
 
 // handleChatSync implements the synchronous response for stream:false requests.
 // Governing: SPEC-0024 REQ-6 (Synchronous Response), ADR-0020
-func (s *Server) handleChatSync(w http.ResponseWriter, r *http.Request, sessionID int64, requestID string) {
+func (s *Server) handleChatSync(w http.ResponseWriter, r *http.Request, sessionID int64, requestID string, model string) {
 	if s.rawHub == nil {
 		// Fallback: return a minimal response with session ID
 		w.Header().Set("Content-Type", "application/json")
 		resp := ChatCompletion{
 			ID:     requestID,
 			Object: "chat.completion",
-			Model:  "claude-ops",
+			Model:  model,
 			Choices: []CompletionChoice{{
 				Index: 0,
 				Message: ChatMessage{
@@ -192,7 +216,7 @@ loop:
 	resp := ChatCompletion{
 		ID:     requestID,
 		Object: "chat.completion",
-		Model:  "claude-ops",
+		Model:  model,
 		Choices: []CompletionChoice{{
 			Index: 0,
 			Message: ChatMessage{
@@ -210,7 +234,7 @@ loop:
 
 // rawEventToChunks converts a raw NDJSON stream-json event into zero or more OpenAI SSE chunks.
 // Governing: SPEC-0024 REQ-5 — event type mapping to OpenAI chunk format
-func (s *Server) rawEventToChunks(raw string, requestID string, toolCallIndex *int) []ChatCompletionChunk {
+func (s *Server) rawEventToChunks(raw string, requestID string, model string, toolCallIndex *int) []ChatCompletionChunk {
 	var evt struct {
 		Type    string `json:"type"`
 		Subtype string `json:"subtype,omitempty"`
@@ -243,7 +267,7 @@ func (s *Server) rawEventToChunks(raw string, requestID string, toolCallIndex *i
 				chunks = append(chunks, ChatCompletionChunk{
 					ID:     requestID,
 					Object: "chat.completion.chunk",
-					Model:  "claude-ops",
+					Model:  model,
 					Choices: []Choice{{
 						Index: 0,
 						Delta: Delta{Content: text},
@@ -259,7 +283,7 @@ func (s *Server) rawEventToChunks(raw string, requestID string, toolCallIndex *i
 				chunks = append(chunks, ChatCompletionChunk{
 					ID:     requestID,
 					Object: "chat.completion.chunk",
-					Model:  "claude-ops",
+					Model:  model,
 					Choices: []Choice{{
 						Index: 0,
 						Delta: Delta{
@@ -282,7 +306,7 @@ func (s *Server) rawEventToChunks(raw string, requestID string, toolCallIndex *i
 		chunk := ChatCompletionChunk{
 			ID:     requestID,
 			Object: "chat.completion.chunk",
-			Model:  "claude-ops",
+			Model:  model,
 			Choices: []Choice{{
 				Index:        0,
 				FinishReason: "stop",
@@ -345,19 +369,17 @@ func sendSSEChunk(w http.ResponseWriter, flusher http.Flusher, _ string, chunk C
 }
 
 // handleModels handles GET /v1/models.
-// Governing: SPEC-0024 REQ-8 (Models Endpoint), ADR-0020
+// Governing: SPEC-0024 REQ-8 (Models Endpoint returns all tier IDs), ADR-0020 (Tier Selection)
 // This endpoint is unauthenticated — apps probe it before asking for credentials.
 func (s *Server) handleModels(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	resp := map[string]any{
 		"object": "list",
 		"data": []map[string]any{
-			{
-				"id":       "claude-ops",
-				"object":   "model",
-				"created":  1700000000,
-				"owned_by": "claude-ops",
-			},
+			{"id": "claude-ops", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+			{"id": "claude-ops-tier1", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+			{"id": "claude-ops-tier2", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+			{"id": "claude-ops-tier3", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
 		},
 	}
 	_ = json.NewEncoder(w).Encode(resp)

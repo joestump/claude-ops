@@ -290,7 +290,7 @@ func TestChatCompletionsSingleUserMessage(t *testing.T) {
 	}
 }
 
-// Governing: SPEC-0024 REQ-3 — model field accepted but ignored (any model name)
+// Governing: SPEC-0024 REQ-3 — model field accepted; unrecognized names map to tier 1 and are echoed back
 
 func TestChatCompletionsModelFieldIgnored(t *testing.T) {
 	trigger := &mockTrigger{nextID: 1}
@@ -298,7 +298,7 @@ func TestChatCompletionsModelFieldIgnored(t *testing.T) {
 	trigger.onTrigger = closeRawHubOnTrigger(e)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
 
-	// Use a model name that doesn't match claude-ops — should still succeed.
+	// Use a model name that doesn't match any known tier — should still succeed.
 	body := `{"model":"gpt-4","messages":[{"role":"user","content":"check services"}]}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer key")
@@ -311,12 +311,16 @@ func TestChatCompletionsModelFieldIgnored(t *testing.T) {
 	if trigger.lastPrompt != "check services" {
 		t.Fatalf("expected prompt 'check services', got %q", trigger.lastPrompt)
 	}
+	// Governing: SPEC-0024 REQ-3 — unrecognized model names map to tier 1
+	if trigger.lastStartTier != 1 {
+		t.Fatalf("expected startTier 1 for unknown model, got %d", trigger.lastStartTier)
+	}
 
-	// Response should still report model as "claude-ops" regardless of request model.
+	// Governing: SPEC-0024 REQ-3 — unrecognized model names are echoed back in the response.
 	var resp ChatCompletion
 	_ = json.NewDecoder(w.Body).Decode(&resp)
-	if resp.Model != "claude-ops" {
-		t.Fatalf("expected response model 'claude-ops', got %q", resp.Model)
+	if resp.Model != "gpt-4" {
+		t.Fatalf("expected response model 'gpt-4' (echoed from request), got %q", resp.Model)
 	}
 }
 
@@ -797,6 +801,146 @@ func TestChatResponseIDPrefix(t *testing.T) {
 	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if !strings.HasPrefix(resp.ID, "chatcmpl-") {
 		t.Fatalf("id should start with 'chatcmpl-', got %q", resp.ID)
+	}
+}
+
+// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
+
+func TestModelToTier(t *testing.T) {
+	cases := []struct {
+		model string
+		want  int
+	}{
+		{"claude-ops", 1},
+		{"claude-ops-tier1", 1},
+		{"claude-ops-tier2", 2},
+		{"claude-ops-tier3", 3},
+		{"gpt-4", 1},
+		{"", 1},
+		{"unknown-model", 1},
+	}
+	for _, tc := range cases {
+		got := modelToTier(tc.model)
+		if got != tc.want {
+			t.Errorf("modelToTier(%q) = %d, want %d", tc.model, got, tc.want)
+		}
+	}
+}
+
+// Governing: SPEC-0024 REQ-8 (Models Endpoint returns all tier IDs), ADR-0020 (Tier Selection)
+
+func TestModelsEndpointReturnsAllTierIDs(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/v1/models", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GET /v1/models: expected 200, got %d", w.Code)
+	}
+
+	var resp map[string]any
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	data, ok := resp["data"].([]any)
+	if !ok {
+		t.Fatal("expected data array")
+	}
+
+	wantIDs := map[string]bool{
+		"claude-ops":       false,
+		"claude-ops-tier1": false,
+		"claude-ops-tier2": false,
+		"claude-ops-tier3": false,
+	}
+	for _, entry := range data {
+		m, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		id, _ := m["id"].(string)
+		wantIDs[id] = true
+	}
+	for id, found := range wantIDs {
+		if !found {
+			t.Errorf("expected model id %q in /v1/models response", id)
+		}
+	}
+	if len(data) != 4 {
+		t.Errorf("expected 4 model entries, got %d", len(data))
+	}
+}
+
+// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
+
+func TestChatCompletionsTier2ModelTriggersWithStartTier2(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops-tier2","messages":[{"role":"user","content":"restart jellyfin"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with model='claude-ops-tier2', got %d; body: %s", w.Code, w.Body.String())
+	}
+
+	// Verify that startTier=2 was passed to TriggerAdHoc.
+	if trigger.lastStartTier != 2 {
+		t.Errorf("expected startTier=2 for claude-ops-tier2, got %d", trigger.lastStartTier)
+	}
+
+	// Response model should echo back the requested tier model.
+	var resp ChatCompletion
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Model != "claude-ops-tier2" {
+		t.Errorf("expected response model 'claude-ops-tier2', got %q", resp.Model)
+	}
+}
+
+func TestChatCompletionsTier3ModelTriggersWithStartTier3(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops-tier3","messages":[{"role":"user","content":"full redeployment"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with model='claude-ops-tier3', got %d", w.Code)
+	}
+	if trigger.lastStartTier != 3 {
+		t.Errorf("expected startTier=3 for claude-ops-tier3, got %d", trigger.lastStartTier)
+	}
+}
+
+func TestChatCompletionsDefaultModelTriggersWithStartTier1(t *testing.T) {
+	trigger := &mockTrigger{nextID: 1}
+	e := newTestEnvWithTrigger(t, trigger)
+	trigger.onTrigger = closeRawHubOnTrigger(e)
+	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+
+	body := `{"model":"claude-ops","messages":[{"role":"user","content":"status"}]}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer key")
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 with model='claude-ops', got %d", w.Code)
+	}
+	if trigger.lastStartTier != 1 {
+		t.Errorf("expected startTier=1 for claude-ops, got %d", trigger.lastStartTier)
 	}
 }
 

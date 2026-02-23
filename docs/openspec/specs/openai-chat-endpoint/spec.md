@@ -21,6 +21,8 @@ See [ADR-0020: OpenAI-Compatible Chat Endpoint for Mobile Access](../../adrs/ADR
 - **OpenAI SSE format**: The server-sent events format used by the OpenAI Chat Completions streaming API, where each event is `data: <JSON>\n\n` and the final event is `data: [DONE]\n\n`.
 - **Tool call delta**: An OpenAI streaming chunk that represents a function/tool invocation in the `choices[].delta.tool_calls` field.
 - **CLAUDEOPS_CHAT_API_KEY**: Environment variable containing the pre-shared API key required to authenticate requests to the chat endpoint.
+- **Starting tier**: The permission tier at which a chat-triggered session begins, determined by the `model` field in the request. Defaults to Tier 1 if the model is unrecognized or omitted.
+- **Per-tier tool config**: The `--allowedTools` and `--disallowedTools` values configured for a specific tier, used when that tier's session is spawned (see ADR-0023).
 
 ## Requirements
 
@@ -79,7 +81,16 @@ Then the server MUST return HTTP 503 with an OpenAI-format error body
 
 The server MUST accept a JSON request body conforming to the OpenAI Chat Completions request schema. The server MUST extract the text content of the last message in the `messages` array with `role: "user"` as the ad-hoc session prompt. The server MUST support the `stream` boolean field to determine whether to respond with SSE or synchronous JSON.
 
-The `model` field MUST be accepted but ignored — Claude Ops always runs its configured tier models regardless of the requested model name.
+The `model` field MUST be mapped to a starting tier for the session according to the following table:
+
+| Model ID | Starting Tier |
+|----------|--------------|
+| `claude-ops` | 1 |
+| `claude-ops-tier1` | 1 |
+| `claude-ops-tier2` | 2 |
+| `claude-ops-tier3` | 3 |
+
+Unrecognized model IDs MUST default to Tier 1 and MUST NOT return an error.
 
 If the `messages` array is empty or contains no `user` messages, the server MUST return HTTP 400.
 
@@ -107,22 +118,42 @@ Given a request body with messages containing only `role: "system"` entries
 When the handler parses the request
 Then the server MUST return HTTP 400 with an OpenAI-format error body
 
-#### Scenario: Model field ignored
+#### Scenario: claude-ops-tier2 model maps to starting tier 2
+
+Given a request body with `"model": "claude-ops-tier2"`
+When the handler processes the request
+Then it MUST trigger a session starting at Tier 2 with Tier 2 permissions and prompt
+
+#### Scenario: claude-ops-tier3 model maps to starting tier 3
+
+Given a request body with `"model": "claude-ops-tier3"`
+When the handler processes the request
+Then it MUST trigger a session starting at Tier 3 with Tier 3 permissions and prompt
+
+#### Scenario: Unrecognized model defaults to tier 1
 
 Given a request body with `"model": "gpt-4"`
 When the handler processes the request
-Then it MUST trigger a session using the configured Claude Ops tier models
+Then it MUST trigger a session starting at Tier 1
 And MUST NOT return an error for the unknown model name
 
 ### REQ-4: Session Triggering
 
-The handler MUST trigger an ad-hoc session by calling `Manager.TriggerAdHoc(prompt)` — the same method used by the dashboard trigger button and the `POST /api/v1/sessions/trigger` endpoint. If a session is already running, the server MUST return HTTP 429 Too Many Requests with an OpenAI-format error body.
+The handler MUST trigger an ad-hoc session by calling `Manager.TriggerAdHoc(prompt, startTier)` — where `startTier` is derived from the `model` field per REQ-3. The `startTier` determines which tier prompt file and tool config the session begins with. Escalation from the starting tier to higher tiers follows normal handoff rules (SPEC-0016).
+
+If a session is already running, the server MUST return HTTP 429 Too Many Requests with an OpenAI-format error body.
 
 #### Scenario: Ad-hoc session triggered successfully
 
 Given no session is currently running
-When the handler calls `TriggerAdHoc("restart jellyfin")`
-Then a new ad-hoc session MUST start
+When the handler calls `TriggerAdHoc("restart jellyfin", 1)`
+Then a new ad-hoc session MUST start at Tier 1
+
+#### Scenario: Tier 2 session triggered directly
+
+Given no session is currently running and the request specifies `"model": "claude-ops-tier2"`
+When the handler calls `TriggerAdHoc("restart jellyfin", 2)`
+Then a new ad-hoc session MUST start at Tier 2 using the Tier 2 prompt and tool configuration
 
 #### Scenario: Session conflict returns 429
 
@@ -216,12 +247,19 @@ Then the body MUST be `{"error":{"message":"A session is already running. Try ag
 
 ### REQ-8: Models Endpoint
 
-`GET /v1/models` MUST return an OpenAI-compatible model listing. The response MUST include at least one model entry with `id: "claude-ops"`. The response MUST conform to the OpenAI list models schema with `object: "list"` and a `data` array. This endpoint MUST be accessible to unauthenticated requests (apps probe this endpoint before asking for credentials in some implementations).
+`GET /v1/models` MUST return an OpenAI-compatible model listing. The response MUST include four model entries exposing the three Claude Ops tiers plus the default alias:
 
-#### Scenario: Models endpoint returns claude-ops
+- `claude-ops` — alias for Tier 1 (default, backward-compatible)
+- `claude-ops-tier1` — Tier 1: observe only (Haiku)
+- `claude-ops-tier2` — Tier 2: safe remediation (Sonnet)
+- `claude-ops-tier3` — Tier 3: full remediation (Opus)
+
+The response MUST conform to the OpenAI list models schema with `object: "list"` and a `data` array. This endpoint MUST be accessible to unauthenticated requests (apps probe this endpoint before asking for credentials in some implementations).
+
+#### Scenario: Models endpoint returns all four model IDs
 
 Given any client sends `GET /v1/models`
-Then the server MUST return HTTP 200 with a JSON body containing `data[0].id = "claude-ops"`
+Then the server MUST return HTTP 200 with a JSON body containing all four model IDs: `claude-ops`, `claude-ops-tier1`, `claude-ops-tier2`, `claude-ops-tier3`
 
 #### Scenario: Models endpoint accessible without auth
 
@@ -262,6 +300,31 @@ Then the request MUST reach the Claude Ops handler and return a valid response
 
 Given a client sends only standard OpenAI headers (`Authorization`, `Content-Type`, `Accept`)
 Then the server MUST process the request without requiring any Claude Ops-specific headers
+
+### REQ-11: Per-Tier Tool Enforcement for Chat Sessions
+
+Chat sessions MUST use the tool configuration (allowed and disallowed tools) for the tier at which they start, as defined in ADR-0023. The Go `Config` struct MUST expose per-tier tool config fields (`Tier1AllowedTools`, `Tier1DisallowedTools`, `Tier2AllowedTools`, `Tier2DisallowedTools`, `Tier3AllowedTools`, `Tier3DisallowedTools`). The `runTier` function MUST select the appropriate allowed/disallowed tool strings by tier number when spawning the CLI subprocess.
+
+If a per-tier tool config field is empty, `runTier` MUST fall back to the shared `AllowedTools`/`DisallowedTools` config values for backward compatibility.
+
+#### Scenario: Tier 2 chat session uses Tier 2 tool config
+
+Given `CLAUDEOPS_TIER2_ALLOWED_TOOLS` and `CLAUDEOPS_TIER2_DISALLOWED_TOOLS` are configured
+When a chat request with `"model": "claude-ops-tier2"` triggers a session
+Then the CLI subprocess MUST be invoked with `--allowedTools` set to the Tier 2 value
+And `--disallowedTools` set to the Tier 2 value
+
+#### Scenario: Tier 1 chat session uses Tier 1 tool config
+
+Given `CLAUDEOPS_TIER1_ALLOWED_TOOLS` is configured
+When a chat request with `"model": "claude-ops"` triggers a session
+Then the CLI subprocess MUST be invoked with `--allowedTools` set to the Tier 1 value
+
+#### Scenario: Falls back to shared config when per-tier config is absent
+
+Given `CLAUDEOPS_TIER2_ALLOWED_TOOLS` is not set but `CLAUDEOPS_ALLOWED_TOOLS` is set
+When a Tier 2 session is triggered
+Then the CLI subprocess MUST use `CLAUDEOPS_ALLOWED_TOOLS` as the allowed tools value
 
 ## References
 

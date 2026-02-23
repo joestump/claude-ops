@@ -44,8 +44,9 @@ type SSEHub interface {
 }
 
 // SessionTrigger is the interface for triggering ad-hoc sessions.
+// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
 type SessionTrigger interface {
-	TriggerAdHoc(prompt string) (int64, error)
+	TriggerAdHoc(prompt string, startTier int) (int64, error)
 	IsRunning() bool
 }
 

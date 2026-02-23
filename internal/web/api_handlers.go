@@ -181,7 +181,7 @@ func (s *Server) handleAPITriggerSession(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sessionID, err := s.mgr.TriggerAdHoc(prompt)
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, 1)
 	if err != nil {
 		writeError(w, http.StatusConflict, err.Error())
 		return

@@ -3,6 +3,7 @@ status: accepted
 date: 2026-02-22
 decision-makers: Joe Stump
 supersedes: []
+amended: 2026-02-23
 ---
 
 # ADR-0020: OpenAI-Compatible Chat Endpoint for Mobile Access
@@ -14,6 +15,8 @@ Claude Ops currently uses Apprise (ADR-0004) for one-way outbound notifications:
 When an operator receives an alert that "Jellyfin is down," the current workflow requires them to open the Claude Ops dashboard in a browser, navigate to the session trigger form (ADR-0013), and type a prompt. This context switch is friction-heavy, especially on mobile or during off-hours.
 
 The user wants to **query and command Claude Ops from a mobile device** — ideally from a native app with a polished chat interface. Different operators may prefer different apps; the solution must work with the existing ecosystem rather than building or maintaining platform-specific adapters.
+
+Additionally, the original implementation ignored the `model` field in chat requests — all chat sessions started at Tier 1 (Haiku, observe-only). An operator who receives a "Jellyfin is down" alert and wants to immediately request a restart cannot do so directly; they must wait for the scheduled Tier 1 → Tier 2 escalation cycle. Operators should be able to select which tier they chat with so they can get the appropriate level of capability for their intent.
 
 ## Decision Drivers
 
@@ -59,7 +62,7 @@ The `/v1/` prefix is separate from `/api/v1/` to match OpenAI client expectation
 }
 ```
 
-The handler extracts the last `user` message as the ad-hoc session prompt and calls `Manager.TriggerAdHoc(prompt)` — the same method the dashboard API uses (ADR-0013).
+The handler extracts the last `user` message as the ad-hoc session prompt and calls `Manager.TriggerAdHoc(prompt, startTier)`. The `startTier` is determined by the `model` field in the request (see Tier Selection below).
 
 **Streaming response** (when `stream: true`): SSE stream of OpenAI-format chunks:
 
@@ -98,15 +101,33 @@ Authorization: Bearer <CLAUDEOPS_CHAT_API_KEY>
 
 This matches how OpenAI-compatible apps configure authentication.
 
+### Tier Selection
+
+The `model` field in the request maps to a starting tier for the ad-hoc session:
+
+| Model ID | Starting Tier | Underlying Model | Tool Capabilities |
+|----------|--------------|------------------|-------------------|
+| `claude-ops` | 1 (default) | `$CLAUDEOPS_TIER1_MODEL` | Observe only |
+| `claude-ops-tier1` | 1 | `$CLAUDEOPS_TIER1_MODEL` | Observe only |
+| `claude-ops-tier2` | 2 | `$CLAUDEOPS_TIER2_MODEL` | Safe remediation |
+| `claude-ops-tier3` | 3 | `$CLAUDEOPS_TIER3_MODEL` | Full remediation |
+
+Unrecognized model IDs default to Tier 1. Each tier uses its own configured `--allowedTools` and `--disallowedTools` (per ADR-0023), and its own tier prompt file.
+
+When a chat session starts at Tier 2 or Tier 3 directly, escalation still applies: if the starting tier writes a handoff requesting a higher tier, the supervisor escalates normally. Starting at Tier 2 means you skip the Tier 1 observation phase — the session begins with Tier 2 permissions and its prompt directly.
+
 ### `/v1/models` Response
 
-Returns a minimal OpenAI-compatible models list so apps that probe the endpoint work correctly:
+Returns an OpenAI-compatible models list exposing the three Claude Ops tiers:
 
 ```json
 {
   "object": "list",
   "data": [
-    {"id": "claude-ops", "object": "model", "created": 1700000000, "owned_by": "claude-ops"}
+    {"id": "claude-ops",       "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+    {"id": "claude-ops-tier1", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+    {"id": "claude-ops-tier2", "object": "model", "created": 1700000000, "owned_by": "claude-ops"},
+    {"id": "claude-ops-tier3", "object": "model", "created": 1700000000, "owned_by": "claude-ops"}
   ]
 }
 ```
@@ -121,9 +142,9 @@ If a session is already running when the chat endpoint receives a request, it re
 
 ### Integration Points
 
-- **Session Manager** (`internal/session`): calls `Manager.TriggerAdHoc(prompt)`, identical to the dashboard API handler.
-- **Web Server** (`internal/web`): registers `/v1/chat/completions` and `/v1/models` on the existing mux. The stream-json to OpenAI SSE conversion is a thin transform in the handler.
-- **Config** (`internal/config`): `CLAUDEOPS_CHAT_API_KEY` controls access. If unset, the endpoint is disabled.
+- **Session Manager** (`internal/session`): calls `Manager.TriggerAdHoc(prompt, startTier)`. The `startTier` is passed through to `runEscalationChain`, which begins at that tier rather than always at Tier 1.
+- **Web Server** (`internal/web`): registers `/v1/chat/completions` and `/v1/models` on the existing mux. The stream-json to OpenAI SSE conversion is a thin transform in the handler. `handleModels` returns all four model IDs (the alias `claude-ops` plus the three explicit tier IDs).
+- **Config** (`internal/config`): `CLAUDEOPS_CHAT_API_KEY` controls access. If unset, the endpoint is disabled. Per-tier tool configs (`Tier1AllowedTools`, `Tier2AllowedTools`, `Tier3AllowedTools`, `Tier1DisallowedTools`, `Tier2DisallowedTools`, `Tier3DisallowedTools`) determine what each tier session may do; `runTier` selects the appropriate config by tier number.
 - **Apprise**: unaffected. Proactive outbound notifications continue unchanged.
 
 ### Consequences
@@ -143,7 +164,8 @@ If a session is already running when the chat endpoint receives a request, it re
 * Network exposure: the endpoint must be accessible from mobile devices, which for home-lab deployments means either exposing it publicly (behind Caddy + TLS) or via VPN/Tailscale. This is not new — the existing dashboard has the same requirement.
 * Token counts in responses are always 0, which may confuse apps that display usage metrics.
 * Stateless: each message is a new session. Conversation history from the app is not injected as context — only the last user message is used as the prompt. Multi-turn conversation within the app does not build agent context.
-* Authentication is a single shared API key, not per-user credentials. Anyone with the key can trigger sessions.
+* Authentication is a single shared API key, not per-user credentials. Anyone with the key can trigger sessions at any tier.
+* Direct Tier 2/3 chat bypasses the Tier 1 observation phase. The Tier 1 grounding (check results, cooldown state, inventory context) is not pre-loaded when jumping directly to a higher tier. The operator-supplied prompt is the only context the higher-tier agent receives. This is intentional for interactive use but means the agent may lack the environmental context a scheduled escalation would provide.
 
 ### Confirmation
 

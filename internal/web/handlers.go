@@ -577,7 +577,7 @@ func (s *Server) handleTriggerSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := s.mgr.TriggerAdHoc(prompt)
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, 1)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return

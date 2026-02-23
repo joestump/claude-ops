@@ -56,6 +56,13 @@ func main() {
 	f.Int("memory-budget", 2000, "max tokens for memory context injection")
 	f.String("browser-allowed-origins", "", "comma-separated allowed origins for browser navigation")
 	f.String("summary-model", "haiku", "Claude model for session summary generation")
+	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
+	f.String("tier1-allowed-tools", "", "comma-separated allowed tools for Tier 1 (overrides allowed-tools)")
+	f.String("tier1-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 1 (overrides disallowed-tools)")
+	f.String("tier2-allowed-tools", "", "comma-separated allowed tools for Tier 2 (overrides allowed-tools)")
+	f.String("tier2-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 2 (overrides disallowed-tools)")
+	f.String("tier3-allowed-tools", "", "comma-separated allowed tools for Tier 3 (overrides allowed-tools)")
+	f.String("tier3-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 3 (overrides disallowed-tools)")
 
 	// Bind flags to viper. Viper keys use underscores (tier1_model) so they
 	// match the env var suffix after stripping the CLAUDEOPS_ prefix.
@@ -83,6 +90,12 @@ func main() {
 	bindFlag("memory_budget", "memory-budget")
 	bindFlag("browser_allowed_origins", "browser-allowed-origins")
 	bindFlag("summary_model", "summary-model")
+	bindFlag("tier1_allowed_tools", "tier1-allowed-tools")
+	bindFlag("tier1_disallowed_tools", "tier1-disallowed-tools")
+	bindFlag("tier2_allowed_tools", "tier2-allowed-tools")
+	bindFlag("tier2_disallowed_tools", "tier2-disallowed-tools")
+	bindFlag("tier3_allowed_tools", "tier3-allowed-tools")
+	bindFlag("tier3_disallowed_tools", "tier3-disallowed-tools")
 
 	// Governing: SPEC-0008 REQ-12 — environment variable compatibility (CLAUDEOPS_* prefix).
 	// Bind CLAUDEOPS_* environment variables. AutomaticEnv with the prefix
