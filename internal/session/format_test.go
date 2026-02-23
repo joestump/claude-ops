@@ -620,17 +620,18 @@ func TestParseEventMarkers_ServiceWithUnderscore(t *testing.T) {
 }
 
 func TestParseEventMarkers_Invalid(t *testing.T) {
+	// These are structurally malformed markers that must always return zero events.
+	// Note: unknown *levels* are valid and normalize to "info" — only missing
+	// messages and wrong prefixes produce zero events.
 	cases := []struct {
 		name string
 		text string
 	}{
-		{"invalid level", "[EVENT:debug] Some message"},
 		{"missing message", "[EVENT:info]"},
 		{"missing message with service", "[EVENT:info:svc]"},
 		{"no brackets", "EVENT:info some message"},
 		{"wrong prefix", "[MEMORY:info] not an event"},
 		{"empty text", ""},
-		{"uppercase level", "[EVENT:INFO] some message"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -639,6 +640,61 @@ func TestParseEventMarkers_Invalid(t *testing.T) {
 				t.Errorf("expected 0 markers for %q, got %d", tc.text, len(got))
 			}
 		})
+	}
+}
+
+func TestParseEventMarkers_NormalizeLevel(t *testing.T) {
+	cases := []struct {
+		name      string
+		text      string
+		wantLevel string
+	}{
+		// Canonical levels pass through unchanged.
+		{"info", "[EVENT:info] msg", "info"},
+		{"warning", "[EVENT:warning] msg", "warning"},
+		{"critical", "[EVENT:critical] msg", "critical"},
+		// Agent-generated variants must normalize.
+		{"health-check-success", "[EVENT:health-check-success] All 46 StumpCloud services healthy · Docker mirror stable · No action required", "info"},
+		{"success", "[EVENT:success] All good", "info"},
+		{"ok", "[EVENT:ok] Running fine", "info"},
+		{"healthy", "[EVENT:healthy] Service up", "info"},
+		{"debug", "[EVENT:debug] Some message", "info"},
+		{"uppercase INFO", "[EVENT:INFO] some message", "info"},
+		{"warn", "[EVENT:warn] Latency elevated", "warning"},
+		{"degraded", "[EVENT:degraded] Partial outage", "warning"},
+		{"error", "[EVENT:error] Connection refused", "critical"},
+		{"err", "[EVENT:err] Timeout", "critical"},
+		{"failed", "[EVENT:failed] Restart failed", "critical"},
+		{"fatal", "[EVENT:fatal] Crash", "critical"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseEventMarkers(tc.text)
+			if len(got) != 1 {
+				t.Fatalf("expected 1 marker, got %d", len(got))
+			}
+			if got[0].Level != tc.wantLevel {
+				t.Errorf("level = %q, want %q", got[0].Level, tc.wantLevel)
+			}
+		})
+	}
+}
+
+func TestParseEventMarkers_HealthCheckSuccessExact(t *testing.T) {
+	// Regression test for the exact marker that was silently dropped.
+	text := "[EVENT:health-check-success] All 46 StumpCloud services healthy · Docker mirror stable · No action required"
+	got := parseEventMarkers(text)
+	if len(got) != 1 {
+		t.Fatalf("expected 1 marker, got %d: marker was silently dropped", len(got))
+	}
+	if got[0].Level != "info" {
+		t.Errorf("level = %q, want %q", got[0].Level, "info")
+	}
+	if got[0].Message != "All 46 StumpCloud services healthy · Docker mirror stable · No action required" {
+		t.Errorf("message = %q", got[0].Message)
+	}
+	if got[0].Service != nil {
+		t.Errorf("service should be nil, got %q", *got[0].Service)
 	}
 }
 

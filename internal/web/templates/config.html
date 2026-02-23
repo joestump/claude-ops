@@ -88,12 +88,16 @@
                 <div>CLAUDEOPS_MAX_TIER</div><div class="text-charcoal">{{.MaxTier}}</div>
                 <div>CLAUDEOPS_BROWSER_ALLOWED_ORIGINS</div><div class="text-charcoal">{{if .BrowserAllowedOrigins}}{{.BrowserAllowedOrigins}}{{else}}(not set){{end}}</div>
                 <div>CLAUDEOPS_CHAT_API_KEY</div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1.5">
                     {{if .ChatAPIKey}}
-                    <span class="text-charcoal" id="chat-api-key-val">{{.ChatAPIKey}}</span>
+                    <span class="text-charcoal truncate">{{maskAPIKey .ChatAPIKey}}</span>
                     <button type="button"
-                        onclick="navigator.clipboard.writeText(document.getElementById('chat-api-key-val').textContent).then(function(){var b=this;b.textContent='Copied!';setTimeout(function(){b.textContent='Copy';},1500);}.bind(this))"
-                        class="text-accent hover:underline cursor-pointer not-font-mono" style="font-family:sans-serif">Copy</button>
+                        data-key="{{.ChatAPIKey}}"
+                        onclick="var k=this.getAttribute('data-key');navigator.clipboard.writeText(k).then(function(){var b=document.getElementById('copy-key-icon');b.textContent='✓';setTimeout(function(){b.textContent='⎘';},1500);})"
+                        class="text-accent hover:text-charcoal cursor-pointer shrink-0 leading-none"
+                        title="Copy API key">
+                        <span id="copy-key-icon" style="font-family:sans-serif;font-size:1rem">⎘</span>
+                    </button>
                     {{else}}
                     <span class="text-muted">(not set)</span>
                     {{end}}

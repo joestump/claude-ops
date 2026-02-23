@@ -895,8 +895,10 @@ func parseMarkers(re *regexp.Regexp, text string) []markerMatch {
 // --- Event markers ---
 
 // Governing: SPEC-0013 REQ "Event Marker Parsing" ([EVENT:level] and [EVENT:level:service] from assistant text only)
-// eventMarkerRe matches [EVENT:level] or [EVENT:level:service] markers in assistant text.
-var eventMarkerRe = regexp.MustCompile(`\[EVENT:(info|warning|critical)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
+// eventMarkerRe matches [EVENT:<level>] or [EVENT:<level>:<service>] markers.
+// The level field accepts any word/hyphen string so that agent-generated variants
+// like "health-check-success" are captured and normalized rather than silently dropped.
+var eventMarkerRe = regexp.MustCompile(`\[EVENT:([a-zA-Z0-9_-]+)(?::([a-zA-Z0-9_-]+))?\]\s*(.+)`)
 
 type parsedEvent struct {
 	Level   string
@@ -904,12 +906,28 @@ type parsedEvent struct {
 	Message string
 }
 
+// normalizeEventLevel maps free-form agent level strings to the canonical set
+// (info, warning, critical).  Anything that looks like a success/healthy/ok state
+// maps to "info"; warn-like strings map to "warning"; error/critical/fatal to
+// "critical"; everything else falls back to "info".
+func normalizeEventLevel(level string) string {
+	switch strings.ToLower(level) {
+	case "warning", "warn", "degraded":
+		return "warning"
+	case "critical", "error", "err", "fatal", "failure", "failed":
+		return "critical"
+	default:
+		// covers "info", "success", "ok", "healthy", "health-check-success", etc.
+		return "info"
+	}
+}
+
 // parseEventMarkers scans text for event markers and returns parsed events.
 func parseEventMarkers(text string) []parsedEvent {
 	var events []parsedEvent
 	for _, mm := range parseMarkers(eventMarkerRe, text) {
 		e := parsedEvent{
-			Level:   mm.Field1,
+			Level:   normalizeEventLevel(mm.Field1),
 			Message: mm.Tail,
 		}
 		if mm.Service != "" {

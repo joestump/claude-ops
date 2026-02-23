@@ -329,6 +329,16 @@ func (s *Server) parseTemplates() {
 		"fmtCostVal": func(f float64) string {
 			return fmt.Sprintf("$%.4f", f)
 		},
+		// maskAPIKey returns a masked version of an API key for display:
+		// first 8 chars + "…" + last 4 chars. Returns the full key if
+		// it's too short to meaningfully mask.
+		"maskAPIKey": func(key string) string {
+			const head, tail = 8, 4
+			if len(key) <= head+tail+3 {
+				return key
+			}
+			return key[:head] + "…" + key[len(key)-tail:]
+		},
 	}
 
 	s.tmpl = template.Must(
