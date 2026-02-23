@@ -77,31 +77,23 @@
         </div>
     </section>
 
-    {{/* Session Summaries */}}
+    {{/* Last Session Summary */}}
     {{/* Governing: SPEC-0021 REQ "Multiple Session Summaries" */}}
     <section class="mb-6">
-        <h2 class="section-heading">Session Summaries</h2>
-        {{if .Summaries}}
-        <div class="space-y-3">
-            {{range .Summaries}}
-            <div class="card-base">
-                <div class="flex items-center gap-3 mb-2">
-                    <a href="/sessions/{{.ID}}" class="font-medium text-accent hover:underline font-mono text-sm">#{{.ID}}</a>
-                    <span class="badge-pill {{statusClass .Status}} text-xs">{{.Status}}</span>
-                    <span class="text-xs text-muted">Tier {{.Tier}} / {{tierLabel .Tier}}</span>
-                    {{if .CostUSD}}<span class="text-xs font-mono text-muted">{{fmtCost .CostUSD}}</span>{{end}}
-                    <span class="text-xs text-muted ml-auto">{{fmtTime .StartedAt}}</span>
-                </div>
-                {{if .Summary}}
-                <p class="text-sm leading-relaxed text-charcoal">{{.Summary}}</p>
-                {{else if .Response}}
-                <div class="prose text-sm">{{renderMarkdown .Response}}</div>
-                {{end}}
+        <h2 class="section-heading">Last Summary</h2>
+        {{if .LastSummary}}
+        <div class="card-base">
+            <div class="flex items-center gap-3 mb-2">
+                <a href="/sessions/{{.LastSummary.ID}}" class="font-medium text-accent hover:underline font-mono text-sm">#{{.LastSummary.ID}}</a>
+                <span class="badge-pill {{statusClass .LastSummary.Status}} text-xs">{{.LastSummary.Status}}</span>
+                <span class="text-xs text-muted">Tier {{.LastSummary.Tier}} / {{tierLabel .LastSummary.Tier}}</span>
+                {{if .LastSummary.CostUSD}}<span class="text-xs font-mono text-muted">{{fmtCost .LastSummary.CostUSD}}</span>{{end}}
+                <span class="text-xs text-muted ml-auto">{{fmtTime .LastSummary.StartedAt}}</span>
             </div>
-            {{end}}
+            <p class="text-sm leading-relaxed text-charcoal">{{.LastSummary.Summary}}</p>
         </div>
         {{else}}
-        <div class="card-base text-sm text-muted">No session summaries yet. Summaries appear after sessions complete.</div>
+        <div class="card-base text-sm text-muted">No summary yet. Summaries appear after sessions complete.</div>
         {{end}}
     </section>
 

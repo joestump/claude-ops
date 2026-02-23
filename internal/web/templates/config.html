@@ -87,6 +87,17 @@
                 <div>CLAUDEOPS_REPOS_DIR</div><div class="text-charcoal">{{.ReposDir}}</div>
                 <div>CLAUDEOPS_MAX_TIER</div><div class="text-charcoal">{{.MaxTier}}</div>
                 <div>CLAUDEOPS_BROWSER_ALLOWED_ORIGINS</div><div class="text-charcoal">{{if .BrowserAllowedOrigins}}{{.BrowserAllowedOrigins}}{{else}}(not set){{end}}</div>
+                <div>CLAUDEOPS_CHAT_API_KEY</div>
+                <div class="flex items-center gap-2">
+                    {{if .ChatAPIKey}}
+                    <span class="text-charcoal" id="chat-api-key-val">{{.ChatAPIKey}}</span>
+                    <button type="button"
+                        onclick="navigator.clipboard.writeText(document.getElementById('chat-api-key-val').textContent).then(function(){var b=this;b.textContent='Copied!';setTimeout(function(){b.textContent='Copy';},1500);}.bind(this))"
+                        class="text-accent hover:underline cursor-pointer not-font-mono" style="font-family:sans-serif">Copy</button>
+                    {{else}}
+                    <span class="text-muted">(not set)</span>
+                    {{end}}
+                </div>
             </div>
         </div>
     </div>

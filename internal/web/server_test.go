@@ -140,10 +140,12 @@ func TestTLDRPageRendering(t *testing.T) {
 }
 
 // Governing: SPEC-0021 REQ "TL;DR Page Rendering"
-func TestTLDRFallbackToResponse(t *testing.T) {
+// TL;DR page shows only the short LLM-generated summary of the last session.
+// Sessions without a summary are skipped; the page shows "No summary yet."
+func TestTLDRNoSummaryShowsEmpty(t *testing.T) {
 	e := newTestEnv(t)
 
-	// Insert a session WITHOUT a summary, but with a response.
+	// Insert a session WITHOUT a summary (only raw response).
 	now := time.Now().UTC().Format(time.RFC3339)
 	id, err := e.srv.db.InsertSession(&db.Session{
 		Tier: 1, Model: "haiku", PromptFile: "/tmp/test.md",
@@ -166,9 +168,12 @@ func TestTLDRFallbackToResponse(t *testing.T) {
 
 	body := w.Body.String()
 
-	// Should fall back to rendered markdown response when summary is NULL.
-	if !strings.Contains(body, "Health Report") {
-		t.Error("expected page to fall back to full response when summary is NULL")
+	// Without a summary the page should show the empty-state message, not raw response.
+	if !strings.Contains(body, "No summary yet") {
+		t.Error("expected empty-state text when no LLM summary exists")
+	}
+	if strings.Contains(body, "Health Report") {
+		t.Error("raw response must NOT appear on TL;DR page — only short summaries are shown")
 	}
 }
 

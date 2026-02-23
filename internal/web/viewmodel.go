@@ -75,7 +75,9 @@ type CooldownView struct {
 	Service    string
 	ActionType string
 	Count      int
+	Limit      int       // max allowed in window (2 for restarts, 1 for redeployments)
 	LastAction time.Time
+	InCooldown bool      // true when count has reached or exceeded the limit
 }
 
 // ToSessionView converts a db.Session to a SessionView.

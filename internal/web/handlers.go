@@ -2,11 +2,13 @@ package web
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -37,16 +39,15 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 		lastSession = &v
 	}
 
-	// Fetch up to 5 sessions with summaries or responses for the summaries section.
-	var summaries []SessionView
-	if sessions, err := s.db.ListSessions(10, 0); err != nil {
-		log.Printf("handleIndex: ListSessions (summaries): %v", err)
+	// Fetch the most recent session that has a short LLM summary.
+	var lastSummary *SessionView
+	if sessions, err := s.db.ListSessions(20, 0); err != nil {
+		log.Printf("handleIndex: ListSessions (summary): %v", err)
 	} else {
 		for _, sess := range sessions {
-			if sess.Summary != nil || sess.Response != nil {
-				summaries = append(summaries, ToSessionView(sess))
-			}
-			if len(summaries) >= 5 {
+			if sess.Summary != nil {
+				v := ToSessionView(sess)
+				lastSummary = &v
 				break
 			}
 		}
@@ -79,14 +80,14 @@ func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
 	data := struct {
 		Stats       *db.DashboardStats
 		LastSession *SessionView
-		Summaries   []SessionView
+		LastSummary *SessionView
 		Activity    []ActivityItem
 		NextRun     time.Time
 		Interval    int
 	}{
 		Stats:       stats,
 		LastSession: lastSession,
-		Summaries:   summaries,
+		LastSummary: lastSummary,
 		Activity:    activity,
 		NextRun:     time.Now().UTC().Add(time.Duration(s.cfg.Interval) * time.Second),
 		Interval:    s.cfg.Interval,
@@ -375,20 +376,132 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "events.html", data)
 }
 
-// handleCooldowns renders the cooldown state.
-// Governing: SPEC-0008 REQ-10 — cooldown state page: per-service action counts and window expiry.
-func (s *Server) handleCooldowns(w http.ResponseWriter, r *http.Request) {
-	cooldowns, err := s.db.ListRecentCooldowns(24 * time.Hour)
+// cooldownJSONState mirrors the agent-managed cooldown.json schema.
+// Governing: SPEC-0007 REQ-13 (Cooldown State Data Model)
+type cooldownJSONState struct {
+	Services map[string]cooldownJSONService `json:"services"`
+}
+
+type cooldownJSONService struct {
+	Restarts          []cooldownJSONAction `json:"restarts"`
+	Redeployments     []cooldownJSONAction `json:"redeployments"`
+	ConsecutiveHealthy int                 `json:"consecutive_healthy"`
+}
+
+type cooldownJSONAction struct {
+	Timestamp string `json:"timestamp"`
+	Success   bool   `json:"success"`
+}
+
+// readCooldownJSON reads and parses the agent-managed cooldown state file.
+// Returns nil without error if the file does not exist yet.
+func readCooldownJSON(stateDir string) (*cooldownJSONState, error) {
+	path := filepath.Join(stateDir, "cooldown.json")
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil, nil
+	}
 	if err != nil {
-		log.Printf("handleCooldowns: %v", err)
-		http.Error(w, "database error", http.StatusInternalServerError)
-		return
+		return nil, err
+	}
+	var state cooldownJSONState
+	if err := json.Unmarshal(data, &state); err != nil {
+		return nil, err
+	}
+	return &state, nil
+}
+
+// cooldownViewsFromJSON converts the JSON cooldown state into CooldownViews,
+// showing all services that have any restarts (4h window) or redeployments (24h window).
+// Governing: SPEC-0007 REQ-4 (restart limit 4h), REQ-5 (redeployment limit 24h)
+func cooldownViewsFromJSON(state *cooldownJSONState) []CooldownView {
+	if state == nil {
+		return nil
+	}
+	now := time.Now().UTC()
+	restartWindow := now.Add(-4 * time.Hour)
+	redeployWindow := now.Add(-24 * time.Hour)
+
+	var views []CooldownView
+	for svc, s := range state.Services {
+		// Restarts within 4h window.
+		var restartCount int
+		var lastRestart time.Time
+		for _, a := range s.Restarts {
+			if t, err := time.Parse(time.RFC3339, a.Timestamp); err == nil {
+				if t.After(restartWindow) {
+					restartCount++
+					if t.After(lastRestart) {
+						lastRestart = t
+					}
+				}
+			}
+		}
+		if restartCount > 0 {
+			views = append(views, CooldownView{
+				Service:    svc,
+				ActionType: "restart",
+				Count:      restartCount,
+				Limit:      2,
+				LastAction: lastRestart,
+				InCooldown: restartCount >= 2,
+			})
+		}
+
+		// Redeployments within 24h window.
+		var redeployCount int
+		var lastRedeploy time.Time
+		for _, a := range s.Redeployments {
+			if t, err := time.Parse(time.RFC3339, a.Timestamp); err == nil {
+				if t.After(redeployWindow) {
+					redeployCount++
+					if t.After(lastRedeploy) {
+						lastRedeploy = t
+					}
+				}
+			}
+		}
+		if redeployCount > 0 {
+			views = append(views, CooldownView{
+				Service:    svc,
+				ActionType: "redeployment",
+				Count:      redeployCount,
+				Limit:      1,
+				LastAction: lastRedeploy,
+				InCooldown: redeployCount >= 1,
+			})
+		}
+	}
+	return views
+}
+
+// handleCooldowns renders the cooldown state.
+// Reads from the agent-managed cooldown.json (source of truth), falling back to
+// the DB-backed cooldown_actions table if the file is absent.
+// Governing: SPEC-0007 REQ-4, REQ-5, REQ-13 — cooldown state and data model.
+func (s *Server) handleCooldowns(w http.ResponseWriter, r *http.Request) {
+	var views []CooldownView
+
+	state, err := readCooldownJSON(s.cfg.StateDir)
+	if err != nil {
+		log.Printf("handleCooldowns: read cooldown.json: %v", err)
+	}
+	if state != nil {
+		views = cooldownViewsFromJSON(state)
+	} else {
+		// Fallback: DB-backed records from [COOLDOWN:...] markers.
+		cooldowns, dbErr := s.db.ListRecentCooldowns(24 * time.Hour)
+		if dbErr != nil {
+			log.Printf("handleCooldowns: db fallback: %v", dbErr)
+		} else {
+			views = ToCooldownViews(cooldowns)
+		}
 	}
 
 	data := struct {
 		Cooldowns []CooldownView
 	}{
-		Cooldowns: ToCooldownViews(cooldowns),
+		Cooldowns: views,
 	}
 
 	s.render(w, r, "cooldowns.html", data)
@@ -548,6 +661,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 		ReposDir              string
 		MaxTier               int
 		BrowserAllowedOrigins string
+		ChatAPIKey            string
 	}{
 		Interval:              s.cfg.Interval,
 		Tier1Model:            s.cfg.Tier1Model,
@@ -559,6 +673,7 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 		ReposDir:              s.cfg.ReposDir,
 		MaxTier:               s.cfg.MaxTier,
 		BrowserAllowedOrigins: s.cfg.BrowserAllowedOrigins,
+		ChatAPIKey:            os.Getenv("CLAUDEOPS_CHAT_API_KEY"),
 	}
 
 	s.render(w, r, "config.html", data)
@@ -637,6 +752,7 @@ func (s *Server) handleConfigPost(w http.ResponseWriter, r *http.Request) {
 		ReposDir              string
 		MaxTier               int
 		BrowserAllowedOrigins string
+		ChatAPIKey            string
 	}{
 		Interval:              s.cfg.Interval,
 		Tier1Model:            s.cfg.Tier1Model,
@@ -649,6 +765,7 @@ func (s *Server) handleConfigPost(w http.ResponseWriter, r *http.Request) {
 		ReposDir:              s.cfg.ReposDir,
 		MaxTier:               s.cfg.MaxTier,
 		BrowserAllowedOrigins: s.cfg.BrowserAllowedOrigins,
+		ChatAPIKey:            os.Getenv("CLAUDEOPS_CHAT_API_KEY"),
 	}
 
 	s.render(w, r, "config.html", data)
