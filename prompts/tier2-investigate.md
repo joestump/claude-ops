@@ -448,6 +448,7 @@ Build the escalation context as a structured JSON object and write to `/state/ha
 
 ```json
 {
+  "schema_version": 1,
   "recommended_tier": 3,
   "services_affected": ["service1"],
   "check_results": [

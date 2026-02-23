@@ -444,6 +444,7 @@ Each escalation tier runs as a **separate subagent** with its own prompt context
 
 ```json
 {
+  "schema_version": 1,
   "recommended_tier": 2,
   "services_affected": ["service1", "service2"],
   "check_results": [
