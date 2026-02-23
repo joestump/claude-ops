@@ -55,7 +55,7 @@ func main() {
 	f.String("tier3-prompt", "/app/prompts/tier3-remediate.md", "path to Tier 3 prompt file")
 	f.Int("memory-budget", 2000, "max tokens for memory context injection")
 	f.String("browser-allowed-origins", "", "comma-separated allowed origins for browser navigation")
-	f.String("summary-model", "haiku", "Claude model for session summary generation")
+	f.String("summary-model", "claude-haiku-4-5-20251001", "Anthropic model ID for session summary generation (must be a full model ID, e.g. claude-haiku-4-5-20251001)")
 	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
 	f.String("tier1-allowed-tools", "", "comma-separated allowed tools for Tier 1 (overrides allowed-tools)")
 	f.String("tier1-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 1 (overrides disallowed-tools)")

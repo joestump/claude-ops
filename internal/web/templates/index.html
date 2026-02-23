@@ -7,48 +7,46 @@
     {{/* Governing: SPEC-0021 REQ "Dashboard Stats HUD" */}}
     <section class="mb-6">
         {{if .Stats}}
-        <div class="stats stats-horizontal shadow w-full mb-3 bg-white border border-border rounded-lg overflow-hidden">
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Total Runs</div>
-                <div class="stat-value text-2xl text-charcoal">{{.Stats.TotalRuns}}</div>
-                <div class="stat-desc text-xs text-muted">root sessions</div>
+        <div class="grid grid-cols-4 bg-white border border-border rounded-lg shadow overflow-hidden">
+            <div class="px-5 py-4 border-b border-r border-border">
+                <div class="text-xs text-muted mb-1">Total Runs</div>
+                <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.TotalRuns}}</div>
+                <div class="text-xs text-muted mt-1">root sessions</div>
             </div>
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Escalations</div>
-                <div class="stat-value text-2xl text-charcoal">{{.Stats.Escalations}}</div>
-                <div class="stat-desc text-xs text-muted">child sessions</div>
+            <div class="px-5 py-4 border-b border-r border-border">
+                <div class="text-xs text-muted mb-1">Escalations</div>
+                <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.Escalations}}</div>
+                <div class="text-xs text-muted mt-1">child sessions</div>
             </div>
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Remediations</div>
-                <div class="stat-value text-2xl text-charcoal">{{.Stats.Remediations}}</div>
-                <div class="stat-desc text-xs text-muted">tier-3 sessions</div>
+            <div class="px-5 py-4 border-b border-r border-border">
+                <div class="text-xs text-muted mb-1">Remediations</div>
+                <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.Remediations}}</div>
+                <div class="text-xs text-muted mt-1">tier-3 sessions</div>
             </div>
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Success %</div>
-                <div class="stat-value text-2xl {{if gt .Stats.SuccessRate 0.8}}text-green-600{{else if gt .Stats.SuccessRate 0.5}}text-yellow-600{{else}}text-red-600{{end}}">{{fmtPct .Stats.SuccessRate}}</div>
-                <div class="stat-desc text-xs text-muted">completed / total</div>
+            <div class="px-5 py-4 border-b border-border">
+                <div class="text-xs text-muted mb-1">Success %</div>
+                <div class="text-2xl font-semibold tabular-nums {{if gt .Stats.SuccessRate 0.8}}text-green-600{{else if gt .Stats.SuccessRate 0.5}}text-yellow-600{{else}}text-red-600{{end}}">{{fmtPct .Stats.SuccessRate}}</div>
+                <div class="text-xs text-muted mt-1">completed / total</div>
             </div>
-        </div>
-        <div class="stats stats-horizontal shadow w-full bg-white border border-border rounded-lg overflow-hidden">
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Total Cost</div>
-                <div class="stat-value text-2xl text-charcoal font-mono">{{fmtCostVal .Stats.TotalCostUSD}}</div>
-                <div class="stat-desc text-xs text-muted">all sessions</div>
+            <div class="px-5 py-4 border-r border-border">
+                <div class="text-xs text-muted mb-1">Total Cost</div>
+                <div class="text-2xl font-semibold text-charcoal font-mono tabular-nums">{{fmtCostVal .Stats.TotalCostUSD}}</div>
+                <div class="text-xs text-muted mt-1">all sessions</div>
             </div>
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Critical (24h)</div>
-                <div class="stat-value text-2xl {{if gt .Stats.CriticalEvents 0}}text-red-600{{else}}text-charcoal{{end}}">{{.Stats.CriticalEvents}}</div>
-                <div class="stat-desc text-xs text-muted">critical events</div>
+            <div class="px-5 py-4 border-r border-border">
+                <div class="text-xs text-muted mb-1">Critical (24h)</div>
+                <div class="text-2xl font-semibold tabular-nums {{if gt .Stats.CriticalEvents 0}}text-red-600{{else}}text-charcoal{{end}}">{{.Stats.CriticalEvents}}</div>
+                <div class="text-xs text-muted mt-1">critical events</div>
             </div>
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Memories</div>
-                <div class="stat-value text-2xl text-charcoal">{{.Stats.ActiveMemories}}</div>
-                <div class="stat-desc text-xs text-muted"><a href="/memories" class="text-accent hover:underline">active memories</a></div>
+            <div class="px-5 py-4 border-r border-border">
+                <div class="text-xs text-muted mb-1">Memories</div>
+                <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.ActiveMemories}}</div>
+                <div class="text-xs text-muted mt-1"><a href="/memories" class="text-accent hover:underline">active memories</a></div>
             </div>
-            <div class="stat px-5 py-4">
-                <div class="stat-title text-xs text-muted">Avg Duration</div>
-                <div class="stat-value text-2xl text-charcoal font-mono">{{fmtMsVal .Stats.AvgDurationMs}}</div>
-                <div class="stat-desc text-xs text-muted">per session</div>
+            <div class="px-5 py-4">
+                <div class="text-xs text-muted mb-1">Avg Duration</div>
+                <div class="text-2xl font-semibold text-charcoal font-mono tabular-nums">{{fmtMsVal .Stats.AvgDurationMs}}</div>
+                <div class="text-xs text-muted mt-1">per session</div>
             </div>
         </div>
         {{else}}
@@ -77,25 +75,37 @@
         </div>
     </section>
 
-    {{/* Last Session Summary */}}
+    {{/* TL;DR + What Happened */}}
     {{/* Governing: SPEC-0021 REQ "Multiple Session Summaries" */}}
-    <section class="mb-6">
-        <h2 class="section-heading">Last Summary</h2>
-        {{if .LastSummary}}
+    {{if .LastSummary}}
+    {{/* Session meta row — shared by both cards */}}
+    <div class="flex items-center gap-3 mb-2 px-1">
+        <a href="/sessions/{{.LastSummary.ID}}" class="font-medium text-accent hover:underline font-mono text-sm">#{{.LastSummary.ID}}</a>
+        <span class="badge-pill {{statusClass .LastSummary.Status}} text-xs">{{.LastSummary.Status}}</span>
+        <span class="text-xs text-muted">Tier {{.LastSummary.Tier}} / {{tierLabel .LastSummary.Tier}}</span>
+        {{if .LastSummary.CostUSD}}<span class="text-xs font-mono text-muted">{{fmtCost .LastSummary.CostUSD}}</span>{{end}}
+        <span class="text-xs text-muted ml-auto">{{fmtTime .LastSummary.StartedAt}}</span>
+    </div>
+    {{if .LastSummary.Summary}}
+    <section class="mb-4">
+        <h2 class="section-heading">TL;DR</h2>
         <div class="card-base">
-            <div class="flex items-center gap-3 mb-2">
-                <a href="/sessions/{{.LastSummary.ID}}" class="font-medium text-accent hover:underline font-mono text-sm">#{{.LastSummary.ID}}</a>
-                <span class="badge-pill {{statusClass .LastSummary.Status}} text-xs">{{.LastSummary.Status}}</span>
-                <span class="text-xs text-muted">Tier {{.LastSummary.Tier}} / {{tierLabel .LastSummary.Tier}}</span>
-                {{if .LastSummary.CostUSD}}<span class="text-xs font-mono text-muted">{{fmtCost .LastSummary.CostUSD}}</span>{{end}}
-                <span class="text-xs text-muted ml-auto">{{fmtTime .LastSummary.StartedAt}}</span>
-            </div>
             <p class="text-sm leading-relaxed text-charcoal">{{.LastSummary.Summary}}</p>
         </div>
-        {{else}}
-        <div class="card-base text-sm text-muted">No summary yet. Summaries appear after sessions complete.</div>
-        {{end}}
     </section>
+    {{end}}
+    {{if .LastSummary.Response}}
+    <section class="mb-6">
+        <h2 class="section-heading">What Happened</h2>
+        <div class="card-base prose">{{renderMarkdown .LastSummary.Response}}</div>
+    </section>
+    {{end}}
+    {{else}}
+    <section class="mb-6">
+        <h2 class="section-heading">TL;DR</h2>
+        <div class="card-base text-sm text-muted">No summary yet. Summaries appear after sessions complete.</div>
+    </section>
+    {{end}}
 
     {{/* Unified Activity Feed */}}
     {{/* Governing: SPEC-0021 REQ "Unified Activity Feed" */}}
@@ -109,8 +119,8 @@
         {{if .Activity}}
         <div class="space-y-1">
             {{range .Activity}}
-            <div class="card-base flex items-start gap-3 py-1.5 text-sm">
-                <span class="text-base leading-none mt-0.5 w-5 shrink-0 text-center">{{.Icon}}</span>
+            <div class="card-base flex items-center gap-3 py-1.5 text-sm min-w-0">
+                <span class="text-base leading-none w-5 shrink-0 text-center">{{.Icon}}</span>
                 {{if eq .Type "event"}}
                 <span class="badge-pill {{levelClass .Level}} text-xs shrink-0">{{.Level}}</span>
                 {{else if eq .Type "session"}}
@@ -119,7 +129,7 @@
                 <span class="badge-pill level-memory text-xs shrink-0">memory</span>
                 {{end}}
                 {{if .Service}}<span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded shrink-0">{{.Service}}</span>{{end}}
-                <span class="flex-1 text-charcoal">
+                <span class="flex-1 text-charcoal truncate min-w-0">
                     {{if .SessionID}}<a href="/sessions/{{.SessionID}}" class="text-accent hover:underline font-mono text-xs mr-1">#{{.SessionID}}</a>{{end}}{{.Message}}
                 </span>
                 <span class="text-xs text-muted font-mono shrink-0">{{fmtTime .Timestamp}}</span>
