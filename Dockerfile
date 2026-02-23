@@ -20,12 +20,41 @@ FROM node:22-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-client \
     curl \
+    git \
     dnsutils \
     jq \
     python3 \
     python3-pip \
     python3-venv \
+    gnupg \
+    lsb-release \
     && rm -rf /var/lib/apt/lists/*
+
+# GitHub CLI, Docker CLI, HashiCorp Vault — add apt repos then install together
+RUN mkdir -p /usr/share/keyrings \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+       | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+       > /etc/apt/sources.list.d/github-cli.list \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg \
+       | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+       > /etc/apt/sources.list.d/docker.list \
+    && curl -fsSL https://apt.releases.hashicorp.com/gpg \
+       | gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] https://apt.releases.hashicorp.com $(lsb_release -cs) main" \
+       > /etc/apt/sources.list.d/hashicorp.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       gh \
+       docker-ce-cli \
+       vault \
+    && rm -rf /var/lib/apt/lists/*
+
+# Gitea CLI (tea) — no apt repo; install binary for current arch
+RUN ARCH=$(dpkg --print-architecture) \
+    && curl -fsSL "https://gitea.com/gitea/tea/releases/download/v0.9.2/tea-0.9.2-linux-${ARCH}" \
+       -o /usr/local/bin/tea \
+    && chmod +x /usr/local/bin/tea
 
 # Governing: SPEC-0004 REQ-8 (Docker Image Installation — apprise via pip3)
 # Governing: SPEC-0009 REQ "Dockerfile Structure" — apprise for notifications
