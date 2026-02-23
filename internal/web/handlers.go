@@ -847,3 +847,12 @@ func (s *Server) handleConfigPost(w http.ResponseWriter, r *http.Request) {
 
 	s.render(w, r, "config.html", data)
 }
+
+// handleStopSession stops the currently running session.
+func (s *Server) handleStopSession(w http.ResponseWriter, r *http.Request) {
+	if !s.mgr.Stop() {
+		http.Error(w, "no session running", http.StatusConflict)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

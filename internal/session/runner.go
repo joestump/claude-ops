@@ -57,7 +57,7 @@ func (r *CLIRunner) Start(ctx context.Context, model string, promptContent strin
 		"in the user prompt above.\n\n"
 	args = append(args, "--append-system-prompt", autonomousDirective+"Environment: "+appendSystemPrompt)
 
-	cmd := exec.Command("claude", args...)
+	cmd := exec.CommandContext(ctx, "claude", args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} // Governing: SPEC-0008 REQ-7 — process group isolation for signal forwarding.
 	cmd.Stderr = os.Stderr
 

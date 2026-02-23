@@ -48,6 +48,7 @@ type SSEHub interface {
 type SessionTrigger interface {
 	TriggerAdHoc(prompt string, startTier int) (int64, error)
 	IsRunning() bool
+	Stop() bool
 }
 
 // ServerOption configures optional Server features.
@@ -142,6 +143,8 @@ func (s *Server) parseTemplates() {
 				return "status-down"
 			case "running":
 				return "status-running"
+			case "stopped":
+				return "status-unknown"
 			default:
 				return "status-unknown"
 			}
@@ -156,6 +159,8 @@ func (s *Server) parseTemplates() {
 				return "dot-down"
 			case "running":
 				return "dot-running"
+			case "stopped":
+				return "dot-unknown"
 			default:
 				return "dot-unknown"
 			}
@@ -357,6 +362,7 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("GET /sessions", s.handleSessions)
 	s.mux.HandleFunc("GET /sessions/{id}", s.handleSession)
 	s.mux.HandleFunc("GET /sessions/{id}/stream", s.handleSessionStream)
+	s.mux.HandleFunc("POST /sessions/{id}/stop", s.handleStopSession)
 	s.mux.HandleFunc("GET /events", s.handleEvents)
 	s.mux.HandleFunc("GET /memories", s.handleMemories)
 	s.mux.HandleFunc("POST /memories", s.handleMemoryCreate)

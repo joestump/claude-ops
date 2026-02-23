@@ -42,9 +42,11 @@ type Manager struct {
 	// If it returns an error, the session is skipped.
 	PreSessionHook func() error
 
-	mu          sync.Mutex
-	running     bool
-	cmd         *exec.Cmd
+	mu             sync.Mutex
+	running        bool
+	cmd            *exec.Cmd
+	stopFn         func() // cancels the currently running session's context
+	stoppedByUser  bool   // set by Stop() so runTier can use "stopped" status
 	// Governing: SPEC-0012 "Channel-Based Trigger in Session Manager" — buffered channel (size 1)
 	triggerCh   chan adHocRequest
 	lastAdHocID chan int64
@@ -108,6 +110,19 @@ func (m *Manager) IsRunning() bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.running
+}
+
+// Stop cancels the currently running session. Returns true if a session was
+// running and has been signalled to stop, false if no session was active.
+func (m *Manager) Stop() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if !m.running || m.stopFn == nil {
+		return false
+	}
+	m.stoppedByUser = true
+	m.stopFn()
+	return true
 }
 
 // Run starts the session loop. It runs one session immediately, then waits
@@ -281,6 +296,11 @@ func (m *Manager) tierToolConfig(tier int) (allowed, disallowed string) {
 func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFile string, parentSessionID *int64, handoffContext string, trigger string, promptOverride *string) (int64, error) {
 	// Governing: SPEC-0008 REQ-5 "Session already running"
 	// — guards against starting a second session for the same tier.
+	// Create a per-session cancellable context so Stop() can kill just this
+	// session without cancelling the overall manager context.
+	sessionCtx, cancelSession := context.WithCancel(ctx)
+	defer cancelSession()
+
 	m.mu.Lock()
 	if m.running {
 		m.mu.Unlock()
@@ -288,12 +308,15 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		return 0, nil
 	}
 	m.running = true
+	m.stopFn = cancelSession
 	m.mu.Unlock()
 
 	defer func() {
 		m.mu.Lock()
 		m.running = false
 		m.cmd = nil
+		m.stopFn = nil
+		m.stoppedByUser = false
 		m.mu.Unlock()
 	}()
 
@@ -379,7 +402,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	// — passes both --allowedTools and --disallowedTools to the CLI subprocess.
 	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
 	allowedTools, disallowedTools := m.tierToolConfig(tier)
-	stdoutPipe, waitFn, err := m.runner.Start(ctx, model, promptContent, allowedTools, disallowedTools, envCtx)
+	stdoutPipe, waitFn, err := m.runner.Start(sessionCtx, model, promptContent, allowedTools, disallowedTools, envCtx)
 	if err != nil {
 		m.finalizeSession(sessionID, "failed", nil, &logPath)
 		return 0, fmt.Errorf("start claude: %w", err)
@@ -483,7 +506,14 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		status := "completed"
 		var exitCode int
 		if err != nil {
-			status = "failed"
+			m.mu.Lock()
+			wasStopped := m.stoppedByUser
+			m.mu.Unlock()
+			if wasStopped {
+				status = "stopped"
+			} else {
+				status = "failed"
+			}
 			if exitErr, ok := err.(*exec.ExitError); ok {
 				exitCode = exitErr.ExitCode()
 			} else {

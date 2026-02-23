@@ -39,6 +39,7 @@ func (m *mockTrigger) TriggerAdHoc(prompt string, startTier int) (int64, error) 
 }
 
 func (m *mockTrigger) IsRunning() bool { return m.running }
+func (m *mockTrigger) Stop() bool      { return m.running }
 
 type testEnv struct {
 	srv     *Server

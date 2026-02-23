@@ -106,10 +106,33 @@
              sse-swap="message"
              hx-swap="beforeend">
         </div>
-        <button id="follow-btn" class="follow-btn follow-active" onclick="toggleFollow()">
-            <span class="follow-dot"></span>
-            <span id="follow-label">following</span>
-        </button>
+        <div class="session-controls">
+            <button id="follow-btn" class="follow-btn follow-active" onclick="toggleFollow()">
+                <span class="follow-dot"></span>
+                <span id="follow-label">following</span>
+            </button>
+            <button class="stop-btn" onclick="document.getElementById('stop-modal').showModal()">
+                &#x25A0; stop
+            </button>
+        </div>
+
+        <dialog id="stop-modal" class="run-modal">
+            <div class="run-modal-box">
+                <div class="flex items-center justify-between mb-4">
+                    <h2 class="text-base font-semibold">Stop session?</h2>
+                    <button onclick="document.getElementById('stop-modal').close()"
+                            class="text-muted hover:text-charcoal text-xl leading-none">&times;</button>
+                </div>
+                <p class="text-sm text-muted mb-5">The running agent will be killed immediately. Any in-progress remediation may be left in a partial state.</p>
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="document.getElementById('stop-modal').close()"
+                            class="btn-secondary text-sm">Cancel</button>
+                    <button type="button" id="stop-confirm-btn" class="btn-danger text-sm"
+                            onclick="confirmStop({{.Session.ID}})">Stop session</button>
+                </div>
+            </div>
+        </dialog>
+
         <script>
         (function() {
             var following = true;
@@ -202,6 +225,21 @@
 
             terminal.addEventListener('htmx:sseClose', handleSessionDone);
             terminal.addEventListener('done', handleSessionDone);
+
+            window.confirmStop = function(sessionId) {
+                var btn = document.getElementById('stop-confirm-btn');
+                btn.disabled = true;
+                btn.textContent = 'Stopping…';
+                fetch('/sessions/' + sessionId + '/stop', { method: 'POST' })
+                    .then(function() {
+                        document.getElementById('stop-modal').close();
+                        // Page will reload automatically when the SSE stream closes.
+                    })
+                    .catch(function() {
+                        btn.disabled = false;
+                        btn.textContent = 'Stop session';
+                    });
+            };
         })();
         </script>
         {{else}}
