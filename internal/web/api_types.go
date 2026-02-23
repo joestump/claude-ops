@@ -106,7 +106,8 @@ type APIConfig struct {
 
 // APITriggerRequest is the JSON body for POST /api/v1/sessions/trigger.
 type APITriggerRequest struct {
-	Prompt string `json:"prompt"`
+	Prompt    string `json:"prompt"`
+	StartTier int    `json:"start_tier"` // 1, 2, or 3 (0/omitted = 1)
 }
 
 // APICreateMemoryRequest is the JSON body for POST /api/v1/memories.

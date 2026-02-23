@@ -170,24 +170,15 @@
                 }
             };
 
-            // When SSE done event fires, change follow button to "scroll to output"
-            // and reload the page so the rendered markdown response appears.
-            terminal.addEventListener('htmx:sseClose', function() {
-                following = false;
-                observer.disconnect();
-                btn.classList.remove('follow-active');
-                label.textContent = 'scroll to output';
-                btn.onclick = function() {
-                    terminal.scrollIntoView({ behavior: 'smooth' });
-                };
-                // Reload after a brief delay to show the completed session with response.
-                setTimeout(function() {
-                    window.location.reload();
-                }, 1500);
-            });
+            // When the SSE stream finishes, reload the page to show the completed
+            // session with its rendered markdown response.
+            // Guard flag prevents double-reload if both htmx:sseClose and the
+            // custom "done" SSE event fire for the same session end.
+            var doneHandled = false;
+            function handleSessionDone() {
+                if (doneHandled) return;
+                doneHandled = true;
 
-            // Also listen for the custom "done" SSE event name.
-            terminal.addEventListener('done', function() {
                 following = false;
                 observer.disconnect();
                 btn.classList.remove('follow-active');
@@ -195,10 +186,22 @@
                 btn.onclick = function() {
                     terminal.scrollIntoView({ behavior: 'smooth' });
                 };
-                setTimeout(function() {
-                    window.location.reload();
-                }, 1500);
-            });
+
+                // Attempt to close the underlying native EventSource so the browser
+                // does not reconnect before we reload (the server also sends
+                // retry:30000 to discourage reconnect, but this is belt-and-suspenders).
+                try {
+                    var es = htmx._data && htmx._data(terminal, 'sse-event-source');
+                    if (es && es.readyState !== EventSource.CLOSED) { es.close(); }
+                } catch (_) {}
+
+                // 2.5 s gives the DB time to persist the completed status before
+                // the reload checks it to decide whether to show SSE or static output.
+                setTimeout(function() { window.location.reload(); }, 2500);
+            }
+
+            terminal.addEventListener('htmx:sseClose', handleSessionDone);
+            terminal.addEventListener('done', handleSessionDone);
         })();
         </script>
         {{else}}

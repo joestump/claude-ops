@@ -383,6 +383,13 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("POST /v1/chat/completions", s.handleChatCompletions)
 	s.mux.HandleFunc("GET /v1/models", s.handleModels)
 
+	// Ollama-compatible endpoints — clients that speak the Ollama protocol
+	// can point their base URL at this server without any changes.
+	s.mux.HandleFunc("GET /api/version", s.handleOllamaVersion)
+	s.mux.HandleFunc("GET /api/tags", s.handleOllamaTags)
+	s.mux.HandleFunc("POST /api/chat", s.handleOllamaChat)
+	s.mux.HandleFunc("POST /api/generate", s.handleOllamaGenerate)
+
 	// Governing: SPEC-0017 REQ-15 "OpenAPI Specification File" — embedded YAML at /api/openapi.yaml, REQ-16 "Swagger UI"
 	s.mux.HandleFunc("GET /api/openapi.yaml", s.handleOpenAPISpec)
 	// Governing: SPEC-0017 REQ-16 "Swagger UI" — embedded static assets at /api/docs/

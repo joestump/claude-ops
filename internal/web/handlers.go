@@ -2,6 +2,8 @@ package web
 
 import (
 	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"html/template"
@@ -330,6 +332,13 @@ func (s *Server) handleSessionStream(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 	w.Header().Set("X-Accel-Buffering", "no")
+
+	// Tell the browser to wait 30 s before reconnecting. The JS page-reload
+	// fires after 2.5 s, destroying the EventSource before the retry fires.
+	// This prevents the hub's buffer from being replayed on reconnect and
+	// appearing as duplicated output in the terminal.
+	_, _ = fmt.Fprintf(w, "retry: 30000\n\n")
+	flusher.Flush()
 
 	if s.hub == nil {
 		_, _ = fmt.Fprintf(w, "data: [session %d] SSE hub not connected\n\n", id)
@@ -679,6 +688,61 @@ func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "config.html", data)
 }
 
+// classifyPromptTier calls the Anthropic Messages API with claude-haiku to
+// determine the most appropriate starting tier for a user-provided prompt.
+// Returns 1, 2, or 3. Falls back to 1 on any error or missing API key.
+// Governing: SPEC-0012 "POST /sessions/trigger Endpoint" — auto tier routing
+func classifyPromptTier(ctx context.Context, apiKey, prompt string) int {
+	if apiKey == "" {
+		return 1
+	}
+	system := "You are an infrastructure ops escalation router. " +
+		"Based on the user's request, pick the starting investigation tier:\n" +
+		"1 = Observe only (check status, gather info, no changes needed or uncertain)\n" +
+		"2 = Safe fix (restart services, fix config, clear caches — something is clearly down)\n" +
+		"3 = Full remediation (complex failure, Ansible/Helm redeployment, database issues, multi-service outage)\n\n" +
+		"Reply with ONLY the digit 1, 2, or 3. No other text."
+
+	payload, _ := json.Marshal(map[string]any{
+		"model":      "claude-haiku-4-5-20251001",
+		"max_tokens": 5,
+		"system":     system,
+		"messages":   []map[string]any{{"role": "user", "content": prompt}},
+	})
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost,
+		"https://api.anthropic.com/v1/messages", bytes.NewReader(payload))
+	if err != nil {
+		return 1
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	hc := &http.Client{Timeout: 8 * time.Second}
+	resp, err := hc.Do(req)
+	if err != nil || resp.StatusCode != http.StatusOK {
+		return 1
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil || len(result.Content) == 0 {
+		return 1
+	}
+	switch strings.TrimSpace(result.Content[0].Text) {
+	case "2":
+		return 2
+	case "3":
+		return 3
+	default:
+		return 1
+	}
+}
+
 // handleTriggerSession triggers an ad-hoc session with a custom prompt.
 // Governing: SPEC-0012 "POST /sessions/trigger Endpoint" — form-encoded prompt, 400/409/200 responses
 func (s *Server) handleTriggerSession(w http.ResponseWriter, r *http.Request) {
@@ -692,7 +756,20 @@ func (s *Server) handleTriggerSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := s.mgr.TriggerAdHoc(prompt, 1)
+	// Determine starting tier from the form field.
+	// "auto" (or empty) invokes the LLM router; explicit "1"/"2"/"3" bypasses it.
+	startTier := 1
+	switch r.FormValue("tier") {
+	case "2":
+		startTier = 2
+	case "3":
+		startTier = 3
+	case "auto", "":
+		startTier = classifyPromptTier(r.Context(), os.Getenv("ANTHROPIC_API_KEY"), prompt)
+		log.Printf("handleTriggerSession: LLM routed %q → tier %d", prompt, startTier)
+	}
+
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusConflict)
 		return

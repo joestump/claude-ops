@@ -114,8 +114,15 @@
             <form id="run-form" hx-post="/sessions/trigger" hx-target="#main">
                 <label class="block text-sm text-muted mb-2">What should Claude look at?</label>
                 <textarea name="prompt" rows="4" id="run-prompt"
-                    class="input-field w-full text-sm mb-4"
+                    class="input-field w-full text-sm mb-3"
                     placeholder="e.g. Jellyfin is down. Can you take a look?"></textarea>
+                <label class="block text-xs text-muted uppercase tracking-wider mb-1">Starting tier</label>
+                <select name="tier" class="input-field w-full mb-4 text-sm">
+                    <option value="auto">Auto &mdash; LLM picks based on prompt</option>
+                    <option value="1">Tier 1 &mdash; Observe only</option>
+                    <option value="2">Tier 2 &mdash; Safe remediation</option>
+                    <option value="3">Tier 3 &mdash; Full remediation</option>
+                </select>
                 <div class="flex items-center justify-between">
                     <button type="button" onclick="document.getElementById('run-modal').close()"
                             class="text-sm text-muted hover:text-charcoal">Cancel</button>

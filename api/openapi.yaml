@@ -4,17 +4,27 @@ info:
   title: Claude Ops API
   description: |
     REST API for the Claude Ops infrastructure monitoring and remediation agent.
-    Provides programmatic access to sessions, events, memories, cooldowns,
-    configuration, and health status.
+
+    Claude Ops exposes three API surfaces at different base paths:
+
+    | Surface | Base path | Authentication |
+    |---------|-----------|----------------|
+    | REST API | `/api/v1/` | None (same-host) |
+    | OpenAI-compatible | `/v1/` | `Authorization: Bearer <CLAUDEOPS_CHAT_API_KEY>` |
+    | Ollama-compatible | `/api/` | `Authorization: Bearer <CLAUDEOPS_CHAT_API_KEY>` |
+
+    `/api/tags` and `/api/version` are always unauthenticated.
+    `/v1/models` is always unauthenticated.
   version: "1.0.0"
   license:
     name: MIT
 
 servers:
-  - url: /api/v1
+  - url: /
+    description: All endpoints (paths below include full prefix)
 
 paths:
-  /health:
+  /api/v1/health:
     get:
       summary: Health check
       description: Returns the health status of the API server. Responds within 100ms.
@@ -34,7 +44,7 @@ paths:
               example:
                 status: ok
 
-  /sessions:
+  /api/v1/sessions:
     get:
       summary: List sessions
       description: Returns sessions ordered by started_at descending with pagination.
@@ -93,7 +103,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /sessions/{id}:
+  /api/v1/sessions/{id}:
     get:
       summary: Get session detail
       description: Returns a single session with its escalation chain (parent and children).
@@ -163,7 +173,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /sessions/trigger:
+  /api/v1/sessions/trigger:
     post:
       summary: Trigger ad-hoc session
       description: Triggers an ad-hoc monitoring session with a custom prompt. Returns 409 if a session is already running.
@@ -180,8 +190,14 @@ paths:
                   type: string
                   description: The prompt text for the ad-hoc session.
                   minLength: 1
+                start_tier:
+                  type: integer
+                  description: Starting escalation tier (1=observe, 2=investigate, 3=remediate). Defaults to 1.
+                  enum: [1, 2, 3]
+                  default: 1
             example:
               prompt: "Check nginx status on ie01"
+              start_tier: 1
       responses:
         "201":
           description: Session created
@@ -230,7 +246,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /events:
+  /api/v1/events:
     get:
       summary: List events
       description: Returns events ordered by created_at descending with optional level and service filters.
@@ -293,7 +309,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /memories:
+  /api/v1/memories:
     get:
       summary: List memories
       description: Returns memories ordered by confidence descending with optional service and category filters.
@@ -412,7 +428,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /memories/{id}:
+  /api/v1/memories/{id}:
     put:
       summary: Update memory
       description: Updates an existing memory's observation, confidence, and active status.
@@ -506,7 +522,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /cooldowns:
+  /api/v1/cooldowns:
     get:
       summary: List cooldowns
       description: Returns cooldown action summaries within the last 24 hours, ordered by last_action descending.
@@ -533,7 +549,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /config:
+  /api/v1/config:
     get:
       summary: Get configuration
       description: Returns the current runtime configuration.
@@ -607,7 +623,234 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
+  # ─── OpenAI-compatible chat API (/v1/) ─────────────────────────────────────
+  # Clients that already speak OpenAI can point their base URL at this server.
+  # Authentication: Authorization: Bearer <CLAUDEOPS_CHAT_API_KEY>
+
+  /v1/models:
+    get:
+      summary: List chat models
+      description: Returns the available claude-ops model IDs in OpenAI format. Unauthenticated.
+      operationId: listModels
+      tags: [OpenAI-compatible]
+      responses:
+        "200":
+          description: Model list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  object:
+                    type: string
+                    example: list
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        object:
+                          type: string
+                        owned_by:
+                          type: string
+              example:
+                object: list
+                data:
+                  - id: claude-ops
+                    object: model
+                    owned_by: claude-ops
+                  - id: claude-ops-tier1
+                    object: model
+                    owned_by: claude-ops
+                  - id: claude-ops-tier2
+                    object: model
+                    owned_by: claude-ops
+                  - id: claude-ops-tier3
+                    object: model
+                    owned_by: claude-ops
+
+  /v1/chat/completions:
+    post:
+      summary: Chat completion
+      description: |
+        Triggers an ad-hoc Claude Ops session from a chat message and streams
+        or returns the session output in OpenAI format.
+
+        Model IDs map to starting tiers:
+        - `claude-ops` / `claude-ops-tier1` → Tier 1 (Observe, full escalation chain)
+        - `claude-ops-tier2` → Tier 2 (Safe remediation)
+        - `claude-ops-tier3` → Tier 3 (Full remediation)
+
+        The `claude-ops` model starts at Tier 1 and will escalate to Tier 2
+        or Tier 3 automatically if the situation requires it.
+      operationId: createChatCompletion
+      tags: [OpenAI-compatible]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                model:
+                  type: string
+                  description: Model ID (controls starting tier). Defaults to claude-ops.
+                  example: claude-ops
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    required: [role, content]
+                    properties:
+                      role:
+                        type: string
+                        enum: [user, assistant, system]
+                      content:
+                        type: string
+                stream:
+                  type: boolean
+                  description: If true, response is streamed as SSE chunks.
+                  default: false
+            example:
+              model: claude-ops
+              messages:
+                - role: user
+                  content: "Jellyfin is responding slowly, can you investigate?"
+              stream: false
+      responses:
+        "200":
+          description: Session output (sync or SSE stream)
+        "401":
+          description: Invalid API key
+        "429":
+          description: A session is already running
+        "503":
+          description: Chat endpoint disabled (CLAUDEOPS_CHAT_API_KEY not set)
+
+  # ─── Ollama-compatible API (/api/) ─────────────────────────────────────────
+  # Clients that speak the Ollama protocol can point their base URL at this
+  # server.  /api/version and /api/tags are unauthenticated; /api/chat and
+  # /api/generate require the same CLAUDEOPS_CHAT_API_KEY if set.
+
+  /api/version:
+    get:
+      summary: Server version
+      description: Returns version information. Unauthenticated. Compatible with Ollama GET /api/version.
+      operationId: ollamaVersion
+      tags: [Ollama-compatible]
+      responses:
+        "200":
+          description: Version string
+          content:
+            application/json:
+              example:
+                version: claude-ops
+
+  /api/tags:
+    get:
+      summary: List models (Ollama format)
+      description: Returns available models in Ollama /api/tags format. Unauthenticated.
+      operationId: ollamaListModels
+      tags: [Ollama-compatible]
+      responses:
+        "200":
+          description: Model list in Ollama format
+          content:
+            application/json:
+              example:
+                models:
+                  - name: claude-ops:latest
+                    model: claude-ops:latest
+                    modified_at: "2025-01-01T00:00:00Z"
+                    size: 0
+
+  /api/chat:
+    post:
+      summary: Chat completion (Ollama format)
+      description: |
+        Triggers an ad-hoc session using the Ollama chat request format.
+        Streams NDJSON by default (one JSON object per line); set `stream: false`
+        for a single response object.
+      operationId: ollamaChat
+      tags: [Ollama-compatible]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: string
+                  example: claude-ops
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      content:
+                        type: string
+                stream:
+                  type: boolean
+            example:
+              model: claude-ops
+              messages:
+                - role: user
+                  content: "Is nginx healthy on ie01?"
+              stream: true
+      responses:
+        "200":
+          description: NDJSON stream or single JSON response
+
+  /api/generate:
+    post:
+      summary: Generate completion (Ollama format)
+      description: |
+        Triggers an ad-hoc session using the Ollama generate (text-completion) request format.
+        Uses the `prompt` field instead of `messages`.
+      operationId: ollamaGenerate
+      tags: [Ollama-compatible]
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                model:
+                  type: string
+                  example: claude-ops
+                prompt:
+                  type: string
+                stream:
+                  type: boolean
+            example:
+              model: claude-ops
+              prompt: "Check disk space on ie01"
+              stream: false
+      responses:
+        "200":
+          description: NDJSON stream or single JSON response
+
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: |
+        API key set via CLAUDEOPS_CHAT_API_KEY environment variable.
+        Used by the OpenAI-compatible and Ollama-compatible endpoints.
   responses:
     InternalError:
       description: Internal server error
