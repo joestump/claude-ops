@@ -180,9 +180,12 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 		}
 
 		// Check for a handoff file from the completed tier.
+		// Governing: SPEC-0016 REQ "Handoff Validation Events" — emit critical event on handoff failures
 		h, err := ReadHandoff(m.cfg.StateDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "read handoff after tier %d: %v\n", currentTier, err)
+			msg := fmt.Sprintf("Escalation blocked: could not read handoff from tier %d — %v", currentTier, err)
+			m.emitEscalationEvent(sessionID, msg)
 			break
 		}
 		if h == nil {
@@ -196,10 +199,13 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 			if delErr := DeleteHandoff(m.cfg.StateDir); delErr != nil {
 				fmt.Fprintf(os.Stderr, "cleanup invalid handoff: %v\n", delErr)
 			}
+			msg := fmt.Sprintf("Escalation blocked: invalid handoff from tier %d — %v", currentTier, err)
+			m.emitEscalationEvent(sessionID, msg)
 			break
 		}
 
 		// Governing: SPEC-0016 "Supervisor Escalation Logic" — dry-run prevents escalation
+		// Governing: SPEC-0016 REQ "Handoff Validation Events" — emit info event when dry-run suppresses escalation
 		// Dry-run mode: don't actually escalate.
 		if m.cfg.DryRun && h.RecommendedTier >= 2 {
 			fmt.Printf("[%s] DRY RUN: would escalate to tier %d for services %v\n",
@@ -207,6 +213,9 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 			if delErr := DeleteHandoff(m.cfg.StateDir); delErr != nil {
 				fmt.Fprintf(os.Stderr, "cleanup dry-run handoff: %v\n", delErr)
 			}
+			msg := fmt.Sprintf("Escalation suppressed (dry run): would have escalated to tier %d for: %s",
+				h.RecommendedTier, strings.Join(h.ServicesAffected, ", "))
+			m.emitEscalationEventLevel(sessionID, "info", msg)
 			break
 		}
 
@@ -989,6 +998,28 @@ func buildHandoffContext(h *Handoff) string {
 	}
 
 	return b.String()
+}
+
+// emitEscalationEvent emits a critical-level event linked to the given session ID.
+// Governing: SPEC-0016 REQ "Handoff Validation Events"
+func (m *Manager) emitEscalationEvent(sessionID int64, message string) {
+	m.emitEscalationEventLevel(sessionID, "critical", message)
+}
+
+// emitEscalationEventLevel emits an event at the given level linked to the given session ID.
+// Governing: SPEC-0016 REQ "Handoff Validation Events"
+func (m *Manager) emitEscalationEventLevel(sessionID int64, level, message string) {
+	sid := sessionID
+	now := time.Now().UTC().Format(time.RFC3339)
+	if _, err := m.db.InsertEvent(&db.Event{
+		SessionID: &sid,
+		Level:     level,
+		Service:   nil,
+		Message:   message,
+		CreatedAt: now,
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "insert escalation event for session %d: %v\n", sessionID, err)
+	}
 }
 
 // buildEnvContext produces the environment context string appended to the

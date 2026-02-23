@@ -732,6 +732,70 @@ func (d *DB) UpdateSessionSummary(id int64, summary string) error {
 	return nil
 }
 
+// DashboardStats holds aggregate metrics for the TL;DR dashboard HUD.
+// Governing: SPEC-0021 REQ "Dashboard Stats HUD"
+type DashboardStats struct {
+	TotalRuns      int
+	Escalations    int     // sessions where parent_session_id IS NOT NULL
+	Remediations   int     // sessions where tier = 3
+	SuccessRate    float64 // completed root sessions / total root sessions (0–1)
+	TotalCostUSD   float64 // SUM(cost_usd)
+	ActiveMemories int     // COUNT WHERE active=1
+	CriticalEvents int     // level='critical' in last 24h
+	AvgDurationMs  int64   // AVG(duration_ms) non-null sessions
+}
+
+// GetDashboardStats returns aggregate metrics for the TL;DR dashboard.
+// Governing: SPEC-0021 REQ "Dashboard Stats HUD"
+func (d *DB) GetDashboardStats() (*DashboardStats, error) {
+	s := &DashboardStats{}
+
+	// 1. Total root sessions.
+	if err := d.conn.QueryRow(`SELECT COUNT(*) FROM sessions WHERE parent_session_id IS NULL`).Scan(&s.TotalRuns); err != nil {
+		return nil, fmt.Errorf("dashboard stats total runs: %w", err)
+	}
+
+	// 2. Escalations (child sessions).
+	if err := d.conn.QueryRow(`SELECT COUNT(*) FROM sessions WHERE parent_session_id IS NOT NULL`).Scan(&s.Escalations); err != nil {
+		return nil, fmt.Errorf("dashboard stats escalations: %w", err)
+	}
+
+	// 3. Remediations (tier 3 sessions).
+	if err := d.conn.QueryRow(`SELECT COUNT(*) FROM sessions WHERE tier = 3`).Scan(&s.Remediations); err != nil {
+		return nil, fmt.Errorf("dashboard stats remediations: %w", err)
+	}
+
+	// 4. Success rate: completed root / total root.
+	var completedRoots int
+	if err := d.conn.QueryRow(`SELECT COUNT(*) FROM sessions WHERE status = 'completed' AND parent_session_id IS NULL`).Scan(&completedRoots); err != nil {
+		return nil, fmt.Errorf("dashboard stats completed roots: %w", err)
+	}
+	if s.TotalRuns > 0 {
+		s.SuccessRate = float64(completedRoots) / float64(s.TotalRuns)
+	}
+
+	// 5. Total cost and average duration.
+	var totalCost sql.NullFloat64
+	var avgDuration sql.NullFloat64
+	if err := d.conn.QueryRow(`SELECT COALESCE(SUM(cost_usd), 0), COALESCE(AVG(duration_ms), 0) FROM sessions`).Scan(&totalCost, &avgDuration); err != nil {
+		return nil, fmt.Errorf("dashboard stats cost/duration: %w", err)
+	}
+	s.TotalCostUSD = totalCost.Float64
+	s.AvgDurationMs = int64(avgDuration.Float64)
+
+	// 6. Active memories.
+	if err := d.conn.QueryRow(`SELECT COUNT(*) FROM memories WHERE active = 1`).Scan(&s.ActiveMemories); err != nil {
+		return nil, fmt.Errorf("dashboard stats active memories: %w", err)
+	}
+
+	// 7. Critical events in last 24h.
+	if err := d.conn.QueryRow(`SELECT COUNT(*) FROM events WHERE level = 'critical' AND created_at > datetime('now', '-1 day')`).Scan(&s.CriticalEvents); err != nil {
+		return nil, fmt.Errorf("dashboard stats critical events: %w", err)
+	}
+
+	return s, nil
+}
+
 func boolToInt(b bool) int {
 	if b {
 		return 1

@@ -315,6 +315,19 @@ func (s *Server) parseTemplates() {
 			}
 			return d.Truncate(time.Second).String()
 		},
+		"fmtMsVal": func(ms int64) string {
+			if ms == 0 {
+				return "--"
+			}
+			d := time.Duration(ms) * time.Millisecond
+			if d < time.Second {
+				return fmt.Sprintf("%dms", ms)
+			}
+			return d.Truncate(time.Second).String()
+		},
+		"fmtCostVal": func(f float64) string {
+			return fmt.Sprintf("$%.4f", f)
+		},
 	}
 
 	s.tmpl = template.Must(

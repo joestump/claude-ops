@@ -1,6 +1,7 @@
 package web
 
 import (
+	"sort"
 	"time"
 
 	"github.com/joestump/claude-ops/internal/db"
@@ -241,6 +242,187 @@ func ToMemoryViews(memories []db.Memory) []MemoryView {
 		views[i] = ToMemoryView(m)
 	}
 	return views
+}
+
+// ActivityItem is a template-friendly representation of a single entry in the
+// unified activity feed (events, session milestones, and memory upserts).
+// Governing: SPEC-0021 REQ "Unified Activity Feed"
+type ActivityItem struct {
+	Type      string   // "event", "session", "memory"
+	Level     string   // event level, session status, or "info" for memories
+	Message   string
+	Service   string
+	SessionID *int64
+	Timestamp time.Time
+	Icon      string // emoji prefix for the item type
+}
+
+// buildActivityFeed merges sessions, events, and memories into a unified
+// chronological activity feed, returning at most 40 items sorted newest-first.
+// Governing: SPEC-0021 REQ "Unified Activity Feed"
+func buildActivityFeed(sessions []db.Session, events []db.Event, memories []db.Memory) []ActivityItem {
+	var items []ActivityItem
+
+	// Session milestones: started + ended/escalated.
+	for _, s := range sessions {
+		sid := s.ID
+		startedAt, _ := time.Parse(timeFormat, s.StartedAt)
+		startMsg := "Session #" + itoa(s.ID) + " started"
+		if s.Trigger != "" {
+			startMsg += " (" + s.Trigger + ")"
+		}
+		items = append(items, ActivityItem{
+			Type:      "session",
+			Level:     "running",
+			Message:   startMsg,
+			SessionID: &sid,
+			Timestamp: startedAt,
+			Icon:      "▶",
+		})
+		if s.EndedAt != nil {
+			endedAt, err := time.Parse(timeFormat, *s.EndedAt)
+			if err == nil {
+				icon := "✓"
+				level := s.Status
+				msg := "Session #" + itoa(s.ID) + " " + s.Status
+				switch s.Status {
+				case "escalated":
+					icon = "↑"
+				case "failed", "timed_out":
+					icon = "✗"
+				}
+				if s.CostUSD != nil {
+					msg += " · $" + fmtFloat(*s.CostUSD, 4)
+				}
+				items = append(items, ActivityItem{
+					Type:      "session",
+					Level:     level,
+					Message:   msg,
+					SessionID: &sid,
+					Timestamp: endedAt,
+					Icon:      icon,
+				})
+			}
+		}
+	}
+
+	// Events.
+	for _, e := range events {
+		ts, _ := time.Parse(timeFormat, e.CreatedAt)
+		icon := "⚡"
+		switch e.Level {
+		case "critical":
+			icon = "🔴"
+		case "warning":
+			icon = "⚠"
+		}
+		svc := ""
+		if e.Service != nil {
+			svc = *e.Service
+		}
+		item := ActivityItem{
+			Type:      "event",
+			Level:     e.Level,
+			Message:   e.Message,
+			Service:   svc,
+			Timestamp: ts,
+			Icon:      icon,
+		}
+		if e.SessionID != nil {
+			sid := *e.SessionID
+			item.SessionID = &sid
+		}
+		items = append(items, item)
+	}
+
+	// Memories.
+	for _, m := range memories {
+		ts, _ := time.Parse(timeFormat, m.UpdatedAt)
+		svc := ""
+		if m.Service != nil {
+			svc = *m.Service
+		}
+		msg := "[" + m.Category + "]"
+		if svc != "" {
+			msg += " " + svc + ":"
+		}
+		msg += " " + m.Observation
+		items = append(items, ActivityItem{
+			Type:      "memory",
+			Level:     "info",
+			Message:   msg,
+			Service:   svc,
+			Timestamp: ts,
+			Icon:      "🧠",
+		})
+	}
+
+	// Sort descending by timestamp.
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].Timestamp.After(items[j].Timestamp)
+	})
+
+	// Cap at 40 items.
+	if len(items) > 40 {
+		items = items[:40]
+	}
+	return items
+}
+
+// itoa converts an int64 to a decimal string without importing strconv.
+func itoa(n int64) string {
+	if n == 0 {
+		return "0"
+	}
+	neg := n < 0
+	if neg {
+		n = -n
+	}
+	buf := make([]byte, 0, 20)
+	for n > 0 {
+		buf = append(buf, byte('0'+n%10))
+		n /= 10
+	}
+	if neg {
+		buf = append(buf, '-')
+	}
+	// Reverse.
+	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
+		buf[i], buf[j] = buf[j], buf[i]
+	}
+	return string(buf)
+}
+
+// fmtFloat formats a float64 to a string with the given number of decimal places.
+func fmtFloat(f float64, decimals int) string {
+	// Use manual formatting to avoid importing fmt in viewmodel.
+	// We only need 0-4 decimal places.
+	neg := f < 0
+	if neg {
+		f = -f
+	}
+	factor := 1.0
+	for i := 0; i < decimals; i++ {
+		factor *= 10
+	}
+	rounded := int64(f*factor + 0.5)
+	intPart := rounded / int64(factor)
+	fracPart := rounded % int64(factor)
+
+	intStr := itoa(intPart)
+	fracStr := itoa(fracPart)
+	// Pad fractional part with leading zeros.
+	for len(fracStr) < decimals {
+		fracStr = "0" + fracStr
+	}
+	result := intStr
+	if decimals > 0 {
+		result += "." + fracStr
+	}
+	if neg {
+		result = "-" + result
+	}
+	return result
 }
 
 // ToCooldownViews converts db.RecentCooldown records to template-friendly CooldownView.

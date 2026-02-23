@@ -894,6 +894,78 @@ func TestUpdateSessionSummary(t *testing.T) {
 	}
 }
 
+func TestGetDashboardStats(t *testing.T) {
+	d := openTestDB(t)
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	// Empty DB: all zeros, no error.
+	stats, err := d.GetDashboardStats()
+	if err != nil {
+		t.Fatalf("GetDashboardStats empty: %v", err)
+	}
+	if stats.TotalRuns != 0 || stats.Escalations != 0 || stats.Remediations != 0 {
+		t.Fatalf("expected zero stats on empty DB, got %+v", stats)
+	}
+	if stats.SuccessRate != 0 {
+		t.Fatalf("expected zero success rate on empty DB, got %f", stats.SuccessRate)
+	}
+
+	// Insert 3 root sessions: 2 completed, 1 failed.
+	id1, _ := d.InsertSession(&Session{Tier: 1, Model: "haiku", PromptFile: "/p.md", Status: "completed", StartedAt: now, Trigger: "scheduled"})
+	id2, _ := d.InsertSession(&Session{Tier: 1, Model: "haiku", PromptFile: "/p.md", Status: "completed", StartedAt: now, Trigger: "scheduled"})
+	_, _ = d.InsertSession(&Session{Tier: 1, Model: "haiku", PromptFile: "/p.md", Status: "failed", StartedAt: now, Trigger: "scheduled"})
+
+	// Update results so cost_usd and duration_ms are non-null.
+	_ = d.UpdateSessionResult(id1, "resp", 0.10, 3, 5000)
+	_ = d.UpdateSessionResult(id2, "resp", 0.20, 5, 15000)
+
+	// Insert 1 escalation (child of id1).
+	_, _ = d.InsertSession(&Session{Tier: 2, Model: "sonnet", PromptFile: "/p.md", Status: "completed", StartedAt: now, Trigger: "escalation", ParentSessionID: &id1})
+
+	// Insert 1 tier-3 session (child of id2).
+	_, _ = d.InsertSession(&Session{Tier: 3, Model: "opus", PromptFile: "/p.md", Status: "completed", StartedAt: now, Trigger: "escalation", ParentSessionID: &id2})
+
+	// Insert active memories.
+	_, _ = d.InsertMemory(&Memory{Category: "timing", Observation: "obs1", Confidence: 0.7, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+	_, _ = d.InsertMemory(&Memory{Category: "behavior", Observation: "obs2", Confidence: 0.5, Active: true, CreatedAt: now, UpdatedAt: now, Tier: 1})
+
+	// Insert a critical event.
+	sid := id1
+	_, _ = d.InsertEvent(&Event{SessionID: &sid, Level: "critical", Message: "test critical", CreatedAt: now})
+
+	stats, err = d.GetDashboardStats()
+	if err != nil {
+		t.Fatalf("GetDashboardStats: %v", err)
+	}
+
+	if stats.TotalRuns != 3 {
+		t.Errorf("expected TotalRuns=3, got %d", stats.TotalRuns)
+	}
+	if stats.Escalations != 2 {
+		t.Errorf("expected Escalations=2 (child sessions), got %d", stats.Escalations)
+	}
+	if stats.Remediations != 1 {
+		t.Errorf("expected Remediations=1, got %d", stats.Remediations)
+	}
+	// 2 completed out of 3 root = 0.666...
+	if stats.SuccessRate < 0.66 || stats.SuccessRate > 0.67 {
+		t.Errorf("expected SuccessRate ~0.667, got %f", stats.SuccessRate)
+	}
+	// Total cost across all 5 sessions (only 2 have cost set: 0.10+0.20=0.30).
+	if stats.TotalCostUSD < 0.29 || stats.TotalCostUSD > 0.31 {
+		t.Errorf("expected TotalCostUSD ~0.30, got %f", stats.TotalCostUSD)
+	}
+	if stats.ActiveMemories != 2 {
+		t.Errorf("expected ActiveMemories=2, got %d", stats.ActiveMemories)
+	}
+	if stats.CriticalEvents != 1 {
+		t.Errorf("expected CriticalEvents=1, got %d", stats.CriticalEvents)
+	}
+	if stats.AvgDurationMs <= 0 {
+		t.Errorf("expected positive AvgDurationMs, got %d", stats.AvgDurationMs)
+	}
+}
+
 func TestDecayStaleMemories(t *testing.T) {
 	d := openTestDB(t)
 	svc := "caddy"

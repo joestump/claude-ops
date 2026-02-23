@@ -17,43 +17,79 @@ import (
 
 // handleIndex renders the overview dashboard.
 // Governing: SPEC-0008 REQ-10 — overview/home page: service summary and last check time.
-// Governing: SPEC-0021 REQ "TL;DR Page Rendering"
+// Governing: SPEC-0021 REQ "TL;DR Page Rendering", REQ "Dashboard Stats HUD", REQ "Unified Activity Feed"
 // Governing: SPEC-0013 "Real-Time Overview" — serves polling endpoint for HTMX auto-refresh
 func (s *Server) handleIndex(w http.ResponseWriter, r *http.Request) {
-	var sessionView *SessionView
+	// Fetch aggregate dashboard stats.
+	var stats *db.DashboardStats
+	if st, err := s.db.GetDashboardStats(); err != nil {
+		log.Printf("handleIndex: GetDashboardStats: %v", err)
+	} else {
+		stats = st
+	}
+
+	// Fetch the most recent session for the Last Run HUD row.
+	var lastSession *SessionView
 	if latest, err := s.db.LatestSession(); err != nil {
 		log.Printf("handleIndex: LatestSession: %v", err)
 	} else if latest != nil {
 		v := ToSessionView(*latest)
-		sessionView = &v
+		lastSession = &v
 	}
 
-	var events []EventView
-	if evts, err := s.db.ListEvents(10, 0, nil, nil); err != nil {
+	// Fetch up to 5 sessions with summaries or responses for the summaries section.
+	var summaries []SessionView
+	if sessions, err := s.db.ListSessions(10, 0); err != nil {
+		log.Printf("handleIndex: ListSessions (summaries): %v", err)
+	} else {
+		for _, sess := range sessions {
+			if sess.Summary != nil || sess.Response != nil {
+				summaries = append(summaries, ToSessionView(sess))
+			}
+			if len(summaries) >= 5 {
+				break
+			}
+		}
+	}
+
+	// Build the unified activity feed.
+	var activitySessions []db.Session
+	if sessions, err := s.db.ListSessions(15, 0); err != nil {
+		log.Printf("handleIndex: ListSessions (activity): %v", err)
+	} else {
+		activitySessions = sessions
+	}
+
+	var activityEvents []db.Event
+	if evts, err := s.db.ListEvents(50, 0, nil, nil); err != nil {
 		log.Printf("handleIndex: ListEvents: %v", err)
 	} else {
-		events = ToEventViews(evts)
+		activityEvents = evts
 	}
 
-	var memoryCount int
-	if memories, err := s.db.ListMemories(nil, nil, 1000, 0); err != nil {
+	var activityMemories []db.Memory
+	if mems, err := s.db.ListMemories(nil, nil, 15, 0); err != nil {
 		log.Printf("handleIndex: ListMemories: %v", err)
 	} else {
-		memoryCount = len(memories)
+		activityMemories = mems
 	}
 
+	activity := buildActivityFeed(activitySessions, activityEvents, activityMemories)
+
 	data := struct {
-		Events      []EventView
-		Session     *SessionView
+		Stats       *db.DashboardStats
+		LastSession *SessionView
+		Summaries   []SessionView
+		Activity    []ActivityItem
 		NextRun     time.Time
 		Interval    int
-		MemoryCount int
 	}{
-		Events:      events,
-		Session:     sessionView,
+		Stats:       stats,
+		LastSession: lastSession,
+		Summaries:   summaries,
+		Activity:    activity,
 		NextRun:     time.Now().UTC().Add(time.Duration(s.cfg.Interval) * time.Second),
 		Interval:    s.cfg.Interval,
-		MemoryCount: memoryCount,
 	}
 
 	s.render(w, r, "index.html", data)

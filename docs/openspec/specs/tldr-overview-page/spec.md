@@ -60,6 +60,78 @@ The dashboard's index page (route `GET /`) MUST display the session summary inst
 - **WHEN** the TL;DR page is rendered
 - **THEN** the sidebar shows "🤔 TL;DR" as the nav label and the page heading reads "TL;DR"
 
+### Requirement: Dashboard Stats HUD
+
+The TL;DR page MUST display a two-row stats HUD of 8 tiles showing aggregate system metrics. The HUD MUST use the DaisyUI `stats` component. The tiles MUST be populated from a single `GetDashboardStats()` database call.
+
+#### Scenario: HUD tile content — row 1
+
+- **WHEN** the TL;DR page is rendered
+- **THEN** the first row MUST contain 4 tiles: Total Runs (count of root sessions), Escalations (count of child sessions), Remediations (count of tier-3 sessions), and Success % (completed root sessions / total root sessions as a percentage)
+
+#### Scenario: HUD tile content — row 2
+
+- **WHEN** the TL;DR page is rendered
+- **THEN** the second row MUST contain 4 tiles: Total Cost (sum of `cost_usd` across all sessions formatted as USD), Critical (count of `critical`-level events in the last 24 hours), Memories (count of active memories), and Avg Duration (average `duration_ms` across all sessions with non-null duration)
+
+#### Scenario: HUD with no data
+
+- **WHEN** no sessions, events, or memories exist
+- **THEN** all tiles MUST show zero values without error
+
+### Requirement: Last Run Status Bar
+
+The TL;DR page MUST display a single-line status bar immediately below the HUD showing key metadata for the most recently started session.
+
+#### Scenario: Last run bar content
+
+- **WHEN** at least one session exists
+- **THEN** the status bar MUST display the session ID (linked to the session detail page), status badge, tier level, cost (if available), and elapsed duration
+- **THEN** the bar MUST auto-refresh via HTMX polling
+
+#### Scenario: Last run bar when no sessions exist
+
+- **WHEN** no sessions have been recorded
+- **THEN** the status bar MUST show a placeholder message indicating no runs have occurred
+
+### Requirement: Multiple Session Summaries
+
+The TL;DR page MUST display up to 5 session cards, each showing a summary or response for sessions where that content is available.
+
+#### Scenario: Session summary cards
+
+- **WHEN** the TL;DR page is rendered
+- **THEN** the page MUST show cards for up to 5 most recent sessions that have a non-null `summary` or `response`
+- **THEN** each card MUST display the session ID (linked), status badge, started-at timestamp, and the summary text (or response if no summary)
+
+#### Scenario: No sessions with summaries
+
+- **WHEN** no sessions have summaries or responses
+- **THEN** the section MUST show a placeholder message
+
+### Requirement: Unified Activity Feed
+
+The TL;DR page MUST display a chronologically merged activity feed combining events, memory upserts, and session lifecycle milestones. The feed MUST auto-refresh via HTMX polling.
+
+#### Scenario: Activity feed items
+
+- **WHEN** the activity feed is rendered
+- **THEN** it MUST contain merged items from: database events (as-is), session start/complete/escalated/failed milestones, and memory records with an icon distinguishing the item type
+- **THEN** items MUST be sorted by timestamp descending
+- **THEN** the feed MUST be capped at 40 items
+
+#### Scenario: Activity feed auto-refresh
+
+- **WHEN** the TL;DR page is open in a browser
+- **THEN** the activity feed section MUST poll `GET /` every 10 seconds via HTMX and update in-place without a full page reload
+
+#### Scenario: Activity item visual differentiation
+
+- **WHEN** the activity feed renders items of different types
+- **THEN** events MUST display a level badge (info/warning/critical) with service tag if present
+- **THEN** session milestones MUST display a status badge and session ID link
+- **THEN** memory items MUST display a 🧠 icon with the memory category and service
+
 ### Requirement: Summarization Model
 
 The system SHOULD use a fast, inexpensive model (Haiku) for summary generation to minimize cost and latency. The model identifier MUST be configurable and SHOULD default to `haiku`.

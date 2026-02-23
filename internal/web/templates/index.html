@@ -1,90 +1,148 @@
-{{/* Governing: SPEC-0021 REQ "TL;DR Page Rendering" */}}
+{{/* Governing: SPEC-0021 REQ "TL;DR Page Rendering", REQ "Dashboard Stats HUD", REQ "Last Run Status Bar", REQ "Multiple Session Summaries", REQ "Unified Activity Feed" */}}
 {{define "index.html"}}
 <div class="max-w-6xl" id="overview-content">
     <h1 class="text-2xl font-semibold mb-6">TL;DR</h1>
 
-    {{/* Recent events feed — Governing: SPEC-0013 "Real-Time Overview" — hx-trigger every 10s polling; "Events on Overview Page" — top 10 events with "View all" link */}}
-    <section class="mb-8" id="events-feed" hx-get="/" hx-trigger="every 10s" hx-select="#events-feed-inner" hx-target="#events-feed-inner" hx-swap="outerHTML">
-        <h2 class="section-heading">Recent Events</h2>
-        <div id="events-feed-inner">
-        {{if .Events}}
-        <div class="space-y-2">
-            {{range .Events}}
-            <div class="card-base flex items-center gap-3 py-2">
-                <span class="badge-pill {{levelClass .Level}} text-xs">{{.Level}}</span>
-                {{if .Service}}<span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded">{{.Service}}</span>{{end}}
-                <span class="text-sm flex-1">{{.Message}}</span>
-                <span class="text-xs text-muted font-mono">{{fmtTime .CreatedAt}}</span>
+    {{/* Stats HUD — 2 rows of 4 DaisyUI stat tiles */}}
+    {{/* Governing: SPEC-0021 REQ "Dashboard Stats HUD" */}}
+    <section class="mb-6">
+        {{if .Stats}}
+        <div class="stats stats-horizontal shadow w-full mb-3 bg-white border border-border rounded-lg overflow-hidden">
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Total Runs</div>
+                <div class="stat-value text-2xl text-charcoal">{{.Stats.TotalRuns}}</div>
+                <div class="stat-desc text-xs text-muted">root sessions</div>
+            </div>
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Escalations</div>
+                <div class="stat-value text-2xl text-charcoal">{{.Stats.Escalations}}</div>
+                <div class="stat-desc text-xs text-muted">child sessions</div>
+            </div>
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Remediations</div>
+                <div class="stat-value text-2xl text-charcoal">{{.Stats.Remediations}}</div>
+                <div class="stat-desc text-xs text-muted">tier-3 sessions</div>
+            </div>
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Success %</div>
+                <div class="stat-value text-2xl {{if gt .Stats.SuccessRate 0.8}}text-green-600{{else if gt .Stats.SuccessRate 0.5}}text-yellow-600{{else}}text-red-600{{end}}">{{fmtPct .Stats.SuccessRate}}</div>
+                <div class="stat-desc text-xs text-muted">completed / total</div>
+            </div>
+        </div>
+        <div class="stats stats-horizontal shadow w-full bg-white border border-border rounded-lg overflow-hidden">
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Total Cost</div>
+                <div class="stat-value text-2xl text-charcoal font-mono">{{fmtCostVal .Stats.TotalCostUSD}}</div>
+                <div class="stat-desc text-xs text-muted">all sessions</div>
+            </div>
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Critical (24h)</div>
+                <div class="stat-value text-2xl {{if gt .Stats.CriticalEvents 0}}text-red-600{{else}}text-charcoal{{end}}">{{.Stats.CriticalEvents}}</div>
+                <div class="stat-desc text-xs text-muted">critical events</div>
+            </div>
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Memories</div>
+                <div class="stat-value text-2xl text-charcoal">{{.Stats.ActiveMemories}}</div>
+                <div class="stat-desc text-xs text-muted"><a href="/memories" class="text-accent hover:underline">active memories</a></div>
+            </div>
+            <div class="stat px-5 py-4">
+                <div class="stat-title text-xs text-muted">Avg Duration</div>
+                <div class="stat-value text-2xl text-charcoal font-mono">{{fmtMsVal .Stats.AvgDurationMs}}</div>
+                <div class="stat-desc text-xs text-muted">per session</div>
+            </div>
+        </div>
+        {{else}}
+        <div class="card-base text-sm text-muted">Stats unavailable.</div>
+        {{end}}
+    </section>
+
+    {{/* Last Run status bar */}}
+    {{/* Governing: SPEC-0021 REQ "Last Run Status Bar" */}}
+    <section class="mb-6" id="last-run-bar"
+        hx-get="/" hx-trigger="every 10s" hx-select="#last-run-bar-inner" hx-target="#last-run-bar-inner" hx-swap="outerHTML">
+        <div id="last-run-bar-inner">
+        {{if .LastSession}}
+        <div class="card-base flex flex-wrap items-center gap-3 py-2.5 text-sm">
+            <span class="text-xs font-semibold text-muted uppercase tracking-wide">Last Run</span>
+            <a href="/sessions/{{.LastSession.ID}}" class="font-medium text-accent hover:underline font-mono">#{{.LastSession.ID}}</a>
+            <span class="badge-pill {{statusClass .LastSession.Status}}">{{.LastSession.Status}}</span>
+            <span class="text-xs text-muted">Tier {{.LastSession.Tier}} / {{tierLabel .LastSession.Tier}}</span>
+            {{if .LastSession.CostUSD}}<span class="text-xs font-mono text-charcoal">{{fmtCost .LastSession.CostUSD}}</span>{{end}}
+            <span class="text-xs text-muted">{{fmtDuration .LastSession.StartedAt .LastSession.EndedAt}}</span>
+            <span class="text-xs text-muted ml-auto">{{fmtTime .LastSession.StartedAt}}</span>
+        </div>
+        {{else}}
+        <div class="card-base text-sm text-muted">No sessions recorded yet.</div>
+        {{end}}
+        </div>
+    </section>
+
+    {{/* Session Summaries */}}
+    {{/* Governing: SPEC-0021 REQ "Multiple Session Summaries" */}}
+    <section class="mb-6">
+        <h2 class="section-heading">Session Summaries</h2>
+        {{if .Summaries}}
+        <div class="space-y-3">
+            {{range .Summaries}}
+            <div class="card-base">
+                <div class="flex items-center gap-3 mb-2">
+                    <a href="/sessions/{{.ID}}" class="font-medium text-accent hover:underline font-mono text-sm">#{{.ID}}</a>
+                    <span class="badge-pill {{statusClass .Status}} text-xs">{{.Status}}</span>
+                    <span class="text-xs text-muted">Tier {{.Tier}} / {{tierLabel .Tier}}</span>
+                    {{if .CostUSD}}<span class="text-xs font-mono text-muted">{{fmtCost .CostUSD}}</span>{{end}}
+                    <span class="text-xs text-muted ml-auto">{{fmtTime .StartedAt}}</span>
+                </div>
+                {{if .Summary}}
+                <p class="text-sm leading-relaxed text-charcoal">{{.Summary}}</p>
+                {{else if .Response}}
+                <div class="prose text-sm">{{renderMarkdown .Response}}</div>
+                {{end}}
             </div>
             {{end}}
         </div>
-        <div class="mt-3"><a href="/events" class="text-sm text-accent hover:underline">View all events &rarr;</a></div>
         {{else}}
-        <div class="card-base text-sm text-muted">No events yet. Events will appear as the agent discovers notable findings.</div>
+        <div class="card-base text-sm text-muted">No session summaries yet. Summaries appear after sessions complete.</div>
+        {{end}}
+    </section>
+
+    {{/* Unified Activity Feed */}}
+    {{/* Governing: SPEC-0021 REQ "Unified Activity Feed" */}}
+    <section id="activity-feed"
+        hx-get="/" hx-trigger="every 10s" hx-select="#activity-feed-inner" hx-target="#activity-feed-inner" hx-swap="outerHTML">
+        <div class="flex items-center justify-between mb-2">
+            <h2 class="section-heading mb-0">Activity</h2>
+            <span class="text-xs text-muted">auto-refresh 10s</span>
+        </div>
+        <div id="activity-feed-inner">
+        {{if .Activity}}
+        <div class="space-y-1">
+            {{range .Activity}}
+            <div class="card-base flex items-start gap-3 py-1.5 text-sm">
+                <span class="text-base leading-none mt-0.5 w-5 shrink-0 text-center">{{.Icon}}</span>
+                {{if eq .Type "event"}}
+                <span class="badge-pill {{levelClass .Level}} text-xs shrink-0">{{.Level}}</span>
+                {{else if eq .Type "session"}}
+                <span class="badge-pill {{statusClass .Level}} text-xs shrink-0">{{.Level}}</span>
+                {{else}}
+                <span class="badge-pill level-memory text-xs shrink-0">memory</span>
+                {{end}}
+                {{if .Service}}<span class="text-xs font-mono text-muted bg-surface px-2 py-0.5 rounded shrink-0">{{.Service}}</span>{{end}}
+                <span class="flex-1 text-charcoal">
+                    {{if .SessionID}}<a href="/sessions/{{.SessionID}}" class="text-accent hover:underline font-mono text-xs mr-1">#{{.SessionID}}</a>{{end}}{{.Message}}
+                </span>
+                <span class="text-xs text-muted font-mono shrink-0">{{fmtTime .Timestamp}}</span>
+            </div>
+            {{end}}
+        </div>
+        <div class="mt-3 flex gap-4">
+            <a href="/events" class="text-sm text-accent hover:underline">All events &rarr;</a>
+            <a href="/sessions" class="text-sm text-accent hover:underline">All sessions &rarr;</a>
+        </div>
+        {{else}}
+        <div class="card-base text-sm text-muted">No activity yet. Events, sessions, and memories will appear here.</div>
         {{end}}
         </div>
     </section>
-
-    {{/* Last session summary — Governing: SPEC-0013 "Real-Time Overview" — auto-refresh last session card */}}
-    <section class="mb-8" id="last-session" hx-get="/" hx-trigger="every 10s" hx-select="#last-session-inner" hx-target="#last-session-inner" hx-swap="outerHTML">
-        <h2 class="section-heading">Latest Session Summary</h2>
-        <div id="last-session-inner">
-        {{if .Session}}
-        <div class="card-base mb-4">
-            <div class="flex items-center justify-between mb-3">
-                <div>
-                    <a href="/sessions/{{.Session.ID}}" class="font-medium text-accent hover:underline">Session #{{.Session.ID}}</a>
-                    <span class="ml-2 badge-pill {{statusClass .Session.Status}}">{{.Session.Status}}</span>
-                </div>
-                <span class="text-xs text-muted">Tier {{.Session.Tier}} / {{tierLabel .Session.Tier}}</span>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-muted">
-                <div>Model: <span class="text-charcoal font-mono">{{.Session.Model}}</span></div>
-                <div>Started: <span class="text-charcoal">{{fmtTime .Session.StartedAt}}</span></div>
-                <div>Duration: <span class="text-charcoal">{{fmtDuration .Session.StartedAt .Session.EndedAt}}</span></div>
-                {{if .Session.CostUSD}}<div>Cost: <span class="text-charcoal font-mono">{{fmtCost .Session.CostUSD}}</span></div>{{end}}
-                {{if .Session.NumTurns}}<div>Turns: <span class="text-charcoal font-mono">{{intVal .Session.NumTurns}}</span></div>{{end}}
-            </div>
-        </div>
-        {{if .Session.Summary}}
-        <div class="card-base">
-            <p class="text-sm leading-relaxed">{{.Session.Summary}}</p>
-        </div>
-        {{else if .Session.Response}}
-        <div class="card-base prose">
-            {{renderMarkdown .Session.Response}}
-        </div>
-        {{end}}
-        {{else}}
-        <div class="card-base text-sm text-muted">No sessions recorded yet. Start one with the Run Now button in the sidebar, or wait for the next scheduled run.</div>
-        {{end}}
-        </div>
-    </section>
-
-    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {{/* Next run countdown */}}
-        <section>
-            <h2 class="section-heading">Schedule</h2>
-            <div class="card-base">
-                <div class="text-sm text-muted mb-2">Runs every <span class="text-charcoal font-mono">{{fmtInterval .Interval}}</span></div>
-                <div class="text-sm">
-                    Next run: <span class="text-charcoal font-medium">{{fmtTime .NextRun}}</span>
-                </div>
-            </div>
-        </section>
-
-        {{/* Memories summary */}}
-        <section>
-            <h2 class="section-heading">Agent Memory</h2>
-            <div class="card-base">
-                <div class="text-sm">
-                    <span class="text-charcoal font-medium font-mono">{{.MemoryCount}}</span>
-                    <span class="text-muted">memories stored</span>
-                </div>
-                <div class="mt-2"><a href="/memories" class="text-sm text-accent hover:underline">View all memories &rarr;</a></div>
-            </div>
-        </section>
-    </div>
 
 </div>
 {{end}}

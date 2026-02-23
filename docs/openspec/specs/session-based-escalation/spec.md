@@ -245,6 +245,28 @@ Each tier MUST have its own session record with accurate cost, duration, and tur
 - **THEN** each tier's cost, duration, and turn count SHALL be displayed individually
 - **THEN** the total chain cost (sum of all tiers) SHALL be displayed as a summary
 
+### Requirement: Handoff Validation Events
+
+The supervisor MUST emit a database event linked to the completed tier's session ID whenever the escalation chain is interrupted. This makes silent failures visible in the dashboard activity feed.
+
+#### Scenario: Critical event on handoff read failure
+
+- **WHEN** the supervisor cannot read or parse the handoff file after a tier exits
+- **THEN** it MUST emit an event with `level='critical'` linked to that tier's session ID
+- **THEN** the event message MUST describe the reason using the format `"Escalation blocked: could not read handoff from tier N — <error>"`
+
+#### Scenario: Critical event on handoff validation failure
+
+- **WHEN** `ValidateHandoff` rejects the handoff payload (e.g., unrecognized `schema_version`, missing required fields)
+- **THEN** the supervisor MUST emit an event with `level='critical'` linked to that tier's session ID
+- **THEN** the event message MUST describe the reason using the format `"Escalation blocked: invalid handoff from tier N — <error>"`
+
+#### Scenario: Info event when dry-run suppresses escalation
+
+- **WHEN** `CLAUDEOPS_DRY_RUN` is `true` and a valid handoff requests escalation to Tier 2 or higher
+- **THEN** the supervisor SHOULD emit an event with `level='info'` linked to the current tier's session ID
+- **THEN** the event message SHOULD use the format `"Escalation suppressed (dry run): would have escalated to tier N for: service1, service2"`
+
 ### Requirement: Handoff Context Serialization
 
 The handoff context injected into `--append-system-prompt` MUST preserve all information needed for the receiving tier to operate without re-running prior checks or investigations.
