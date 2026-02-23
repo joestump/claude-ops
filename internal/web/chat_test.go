@@ -222,17 +222,23 @@ func TestChatCompletionsSessionConflict(t *testing.T) {
 	w := httptest.NewRecorder()
 	e.srv.mux.ServeHTTP(w, req)
 
-	if w.Code != http.StatusTooManyRequests {
-		t.Fatalf("expected 429 on session conflict, got %d", w.Code)
+	// On session conflict we return 200 with an LLM-generated (or fallback) busy message.
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200 on session conflict (busy response), got %d", w.Code)
 	}
 
-	var errResp OpenAIError
-	_ = json.NewDecoder(w.Body).Decode(&errResp)
-	if errResp.Error.Type != "rate_limit_error" {
-		t.Fatalf("expected error type 'rate_limit_error', got %q", errResp.Error.Type)
+	var resp ChatCompletion
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
 	}
-	if errResp.Error.Code != "rate_limit_exceeded" {
-		t.Fatalf("expected error code 'rate_limit_exceeded', got %q", errResp.Error.Code)
+	if len(resp.Choices) == 0 {
+		t.Fatal("expected at least one choice in busy response")
+	}
+	if resp.Choices[0].Message.Role != "assistant" {
+		t.Fatalf("expected role 'assistant', got %q", resp.Choices[0].Message.Role)
+	}
+	if resp.Choices[0].Message.Content == "" {
+		t.Fatal("expected non-empty content in busy response")
 	}
 }
 
@@ -373,10 +379,14 @@ func TestChatCompletionsWhitespaceUserMessage(t *testing.T) {
 
 // Governing: SPEC-0024 REQ-4 — 429 error body matches spec exactly
 
-func TestChatCompletions429ErrorBody(t *testing.T) {
+func TestChatCompletionsBusyResponseContent(t *testing.T) {
+	// When TriggerAdHoc fails (session conflict) and ANTHROPIC_API_KEY is not set,
+	// the endpoint should return 200 with the static fallback busy message.
 	trigger := &mockTrigger{nextErr: fmt.Errorf("session already running")}
 	e := newTestEnvWithTrigger(t, trigger)
 	t.Setenv("CLAUDEOPS_CHAT_API_KEY", "key")
+	// Ensure no API key so fallback message is used.
+	t.Setenv("ANTHROPIC_API_KEY", "")
 
 	body := `{"model":"claude-ops","messages":[{"role":"user","content":"status"}]}`
 	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
@@ -384,20 +394,24 @@ func TestChatCompletions429ErrorBody(t *testing.T) {
 	w := httptest.NewRecorder()
 	e.srv.mux.ServeHTTP(w, req)
 
-	if w.Code != http.StatusTooManyRequests {
-		t.Fatalf("expected 429, got %d", w.Code)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
 	}
 
-	var errResp OpenAIError
-	_ = json.NewDecoder(w.Body).Decode(&errResp)
-	if errResp.Error.Message != "A session is already running. Try again shortly." {
-		t.Fatalf("expected exact 429 message, got %q", errResp.Error.Message)
+	var resp ChatCompletion
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode response: %v", err)
 	}
-	if errResp.Error.Type != "rate_limit_error" {
-		t.Fatalf("expected type 'rate_limit_error', got %q", errResp.Error.Type)
+	if len(resp.Choices) == 0 {
+		t.Fatal("expected at least one choice")
 	}
-	if errResp.Error.Code != "rate_limit_exceeded" {
-		t.Fatalf("expected code 'rate_limit_exceeded', got %q", errResp.Error.Code)
+	content := resp.Choices[0].Message.Content
+	if content == "" {
+		t.Fatal("expected non-empty content")
+	}
+	// Static fallback should mention being busy.
+	if !strings.Contains(strings.ToLower(content), "busy") {
+		t.Fatalf("expected fallback busy message, got %q", content)
 	}
 }
 

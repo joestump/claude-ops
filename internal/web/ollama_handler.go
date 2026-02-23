@@ -132,9 +132,39 @@ func (s *Server) ollamaDispatch(w http.ResponseWriter, r *http.Request, generate
 	startTier := modelToTier(req.Model)
 	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier, "api")
 	if err != nil {
+		// Session already running — generate a first-person LLM busy response
+		// and return it in the appropriate Ollama format.
+		busyMsg := generateBusyResponse(r.Context(), s.db, os.Getenv("ANTHROPIC_API_KEY"))
+		wantStream := req.Stream == nil || *req.Stream
+		modelName := req.Model
+		if modelName == "" {
+			modelName = "claude-ops"
+		}
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusTooManyRequests)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "a session is already running, try again shortly"})
+		if wantStream {
+			flusher, ok := w.(http.Flusher)
+			if ok {
+				w.Header().Set("Content-Type", "application/x-ndjson")
+				s.writeOllamaChunk(w, flusher, modelName, busyMsg, false, generateStyle)
+				s.writeOllamaChunk(w, flusher, modelName, "", true, generateStyle)
+				return
+			}
+		}
+		// Non-streaming or no flusher: single JSON object.
+		var resp map[string]any
+		if generateStyle {
+			resp = map[string]any{
+				"model": modelName, "created_at": time.Now().UTC().Format(time.RFC3339Nano),
+				"response": busyMsg, "done": true, "done_reason": "stop",
+			}
+		} else {
+			resp = map[string]any{
+				"model": modelName, "created_at": time.Now().UTC().Format(time.RFC3339Nano),
+				"message": map[string]string{"role": "assistant", "content": busyMsg},
+				"done": true, "done_reason": "stop",
+			}
+		}
+		_ = json.NewEncoder(w).Encode(resp)
 		return
 	}
 

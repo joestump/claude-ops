@@ -503,6 +503,18 @@ func (d *DB) LatestSession() (*Session, error) {
 	return s, nil
 }
 
+// RunningSession returns the currently-running session, or nil if none is active.
+func (d *DB) RunningSession() (*Session, error) {
+	s := &Session{}
+	row := d.conn.QueryRow(`SELECT ` + sessionColumns + ` FROM sessions WHERE status = 'running' ORDER BY started_at DESC LIMIT 1`)
+	if err := scanSession(row, s); err == sql.ErrNoRows {
+		return nil, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("running session: %w", err)
+	}
+	return s, nil
+}
+
 // GetEscalationChain walks parent_session_id links from the given session
 // to the root, then returns the chain ordered from root to leaf.
 // Governing: SPEC-0016 REQ "Database Schema for Escalation Chains" — full chain queryable

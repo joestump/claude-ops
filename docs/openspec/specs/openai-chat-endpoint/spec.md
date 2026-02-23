@@ -141,7 +141,7 @@ And MUST NOT return an error for the unknown model name
 
 The handler MUST trigger an ad-hoc session by calling `Manager.TriggerAdHoc(prompt, startTier)` — where `startTier` is derived from the `model` field per REQ-3. The `startTier` determines which tier prompt file and tool config the session begins with. Escalation from the starting tier to higher tiers follows normal handoff rules (SPEC-0016).
 
-If a session is already running, the server MUST return HTTP 429 Too Many Requests with an OpenAI-format error body.
+Only one session may run at a time. If a session is already running when a request arrives, the server MUST return a busy signal to the client rather than queuing or dropping the request silently. The busy signal SHOULD be a valid assistant response (HTTP 200 with a message explaining the agent is currently busy and summarising recent activity) so that conversational clients display something useful. A bare HTTP error (e.g. 429) is acceptable when a proper assistant response cannot be generated.
 
 #### Scenario: Ad-hoc session triggered successfully
 
@@ -155,11 +155,13 @@ Given no session is currently running and the request specifies `"model": "claud
 When the handler calls `TriggerAdHoc("restart jellyfin", 2)`
 Then a new ad-hoc session MUST start at Tier 2 using the Tier 2 prompt and tool configuration
 
-#### Scenario: Session conflict returns 429
+#### Scenario: Session conflict returns a busy signal
 
 Given a session is already running
 When the chat endpoint receives a request
-Then the server MUST return HTTP 429 with body `{"error":{"message":"A session is already running. Try again shortly.","type":"rate_limit_error","code":"rate_limit_exceeded"}}`
+Then the server MUST return a busy signal to the caller
+And the response SHOULD be a valid assistant message (HTTP 200) explaining that Claude Ops is busy and summarising recent findings
+And the response MAY fall back to an HTTP error response if an assistant message cannot be generated
 
 ### REQ-5: Streaming Response
 
@@ -229,7 +231,7 @@ All error responses MUST use the OpenAI error format, not the `{"error": "<strin
 HTTP status codes:
 - 400: `invalid_request_error` — malformed request body, missing fields
 - 401: `authentication_error` — missing or invalid API key
-- 429: `rate_limit_error` — session already running
+- 200 (preferred) or 429 (fallback): busy signal — session already running (see REQ-4)
 - 503: `service_unavailable` — chat endpoint disabled (no API key configured)
 - 500: `server_error` — internal session error
 
@@ -239,11 +241,12 @@ Given a request with an invalid API key
 When the server returns 401
 Then the body MUST be `{"error":{"message":"Invalid API key","type":"authentication_error","code":"invalid_api_key"}}`
 
-#### Scenario: 429 uses OpenAI error format
+#### Scenario: Busy signal uses assistant message format when possible
 
 Given a session is already running
-When the server returns 429
-Then the body MUST be `{"error":{"message":"A session is already running. Try again shortly.","type":"rate_limit_error","code":"rate_limit_exceeded"}}`
+When the server cannot start a new session
+Then the response SHOULD be HTTP 200 with a `ChatCompletion` body containing an assistant message explaining the agent is busy
+And the message SHOULD include a summary of recent findings from the active session
 
 ### REQ-8: Models Endpoint
 

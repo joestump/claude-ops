@@ -70,14 +70,6 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
 	startTier := modelToTier(req.Model)
 
-	// Governing: SPEC-0024 REQ-4 — trigger ad-hoc session via existing session manager
-	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier, "api")
-	if err != nil {
-		// Governing: SPEC-0024 REQ-4 — session conflict returns 429
-		writeChatError(w, http.StatusTooManyRequests, "A session is already running. Try again shortly.", "rate_limit_error", "rate_limit_exceeded")
-		return
-	}
-
 	// Determine the canonical model ID to echo in responses.
 	// Echo back whatever model the client sent; default to "claude-ops" if empty.
 	// Governing: SPEC-0024 REQ-3 (model field maps to starting tier), ADR-0020 (Tier Selection)
@@ -89,6 +81,51 @@ func (s *Server) handleChatCompletions(w http.ResponseWriter, r *http.Request) {
 	// Generate a request ID for the response.
 	// Governing: SPEC-0024 REQ-10 — id starts with recognizable prefix
 	requestID := fmt.Sprintf("chatcmpl-%s", uuid.New().String())
+
+	// Governing: SPEC-0024 REQ-4 — trigger ad-hoc session via existing session manager
+	sessionID, err := s.mgr.TriggerAdHoc(prompt, startTier, "api")
+	if err != nil {
+		// Session already running — generate a first-person LLM busy response
+		// instead of a bare 429 so conversational clients get a useful reply.
+		busyMsg := generateBusyResponse(r.Context(), s.db, os.Getenv("ANTHROPIC_API_KEY"))
+		if req.Stream {
+			flusher, ok := w.(http.Flusher)
+			if !ok {
+				writeChatError(w, http.StatusTooManyRequests, busyMsg, "rate_limit_error", "rate_limit_exceeded")
+				return
+			}
+			w.Header().Set("Content-Type", "text/event-stream")
+			w.Header().Set("Cache-Control", "no-cache")
+			w.Header().Set("Connection", "keep-alive")
+			w.Header().Set("X-Accel-Buffering", "no")
+			sendSSEChunk(w, flusher, requestID, ChatCompletionChunk{
+				ID: requestID, Object: "chat.completion.chunk", Model: responseModel,
+				Choices: []Choice{{Index: 0, Delta: Delta{Role: "assistant"}}},
+			})
+			sendSSEChunk(w, flusher, requestID, ChatCompletionChunk{
+				ID: requestID, Object: "chat.completion.chunk", Model: responseModel,
+				Choices: []Choice{{Index: 0, Delta: Delta{Content: busyMsg}}},
+			})
+			sendSSEChunk(w, flusher, requestID, ChatCompletionChunk{
+				ID: requestID, Object: "chat.completion.chunk", Model: responseModel,
+				Choices: []Choice{{Index: 0, Delta: Delta{}, FinishReason: "stop"}},
+			})
+			fmt.Fprintf(w, "data: [DONE]\n\n") //nolint:errcheck
+			flusher.Flush()
+		} else {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(ChatCompletion{
+				ID: requestID, Object: "chat.completion", Model: responseModel,
+				Choices: []CompletionChoice{{
+					Index:        0,
+					Message:      ChatMessage{Role: "assistant", Content: busyMsg},
+					FinishReason: "stop",
+				}},
+				Usage: ChatUsage{},
+			})
+		}
+		return
+	}
 
 	if req.Stream {
 		s.handleChatStream(w, r, sessionID, requestID, responseModel)
