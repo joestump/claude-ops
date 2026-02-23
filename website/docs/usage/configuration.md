@@ -82,6 +82,12 @@ CLAUDEOPS_PR_ENABLED=true
 GITHUB_TOKEN=ghp_...
 ```
 
+## Mobile Chat
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `CLAUDEOPS_CHAT_API_KEY` | *(disabled)* | Bearer token for the [OpenAI-compatible chat endpoint](./mobile-chat). If unset, `/v1/chat/completions` returns 503. |
+
 ## Notifications
 
 | Variable | Default | Description |
@@ -128,4 +134,7 @@ CLAUDEOPS_APPRISE_URLS=ntfy://ntfy.sh/my-claude-ops-topic
 CLAUDEOPS_BROWSER_ALLOWED_ORIGINS=https://sonarr.example.com,https://prowlarr.example.com
 BROWSER_CRED_SONARR_USER=admin
 BROWSER_CRED_SONARR_PASS=your-sonarr-password
+
+# Mobile chat (disabled by default — set to enable /v1/chat/completions)
+# CLAUDEOPS_CHAT_API_KEY=your-secret-key-here
 ```
