@@ -1,6 +1,3 @@
-# Helm — pulled from the official multi-arch image to avoid baltocdn.com CDN dependency
-FROM alpine/helm:latest AS helm
-
 # Governing: SPEC-0008 REQ-1 (Single Binary Entrypoint — static binary replaces entrypoint.sh)
 # Build stage: compile Go binary
 FROM golang:1.24-alpine AS builder
@@ -54,8 +51,10 @@ RUN mkdir -p /usr/share/keyrings \
        terraform \
     && rm -rf /var/lib/apt/lists/*
 
-# Helm — copy from the official alpine/helm image (avoids baltocdn.com CDN; multi-arch aware)
-COPY --from=helm /usr/bin/helm /usr/local/bin/helm
+# Helm — binary releases at get.helm.sh (separate from baltocdn.com apt repo)
+RUN ARCH=$(dpkg --print-architecture) \
+    && curl -fsSL "https://get.helm.sh/helm-v4.1.1-linux-${ARCH}.tar.gz" \
+       | tar -xz --strip-components=1 -C /usr/local/bin "linux-${ARCH}/helm"
 
 # Gitea CLI (tea) — no apt repo; install binary for current arch
 RUN ARCH=$(dpkg --print-architecture) \
