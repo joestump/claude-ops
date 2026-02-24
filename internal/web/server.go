@@ -402,6 +402,10 @@ func (s *Server) registerRoutes() {
 	s.mux.HandleFunc("PUT /api/v1/config", s.handleAPIUpdateConfig)
 	// Governing: SPEC-0023 REQ-9 — PR API endpoints removed; PR operations are now skill-based (git-pr.md).
 
+	// Governing: SPEC-0025 REQ "Endpoint Registration", ADR-0024
+	// Inbound webhook alert ingestion — accepts any payload, synthesises via LLM, triggers session.
+	s.mux.HandleFunc("POST /api/v1/webhook", s.handleWebhook)
+
 	// Governing: SPEC-0024 REQ-1 (Endpoint Registration), ADR-0020
 	// OpenAI-compatible chat endpoint — /v1/ prefix matches OpenAI base URL convention
 	s.mux.HandleFunc("POST /v1/chat/completions", s.handleChatCompletions)

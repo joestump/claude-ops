@@ -36,6 +36,9 @@ type Config struct {
 	BrowserAllowedOrigins string
 	// Governing: SPEC-0021 REQ "Summarization Model"
 	SummaryModel string
+	// Governing: SPEC-0025 REQ "Webhook Model Configuration"
+	WebhookModel        string
+	WebhookSystemPrompt string
 }
 
 // Load reads configuration from viper, which merges flag values, env vars,
@@ -68,5 +71,7 @@ func Load() Config {
 		MemoryBudget:          viper.GetInt("memory_budget"),
 		BrowserAllowedOrigins: viper.GetString("browser_allowed_origins"),
 		SummaryModel:          viper.GetString("summary_model"),
+		WebhookModel:          viper.GetString("webhook_model"),
+		WebhookSystemPrompt:   viper.GetString("webhook_system_prompt"),
 	}
 }

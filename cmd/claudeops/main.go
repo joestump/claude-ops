@@ -61,6 +61,9 @@ func main() {
 	f.Int("memory-budget", 2000, "max tokens for memory context injection")
 	f.String("browser-allowed-origins", "", "comma-separated allowed origins for browser navigation")
 	f.String("summary-model", "claude-haiku-4-5-20251001", "Anthropic model ID for session summary generation (must be a full model ID, e.g. claude-haiku-4-5-20251001)")
+	// Governing: SPEC-0025 REQ "Webhook Model Configuration"
+	f.String("webhook-model", "claude-haiku-4-5-20251001", "Anthropic model ID for webhook alert synthesis (must be a full model ID)")
+	f.String("webhook-system-prompt", "", "custom system prompt for webhook alert synthesis (overrides default)")
 	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
 	f.String("tier1-allowed-tools", "", "comma-separated allowed tools for Tier 1 (overrides allowed-tools)")
 	f.String("tier1-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 1 (overrides disallowed-tools)")
@@ -95,6 +98,8 @@ func main() {
 	bindFlag("memory_budget", "memory-budget")
 	bindFlag("browser_allowed_origins", "browser-allowed-origins")
 	bindFlag("summary_model", "summary-model")
+	bindFlag("webhook_model", "webhook-model")
+	bindFlag("webhook_system_prompt", "webhook-system-prompt")
 	bindFlag("tier1_allowed_tools", "tier1-allowed-tools")
 	bindFlag("tier1_disallowed_tools", "tier1-disallowed-tools")
 	bindFlag("tier2_allowed_tools", "tier2-allowed-tools")
