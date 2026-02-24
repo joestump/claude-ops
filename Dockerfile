@@ -56,6 +56,36 @@ RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://get.helm.sh/helm-v4.1.1-linux-${ARCH}.tar.gz" \
        | tar -xz --strip-components=1 -C /usr/local/bin "linux-${ARCH}/helm"
 
+# AWS CLI v2 — official binary installer (supports amd64 + arm64)
+RUN DPKG_ARCH=$(dpkg --print-architecture) \
+    && case "${DPKG_ARCH}" in \
+         amd64) AWS_ARCH=x86_64 ;; \
+         arm64) AWS_ARCH=aarch64 ;; \
+         *) echo "Unsupported arch: ${DPKG_ARCH}" && exit 1 ;; \
+       esac \
+    && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.tar.gz" \
+       | tar xz -C /tmp \
+    && /tmp/aws/install \
+    && rm -rf /tmp/aws
+
+# Google Cloud CLI — apt repo
+RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
+       | gpg --dearmor -o /usr/share/keyrings/cloud.google.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/cloud.google.gpg] https://packages.cloud.google.com/apt cloud-sdk main" \
+       > /etc/apt/sources.list.d/google-cloud-sdk.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       google-cloud-cli \
+    && rm -rf /var/lib/apt/lists/*
+
+# Azure CLI — Microsoft apt repo
+RUN curl -fsSL https://packages.microsoft.com/keys/microsoft.asc \
+       | gpg --dearmor -o /usr/share/keyrings/microsoft.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/microsoft.gpg] https://packages.microsoft.com/repos/azure-cli/ $(lsb_release -cs) main" \
+       > /etc/apt/sources.list.d/azure-cli.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+       azure-cli \
+    && rm -rf /var/lib/apt/lists/*
+
 # Gitea CLI (tea) — no apt repo; install binary for current arch
 RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://gitea.com/gitea/tea/releases/download/v0.9.2/tea-0.9.2-linux-${ARCH}" \

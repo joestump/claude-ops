@@ -130,10 +130,11 @@ func (m *Manager) Stop() bool {
 	return true
 }
 
-// Run starts the session loop. It runs one session immediately, then waits
-// cfg.Interval seconds after each session completes before starting the next.
-// It returns when the context is cancelled and any in-flight session has
-// finished (or been killed after the grace period).
+// Run starts the session loop. It runs one scheduled session immediately, then
+// waits cfg.Interval seconds before the next. Ad-hoc triggers received during
+// the interval wait are executed immediately and do NOT restart the interval
+// timer or cause an extra scheduled run — the wait simply resumes for whatever
+// time remains. It returns when ctx is cancelled.
 // Governing: SPEC-0008 REQ-5 "Scheduled session invocation"
 // — invokes sessions at the configured interval after each completion.
 func (m *Manager) Run(ctx context.Context) error {
@@ -143,13 +144,33 @@ func (m *Manager) Run(ctx context.Context) error {
 		fmt.Printf("[%s] Sleeping %ds until next run...\n\n",
 			time.Now().UTC().Format(time.RFC3339), m.cfg.Interval)
 
-		// Governing: SPEC-0012 "Channel-Based Trigger in Session Manager" — select wakes on triggerCh
+		if !m.waitForInterval(ctx) {
+			return nil
+		}
+	}
+}
+
+// waitForInterval blocks until the configured interval has elapsed (measured
+// from the moment of the call) or ctx is cancelled. Any ad-hoc triggers that
+// arrive during the wait are executed immediately; the deadline is not reset
+// after an ad-hoc run — the interval continues counting from when
+// waitForInterval was first called. Returns false if ctx is cancelled.
+// Governing: SPEC-0012 "Channel-Based Trigger in Session Manager" — select wakes on triggerCh
+func (m *Manager) waitForInterval(ctx context.Context) bool {
+	deadline := time.Now().Add(time.Duration(m.cfg.Interval) * time.Second)
+	for {
+		remaining := time.Until(deadline)
+		if remaining <= 0 {
+			return true
+		}
 		select {
 		case <-ctx.Done():
-			return nil
+			return false
 		case req := <-m.triggerCh:
 			m.runAdHoc(ctx, req.prompt, req.startTier, req.trigger)
-		case <-time.After(time.Duration(m.cfg.Interval) * time.Second):
+			// Don't reset deadline — resume waiting for the original interval.
+		case <-time.After(remaining):
+			return true
 		}
 	}
 }
