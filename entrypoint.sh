@@ -16,10 +16,12 @@ REPOS_DIR="${CLAUDEOPS_REPOS_DIR:-/repos}"
 #            ADR-0023 (AllowedTools-Based Tier Enforcement)
 # — restricts available tools at the CLI runtime level, providing defense-in-depth
 # for the permission tier model. Configurable via env var — changes take effect on next container restart (REQ-11).
-ALLOWED_TOOLS="${CLAUDEOPS_ALLOWED_TOOLS:-Bash,Read,Grep,Glob,Task,WebFetch}"
+ALLOWED_TOOLS="${CLAUDEOPS_ALLOWED_TOOLS:-Bash,Read,Grep,Glob,Task,WebFetch,WebSearch}"
 # Governing: ADR-0023 (AllowedTools-Based Tier Enforcement), SPEC-0010 REQ-5
-# Default to Tier 1 blocklist (most restrictive)
-DISALLOWED_TOOLS="${CLAUDEOPS_DISALLOWED_TOOLS:-Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr create:*),Bash(gh pr merge:*),Bash(tea pr create:*),Bash(git push:*),Bash(git commit:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*)}"
+# Default to Tier 1 blocklist (most restrictive).
+# git commit/push/pr-create are NOT blocked here — Tier 2+ uses them for the PR workflow.
+# gh pr merge remains blocked at all tiers; only humans may merge PRs.
+DISALLOWED_TOOLS="${CLAUDEOPS_DISALLOWED_TOOLS:-Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr merge:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*)}"
 CLAUDEOPS_TIER="${CLAUDEOPS_TIER:-1}"
 DRY_RUN="${CLAUDEOPS_DRY_RUN:-false}"
 MCP_CONFIG="/app/.claude/mcp.json"

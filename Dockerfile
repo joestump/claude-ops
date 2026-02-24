@@ -80,6 +80,11 @@ COPY --from=builder /claudeops /claudeops
 # Copy project files (prompts, checks, playbooks, etc.)
 COPY . .
 
+# The root CLAUDE.md is the developer guide for the claude-ops codebase.
+# In the container the agent must read only the monitoring runbook, so we
+# overwrite it with prompts/agent.md after the broad COPY above.
+COPY prompts/agent.md /app/CLAUDE.md
+
 # Governing: SPEC-0009 REQ "Dockerfile Structure" — /state, /results, /repos directories
 RUN mkdir -p /state /results /repos
 

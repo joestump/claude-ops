@@ -41,10 +41,15 @@ func main() {
 	f.String("results-dir", "/results", "directory for session logs")
 	f.String("repos-dir", "/repos", "directory for cloned repositories")
 	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
-	f.String("allowed-tools", "Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch", "comma-separated Claude tools")
+	// WebSearch and WebFetch are included so the agent can research upstream image moves,
+	// release notes, and known issues on GitHub and StackExchange.
+	f.String("allowed-tools", "Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch,WebSearch", "comma-separated Claude tools")
 	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement"
 	// Default to Tier 1 blocklist (most restrictive). Override via CLAUDEOPS_DISALLOWED_TOOLS.
-	f.String("disallowed-tools", "Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr create:*),Bash(gh pr merge:*),Bash(tea pr create:*),Bash(git push:*),Bash(git commit:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*),Bash(apprise:*)", "comma-separated disallowed tool patterns")
+	// git commit/push/pr-create are NOT blocked here — Tier 2+ uses them for the PR workflow
+	// (clone to /tmp, feature branch, open PR, never merge). Tier 1 is restricted by prompt.
+	// gh pr merge remains blocked at all tiers; only humans may merge PRs.
+	f.String("disallowed-tools", "Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr merge:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*),Bash(apprise:*)", "comma-separated disallowed tool patterns")
 	f.Bool("dry-run", false, "skip actual remediation actions")
 	f.Bool("verbose", false, "enable verbose Claude CLI output")
 	f.String("apprise-urls", "", "Apprise notification URLs")
