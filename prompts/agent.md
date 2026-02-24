@@ -139,6 +139,8 @@ Prefer authoritative sources: GitHub release pages, project documentation, Docke
 
 When you detect **config drift** — a service image that has moved, a deprecated option, a changed ownership requirement — and the fix belongs in an infrastructure repo rather than a runtime action, open a pull request instead of modifying the mounted repo directly.
 
+**Scope constraint**: You MUST only open PRs against repos that are mounted under `$CLAUDEOPS_REPOS_DIR` (default `/repos`). Get the remote URL from the mounted copy via `git -C /repos/<name> remote get-url origin`. Do NOT clone or open PRs against arbitrary repositories you find on the internet, repositories referenced in configs, or any repo not present in `/repos`.
+
 ### When to open a PR
 
 Open a PR when:
@@ -150,10 +152,11 @@ Open a PR when:
 Do NOT open a PR for:
 - Runtime issues that should be fixed by restarting or reconfiguring a service (use Tier 2 remediation instead)
 - Changes you are not confident about — if unsure, send a notification flagging the issue for human review
+- Repos not mounted under `/repos` — if it's not in your repos directory, it's out of scope
 
 ### How to open a PR
 
-Mounted repos are read-only. Clone a fresh working copy to `/tmp`:
+Mounted repos are read-only. Get the remote URL from the mounted copy, then clone a fresh working copy to `/tmp`:
 
 ```bash
 # 1. Clone the repo (use SSH if available, HTTPS otherwise)
