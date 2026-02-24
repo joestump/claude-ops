@@ -18,18 +18,14 @@
             </thead>
             <tbody>
                 {{range .Cooldowns}}
-                <tr class="tbody-row {{if .InCooldown}}bg-red-50{{end}}">
-                    <td class="py-3 pr-4 font-medium">{{.Service}}</td>
-                    <td class="py-3 pr-4 text-xs font-mono">{{.ActionType}}</td>
-                    <td class="py-3 pr-4 font-mono">{{.Count}} / {{.Limit}}</td>
-                    <td class="py-3 pr-4">
-                        {{if .InCooldown}}
-                        <span class="badge-pill level-critical">in cooldown</span>
-                        {{else}}
-                        <span class="badge-pill level-info">active</span>
-                        {{end}}
+                <tr class="tbody-row">
+                    <td class="py-4 pr-6 pl-2 font-medium">{{.Service}}</td>
+                    <td class="py-4 pr-4 text-xs font-mono">{{.ActionType}}</td>
+                    <td class="py-4 pr-4 font-mono">{{.Count}} / {{.Limit}}</td>
+                    <td class="py-4 pr-4 text-muted text-sm">
+                        {{if .InCooldown}}in cooldown{{else}}active{{end}}
                     </td>
-                    <td class="py-3 font-mono text-xs text-muted">{{fmtTime .LastAction}}</td>
+                    <td class="py-4 font-mono text-xs text-muted">{{fmtTime .LastAction}}</td>
                 </tr>
                 {{end}}
             </tbody>
