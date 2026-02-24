@@ -57,11 +57,13 @@ RUN ARCH=$(dpkg --print-architecture) \
        | tar -xz --strip-components=1 -C /usr/local/bin "linux-${ARCH}/helm"
 
 # AWS CLI v2 — official binary installer (supports amd64 + arm64)
-RUN DPKG_ARCH=$(dpkg --print-architecture) \
-    && case "${DPKG_ARCH}" in \
+# Use TARGETARCH (BuildKit built-in) instead of dpkg to get the correct target
+# arch in multi-platform builds where dpkg may report the host architecture.
+ARG TARGETARCH
+RUN case "${TARGETARCH}" in \
          amd64) AWS_ARCH=x86_64 ;; \
          arm64) AWS_ARCH=aarch64 ;; \
-         *) echo "Unsupported arch: ${DPKG_ARCH}" && exit 1 ;; \
+         *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
        esac \
     && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.tar.gz" \
        | tar xz -C /tmp \
