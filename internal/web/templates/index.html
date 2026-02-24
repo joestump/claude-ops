@@ -54,12 +54,25 @@
         {{end}}
     </section>
 
-    {{/* Last Run status bar */}}
-    {{/* Governing: SPEC-0021 REQ "Last Run Status Bar" */}}
-    <section class="mb-6" id="last-run-bar"
-        hx-get="/" hx-trigger="every 10s" hx-select="#last-run-bar-inner" hx-target="#last-run-bar-inner" hx-swap="outerHTML">
-        <div id="last-run-bar-inner">
-        {{if .LastSession}}
+    {{/* Last Run + TL;DR — combined card with auto-refresh */}}
+    {{/* Governing: SPEC-0021 REQ "Last Run Status Bar", REQ "Multiple Session Summaries" */}}
+    <section class="mb-6" id="last-run-tldr"
+        hx-get="/" hx-trigger="every 10s" hx-select="#last-run-tldr-inner" hx-target="#last-run-tldr-inner" hx-swap="outerHTML">
+        <div id="last-run-tldr-inner">
+        {{if .LastSummary}}
+        <div class="card-base">
+            <div class="flex flex-wrap items-center gap-3 mb-3 pb-3 border-b border-border">
+                <span class="text-xs font-semibold text-muted uppercase tracking-wide">Last Run</span>
+                <a href="/sessions/{{.LastSummary.ID}}" class="font-medium text-accent hover:underline font-mono text-sm">#{{.LastSummary.ID}}</a>
+                <span class="badge-pill {{statusClass .LastSummary.Status}}">{{.LastSummary.Status}}</span>
+                <span class="text-xs text-muted">Tier {{.LastSummary.Tier}} / {{tierLabel .LastSummary.Tier}}</span>
+                {{if .LastSummary.CostUSD}}<span class="text-xs font-mono text-charcoal">{{fmtCost .LastSummary.CostUSD}}</span>{{end}}
+                <span class="text-xs text-muted">{{fmtDuration .LastSummary.StartedAt .LastSummary.EndedAt}}</span>
+                <span class="text-xs text-muted ml-auto">{{fmtTime .LastSummary.StartedAt}}</span>
+            </div>
+            <div class="prose prose-sm">{{renderMarkdown .LastSummary.Summary}}</div>
+        </div>
+        {{else if .LastSession}}
         <div class="card-base flex flex-wrap items-center gap-3 py-2.5 text-sm">
             <span class="text-xs font-semibold text-muted uppercase tracking-wide">Last Run</span>
             <a href="/sessions/{{.LastSession.ID}}" class="font-medium text-accent hover:underline font-mono">#{{.LastSession.ID}}</a>
@@ -74,38 +87,6 @@
         {{end}}
         </div>
     </section>
-
-    {{/* TL;DR + What Happened */}}
-    {{/* Governing: SPEC-0021 REQ "Multiple Session Summaries" */}}
-    {{if .LastSummary}}
-    {{/* Session meta row — shared by both cards */}}
-    <div class="flex items-center gap-3 mb-2 px-1">
-        <a href="/sessions/{{.LastSummary.ID}}" class="font-medium text-accent hover:underline font-mono text-sm">#{{.LastSummary.ID}}</a>
-        <span class="badge-pill {{statusClass .LastSummary.Status}} text-xs">{{.LastSummary.Status}}</span>
-        <span class="text-xs text-muted">Tier {{.LastSummary.Tier}} / {{tierLabel .LastSummary.Tier}}</span>
-        {{if .LastSummary.CostUSD}}<span class="text-xs font-mono text-muted">{{fmtCost .LastSummary.CostUSD}}</span>{{end}}
-        <span class="text-xs text-muted ml-auto">{{fmtTime .LastSummary.StartedAt}}</span>
-    </div>
-    {{if .LastSummary.Summary}}
-    <section class="mb-4">
-        <h2 class="section-heading">TL;DR</h2>
-        <div class="card-base">
-            <p class="text-sm leading-relaxed text-charcoal">{{.LastSummary.Summary}}</p>
-        </div>
-    </section>
-    {{end}}
-    {{if .LastSummary.Response}}
-    <section class="mb-6">
-        <h2 class="section-heading">What Happened</h2>
-        <div class="card-base prose">{{renderMarkdown .LastSummary.Response}}</div>
-    </section>
-    {{end}}
-    {{else}}
-    <section class="mb-6">
-        <h2 class="section-heading">TL;DR</h2>
-        <div class="card-base text-sm text-muted">No summary yet. Summaries appear after sessions complete.</div>
-    </section>
-    {{end}}
 
     {{/* Unified Activity Feed */}}
     {{/* Governing: SPEC-0021 REQ "Unified Activity Feed" */}}

@@ -143,9 +143,9 @@ func TestTLDRPageRendering(t *testing.T) {
 }
 
 // Governing: SPEC-0021 REQ "TL;DR Page Rendering"
-// TL;DR page shows only the short LLM-generated summary of the last session.
-// Sessions without a summary are skipped; the page shows "No summary yet."
-func TestTLDRNoSummaryShowsEmpty(t *testing.T) {
+// When a session exists but has no LLM summary, the dashboard shows the session
+// status bar (LastSession fallback) without any TL;DR text or raw response.
+func TestTLDRNoSummaryShowsLastSession(t *testing.T) {
 	e := newTestEnv(t)
 
 	// Insert a session WITHOUT a summary (only raw response).
@@ -171,12 +171,13 @@ func TestTLDRNoSummaryShowsEmpty(t *testing.T) {
 
 	body := w.Body.String()
 
-	// Without a summary the page should show the empty-state message, not raw response.
-	if !strings.Contains(body, "No summary yet") {
-		t.Error("expected empty-state text when no LLM summary exists")
+	// Session ID should appear in the last-run status bar.
+	if !strings.Contains(body, fmt.Sprintf("#%d", id)) {
+		t.Errorf("expected session #%d to appear in last-run bar", id)
 	}
+	// Raw response and raw markdown must NOT appear on the dashboard.
 	if strings.Contains(body, "Health Report") {
-		t.Error("raw response must NOT appear on TL;DR page — only short summaries are shown")
+		t.Error("raw response must NOT appear on dashboard — only short summaries are shown")
 	}
 }
 
