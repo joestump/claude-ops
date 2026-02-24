@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-venv \
     gnupg \
     lsb-release \
+    unzip \
     && rm -rf /var/lib/apt/lists/*
 
 # GitHub CLI, Docker CLI, HashiCorp (Vault + Terraform) — add apt repos then install together
@@ -56,19 +57,13 @@ RUN ARCH=$(dpkg --print-architecture) \
     && curl -fsSL "https://get.helm.sh/helm-v4.1.1-linux-${ARCH}.tar.gz" \
        | tar -xz --strip-components=1 -C /usr/local/bin "linux-${ARCH}/helm"
 
-# AWS CLI v2 — official binary installer (supports amd64 + arm64)
-# Use TARGETARCH (BuildKit built-in) instead of dpkg to get the correct target
-# arch in multi-platform builds where dpkg may report the host architecture.
-ARG TARGETARCH
-RUN case "${TARGETARCH}" in \
-         amd64) AWS_ARCH=x86_64 ;; \
-         arm64) AWS_ARCH=aarch64 ;; \
-         *) echo "Unsupported arch: ${TARGETARCH}" && exit 1 ;; \
-       esac \
-    && curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.tar.gz" \
-       | tar xz -C /tmp \
+# AWS CLI v2 — official zip installer (amd64=x86_64, arm64=aarch64)
+# uname -m returns the exact arch string used in the AWS download URL.
+RUN curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" \
+       -o /tmp/awscliv2.zip \
+    && unzip -q /tmp/awscliv2.zip -d /tmp \
     && /tmp/aws/install \
-    && rm -rf /tmp/aws
+    && rm -rf /tmp/awscliv2.zip /tmp/aws
 
 # Google Cloud CLI — apt repo
 RUN curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg \
