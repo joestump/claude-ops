@@ -204,8 +204,8 @@ These log lines MUST appear in the output whenever a skill is invoked so that to
 
 Scan `/repos` for mounted repositories. This scan MUST be performed every cycle so that newly mounted or removed repos are detected without requiring a container restart.
 
-1. List subdirectories: `ls /repos/`
-2. **If `/repos` is empty or does not exist, output "No repos found — nothing to check" and EXIT IMMEDIATELY. Do NOT fall back to scanning the local system, running docker ps, or checking any services not defined in a mounted repo.**
+1. Discover repos using `Glob` with pattern `/repos/*/CLAUDE-OPS.md` to find all mounted repos that have a manifest. If no results are returned, also try `Glob` with pattern `/repos/*` to check whether any repos are mounted at all.
+2. **If both Glob calls return no results (i.e., `/repos` is empty or no subdirectories exist), output "No repos found — nothing to check" and EXIT IMMEDIATELY. Do NOT fall back to scanning the local system, running docker ps, or checking any services not defined in a mounted repo.**
 
 <!-- Governing: SPEC-0005 REQ-2 (Manifest Discovery and Reading) -->
 

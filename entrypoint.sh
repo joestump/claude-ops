@@ -148,6 +148,7 @@ while true; do
     # by every tier before any remediation action.
     claude \
         --model "${MODEL}" \
+        --dangerously-skip-permissions \
         -p "$(cat "${PROMPT_FILE}")" \
         --allowedTools "${ALLOWED_TOOLS}" \
         --disallowedTools "${DISALLOWED_TOOLS}" \
