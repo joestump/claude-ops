@@ -229,8 +229,8 @@ Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `
 Notifications are sent using the `apprise` CLI, which supports 80+ services (email, ntfy, Slack, Discord, Telegram, etc.) through URL-based configuration. Always invoke Apprise as a CLI command via Bash — never as a Python library or import.
 
 ```bash
-# Send a notification
-apprise -t "Title" -b "Message body" "$CLAUDEOPS_APPRISE_URLS"
+# Send a notification (use -i markdown so Apprise renders to HTML for email)
+apprise -t "Title" -i markdown -b "Message body" "$CLAUDEOPS_APPRISE_URLS"
 ```
 
 `$CLAUDEOPS_APPRISE_URLS` contains one or more comma-separated Apprise URLs. If the variable is empty or unset, skip notifications silently (don't error).

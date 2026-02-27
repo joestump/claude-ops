@@ -449,13 +449,19 @@ If any `apprise` invocation fails (non-zero exit code), log the failure and cont
 
 ```bash
 apprise -t "Claude Ops: Remediated <service> (Tier 3)" \
-  -b "Root cause: <root cause analysis>
-Actions taken:
-  1. <step 1>
-  2. <step 2>
-  ...
-Verification: <post-remediation health check result>
-Recommendations: <follow-up actions needed>" \
+  -i markdown \
+  -b "## Tier 3 Remediation Report: \<service\>
+
+**Root cause:** \<root cause analysis\>
+
+**Actions taken:**
+1. \<step 1\>
+2. \<step 2\>
+...
+
+**Verification:** \<post-remediation health check result\>
+
+**Recommendations:** \<follow-up actions needed\>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
 
@@ -465,12 +471,20 @@ The Tier 3 remediation body MUST include: root cause analysis, step-by-step acti
 
 ```bash
 apprise -t "Claude Ops: NEEDS HUMAN ATTENTION — <service>" \
-  -b "Issue: <what was wrong>
-Investigation: <root cause analysis>
-Attempted: <everything that was tried>
-Why it failed: <explanation>
-Recommended next steps: <what a human should do>
-Current system state: <summary>" \
+  -i markdown \
+  -b "## NEEDS HUMAN ATTENTION: \<service\>
+
+**Issue:** \<what was wrong\>
+
+**Investigation:** \<root cause analysis\>
+
+**Attempted:** \<everything that was tried\>
+
+**Why it failed:** \<explanation\>
+
+**Recommended next steps:** \<what a human should do\>
+
+**Current system state:** \<summary\>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
 

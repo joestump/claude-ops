@@ -424,9 +424,14 @@ Send an auto-remediation report via Apprise (if `$CLAUDEOPS_APPRISE_URLS` is set
 
 ```bash
 apprise -t "Claude Ops: Auto-remediated <service>" \
-  -b "Issue: <what was wrong>
-Action: <what remediation was performed>
-Status: <verification result, e.g. HTTP 200 OK (145ms)>" \
+  -i markdown \
+  -b "## Auto-Remediation Report: \<service\>
+
+**Issue:** \<what was wrong\>
+
+**Action:** \<what remediation was performed\>
+
+**Status:** \<verification result, e.g. HTTP 200 OK (145ms)\>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
 
@@ -480,10 +485,16 @@ Send a human attention alert via Apprise. If the notification fails, log and con
 
 ```bash
 apprise -t "Claude Ops: Needs human attention — <service>" \
-  -b "Issue: <what is wrong>
-Attempted: <what remediation was tried>
-Why stopped: Cooldown limit exceeded — <restart_count>/2 restarts in 4h window
-Current state: <service status and any relevant details>" \
+  -i markdown \
+  -b "## Needs Human Attention: \<service\>
+
+**Issue:** \<what is wrong\>
+
+**Attempted:** \<what remediation was tried\>
+
+**Why stopped:** Cooldown limit exceeded — \<restart_count\>/2 restarts in 4h window
+
+**Current state:** \<service status and any relevant details\>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
 

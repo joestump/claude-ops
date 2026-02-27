@@ -415,11 +415,18 @@ When `$CLAUDEOPS_APPRISE_URLS` is empty or unset, skip all notifications silentl
 
 ```bash
 apprise -t "Claude Ops: Daily Health Summary" \
-  -b "Services checked: <count>
-Healthy: <count>
-Degraded: <count> (<details if any>)
-Down: <count> (<details if any>)
-In cooldown: <count>" \
+  -i markdown \
+  -b "## Daily Health Summary
+
+| Status | Count |
+|--------|-------|
+| Healthy | \<count\> |
+| Degraded | \<count\> |
+| Down | \<count\> |
+| In cooldown | \<count\> |
+| **Total** | **\<count\>** |
+
+\<details for any non-healthy services\>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
 
@@ -490,10 +497,16 @@ Each escalation tier runs as a **separate subagent** with its own prompt context
 
 ```bash
 apprise -t "Claude Ops: Needs human attention — <service>" \
-  -b "Issue: <what is wrong>
-Cooldown limit reached: <restart_count>/2 restarts in 4h window
-Previous attempts: <summary of what was tried>
-Current state: <service status>" \
+  -i markdown \
+  -b "## Needs Human Attention: \<service\>
+
+**Issue:** \<what is wrong\>
+
+**Cooldown limit reached:** \<restart_count\>/2 restarts in 4h window
+
+**Previous attempts:** \<summary of what was tried\>
+
+**Current state:** \<service status\>" \
   "$CLAUDEOPS_APPRISE_URLS"
 ```
 
