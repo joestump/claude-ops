@@ -35,6 +35,7 @@ func (r *CLIRunner) Start(ctx context.Context, model string, promptContent strin
 	// and --disallowedTools command-prefix blocklist, not just prompt level.
 	args := []string{
 		"--model", model,
+		"--dangerously-skip-permissions",
 		"-p", promptContent,
 		"--output-format", "stream-json",
 		"--verbose",

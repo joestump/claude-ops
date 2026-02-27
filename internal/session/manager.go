@@ -442,6 +442,10 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	var resultCostUSD float64
 	var resultNumTurns int
 	var resultDurationMs int64
+	// lastAssistantText tracks the last non-empty assistant text block so we can
+	// fall back to it when result.result is empty (e.g. the model's final turn was
+	// a Write tool call to create handoff.json rather than a text response).
+	var lastAssistantText string
 
 	streamDone := make(chan struct{})
 	go func() {
@@ -484,6 +488,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 				if evt.Type == "assistant" {
 					for _, block := range evt.Message.Content {
 						if block.Type == "text" {
+							if t := strings.TrimSpace(block.Text); t != "" {
+								lastAssistantText = t
+							}
 							for _, pe := range parseEventMarkers(block.Text) {
 								sid := sessionID
 								now := time.Now().UTC().Format(time.RFC3339)
@@ -547,6 +554,13 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 			}
 		}
 		m.finalizeSession(sessionID, status, &exitCode, &logPath)
+
+		// If result.result was empty (model's last turn was a tool call, e.g. writing
+		// handoff.json), fall back to the last non-empty assistant text block so the
+		// session page can render the markdown report rather than showing nothing.
+		if resultResponse == "" && lastAssistantText != "" {
+			resultResponse = lastAssistantText
+		}
 
 		// Governing: SPEC-0011 REQ "Result Event Metadata Extraction"
 		// — stores extracted metadata in the sessions table via UpdateSessionResult.
