@@ -215,6 +215,8 @@ Read the cooldown state file at `$CLAUDEOPS_STATE_DIR/cooldown.json` (default: `
 
 - **Max 2 container restarts** per service per 4-hour sliding window
 - **Max 1 full redeployment** (Ansible/Helm) per service per 24-hour sliding window
+<!-- Governing: SPEC-0026 REQ "Cooldown State Integration" -->
+- **`ci_fix_attempts`**: map of `{<repo-name>: {last_attempt: ISO8601, pr_url: string}}` — max 1 CI fix PR per repo per 24-hour window
 - If the cooldown limit is exceeded: stop retrying, send a notification marked "needs human attention"
 - Reset counters when a service is confirmed healthy for 2 consecutive checks (see SPEC-0007 REQ-6 and `skills/cooldowns.md` for full rules)
 - Always update the state file after any remediation attempt or health check <!-- Governing: SPEC-0007 REQ-7 -->

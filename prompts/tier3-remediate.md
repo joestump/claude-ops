@@ -350,6 +350,98 @@ Use the correct SSH user and sudo prefix from the host access map (see `/app/ski
 5. Verify connectivity from dependent services
 6. Check for data integrity issues (but NEVER delete data)
 
+<!-- Governing: SPEC-0026 REQ "Failure Classification", REQ "Fix Proposal via Pull Request",
+     REQ "Duplicate PR Prevention", REQ "Cooldown State Integration" -->
+### CI Self-Correction
+
+When the handoff includes CI pipeline failures, apply this self-correction pipeline before moving to human notification.
+
+**Step A: Check for CI failures in handoff**
+
+Read `ci_failures[]` from the handoff file. If the array is empty or the field is absent, skip this entire section.
+
+**Step B: Retrieve job logs**
+
+For each CI failure in `ci_failures[]`:
+1. Read `/app/.claude/skills/ci-monitor.md` and use its provider-specific log retrieval instructions to fetch the job logs for the failed run
+2. If log retrieval fails (API error, permissions, empty response): log `[ci-fix] Log retrieval failed for run <id>: <error>` and skip to human notification for this failure — do NOT attempt diagnosis without logs
+
+**Step C: Classify the failure**
+
+Classify each failure against this **exact allow-list**. ONLY these patterns are fixable:
+
+| Pattern | Example log excerpt | Fix strategy |
+|---------|-------------------|--------------|
+| YAML indentation error | `mapping values are not allowed here` at file:line | Fix indentation at referenced line |
+| YAML tab character | `found character '\t' that cannot start any token` | Replace tabs with spaces |
+| Ansible-lint deprecated bare module | `[DEPRECATION WARNING] Use 'ansible.builtin.apt'` | Replace bare module with FQCN |
+| Missing `loop:` for `item` reference | `'item' is undefined` in task without loop | Add `loop:` key |
+| Role not found (resolvable) | `could not find role 'roles/old-name'` | Update role reference if new name is in repo |
+
+Classification rules:
+- If the failure does NOT match one of these 5 patterns exactly → classify as **non-fixable** → route to human notification
+- If the failure matches BOTH a fixable and a non-fixable pattern → treat as **non-fixable**
+- Non-fixable patterns include: test assertion failures, authentication/credential errors, network timeouts, ambiguous logic errors, errors requiring inventory/secret/network config changes
+
+**Step D: Check cooldown state**
+
+Read `/state/cooldown.json`. Check for the `ci_fix_attempts` map:
+```json
+{
+  "ci_fix_attempts": {
+    "<repo-name>": {
+      "last_attempt": "ISO8601 timestamp",
+      "pr_url": "https://..."
+    }
+  }
+}
+```
+
+- If `last_attempt` for this repo was within the last 24 hours → skip fix, send human notification pointing to the existing PR at `pr_url`
+- If not in cooldown (no entry or `last_attempt` older than 24 hours) → proceed
+
+**Step E: Check for duplicate open PR**
+
+Use the `git-pr` skill to list open PRs on the repo:
+- Look for any PR with a branch matching `claude-ops/fix/` and a description related to this failure
+- If a duplicate is found → log `[ci-fix] Skipped: duplicate PR already open` and notify human with the existing PR reference
+- If no duplicate → proceed
+
+**Step F: Propose the fix via PR**
+
+1. Clone the repo to `/tmp/ci-fix-<repo-name>-<timestamp>` (use the remote URL from the mounted repo: `git -C /repos/<name> remote get-url origin`)
+2. Create branch `claude-ops/fix/<short-description>` (max 60 chars)
+3. Read the source file(s) from the clone (NOT from `/repos/` — that is read-only)
+4. Apply ONLY the targeted fix — no reformatting, no refactoring, no collateral changes
+5. Commit with message: `fix(<file>): <what was wrong and what was changed>`
+6. Push the branch
+7. Create PR via `git-pr` skill with body containing:
+   - CI run URL
+   - Exact error message from logs
+   - The change made and rationale
+   - `*Opened automatically by Claude Ops. Human review required before merging.*`
+8. Update cooldown state: add/update entry in `ci_fix_attempts` map with `last_attempt` (ISO 8601 UTC) and `pr_url`
+9. Send Apprise notification with PR URL:
+   ```bash
+   apprise -t "Claude Ops: CI Fix PR Opened — <repo>" \
+     -i markdown \
+     -b "## CI Fix PR Opened: \<repo\>
+
+   **PR:** \<pr_url\>
+   **CI Run:** \<run_url\>
+   **Error:** \<error_message\>
+   **Fix:** \<what was changed\>
+
+   *Human review required before merging.*" \
+     "$CLAUDEOPS_APPRISE_URLS"
+   ```
+10. Clean up: `rm -rf /tmp/ci-fix-*`
+
+**Scope enforcement (CI Self-Correction)**:
+- MUST NOT modify inventory files, secrets, or network configuration — even via PR
+- MUST use the `git-pr` skill for PR creation (it handles scope validation)
+- If a proposed fix would touch a denied path, refuse and log: `[scope-violation] Refused: fix would modify <path>`
+
 <!-- Governing: SPEC-0018 REQ-9 "Permission Tier Integration" — Tier 3 permitted to create PRs for structural changes -->
 ## Limited Access Fallback
 
