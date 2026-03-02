@@ -341,6 +341,62 @@ Run checks ONLY against the hosts and services discovered from repos. **Never ch
 - These are additional checks defined by the repo owner for their specific services
 - Run them after the standard checks above
 
+<!-- Governing: SPEC-0026 REQ "CI Failure Detection in Tier 1" -->
+## Step 3.5: CI Status Check
+
+For each mounted repo where a git remote is available, run the CI monitor skill's provider auto-discovery and query CI run status. This extends the observation pass to cover CI pipeline health alongside runtime service health.
+
+### Procedure
+
+1. **For each repo** discovered in Step 1, read `/app/.claude/skills/ci-monitor.md` and follow the "Provider Auto-Discovery" section:
+   - Run `git -C /repos/<name> remote get-url origin` to get the remote URL
+   - Extract the hostname (handle both HTTPS and SSH formats)
+   - Match against well-known hosts (github.com, gitlab.com, codeberg.org) or fingerprint unknown hosts
+   - Verify the required token is set
+   - Record the provider in the session tool inventory
+
+2. **For each repo with a detected provider and valid token**, follow the "CI Failure Detection" section of the ci-monitor skill:
+   - Query the last 10 failed CI runs using the provider-appropriate API
+   - Filter to failures within the last 24 hours
+   - Record each failure with: `repo`, `run_id`, `workflow`, `failed_at`, `provider`
+
+3. **Skip gracefully** when:
+   - A repo has no git remote: `[ci-monitor] Skipped: <name> — no git remote configured`
+   - The provider cannot be detected: `[ci-monitor] Skipped: <repo> — provider not detected`
+   - The token is not configured: `[ci-monitor] Skipped: <repo> — token not configured for <provider>`
+   - These are not errors and do not trigger escalation
+
+4. **Record results**: CI failures are treated as health check failures that contribute to the escalation decision in Step 5 (Evaluate Results). Include them alongside HTTP, DNS, and container check results.
+
+### Handoff Schema Extension
+
+When escalating, include CI failures in the handoff file (`/state/handoff.json`) as a `ci_failures` array alongside `check_results`:
+
+```json
+{
+  "schema_version": 1,
+  "recommended_tier": 2,
+  "services_affected": ["service1"],
+  "check_results": [ ... ],
+  "ci_failures": [
+    {
+      "repo": "home-cluster",
+      "run_id": "88",
+      "workflow": "ansible-lint",
+      "failed_at": "2025-06-15T08:30:00Z",
+      "provider": "gitea"
+    }
+  ],
+  "ssh_access_map": { ... },
+  "repo_map": { ... },
+  "cooldown_state": "...",
+  "investigation_findings": "",
+  "remediation_attempted": ""
+}
+```
+
+If no CI failures are found for any repo, omit the `ci_failures` field or set it to an empty array. Do not escalate solely because CI checks were skipped (missing provider or token).
+
 <!-- Governing: SPEC-0007 REQ-14 — Tier 1 reads cooldown state -->
 ## Step 4: Read Cooldown State
 
