@@ -30,10 +30,20 @@
       "SPEC-0021": "PVT_kwHNkyPOAT7o7w",
       "SPEC-0022": "PVT_kwHNkyPOAT7o8g",
       "SPEC-0023": "PVT_kwHNkyPOAT81zw",
-      "SPEC-0024": "PVT_kwHNkyPOAT94TA"
+      "SPEC-0024": "PVT_kwHNkyPOAT94TA",
+      "SPEC-0026": "PVT_73"
     },
-    "views": ["All Work", "Board", "Roadmap"],
-    "columns": ["Todo", "In Progress", "In Review", "Done"],
+    "views": [
+      "All Work",
+      "Board",
+      "Roadmap"
+    ],
+    "columns": [
+      "Todo",
+      "In Progress",
+      "In Review",
+      "Done"
+    ],
     "iteration_weeks": 2
   }
 }
