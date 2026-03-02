@@ -175,9 +175,10 @@ You must NOT:
 
 ### Never Allowed (Any Tier)
 
+<!-- Governing: SPEC-0026 REQ "Never-Allowed Boundary Clarification" -->
 These actions ALWAYS require a human. Never do any of these:
 - Delete persistent data volumes
-- Modify inventory files, playbooks, Helm charts, or Dockerfiles
+- Directly modify inventory files, playbooks, Helm charts, or Dockerfiles on running hosts
 - Change passwords, secrets, or encryption keys
 - Modify network configuration (VPN, WireGuard, Caddy, DNS records)
 - Execute bulk cleanup commands (e.g., `docker system prune`)
@@ -489,6 +490,26 @@ apprise -t "Claude Ops: NEEDS HUMAN ATTENTION — <service>" \
 ```
 
 The human attention alert body MUST include: issue description, what was attempted, why remediation failed or was stopped, and current system state with recommended next steps.
+
+<!-- Governing: SPEC-0026 REQ "Human Notification for Non-Fixable Failures", SPEC-0004 REQ "CLI-Based Invocation" -->
+### CI Failure — Non-Fixable or Fix Attempt Failed
+
+```bash
+apprise -t "Claude Ops: CI failure needs attention — <repo>" \
+  -i markdown \
+  -b "## CI Failure: \<repo\>
+
+**Run:** \<CI run URL\>
+
+**Error:** \<exact failure message from logs\>
+
+**Why not auto-fixed:** \<classification decision — e.g., 'logic error', 'ambiguous', 'scope violation'\>
+
+**Recommended next steps:** \<what a human should investigate\>" \
+  "$CLAUDEOPS_APPRISE_URLS"
+```
+
+The CI failure notification body MUST include: repo name and CI run URL, the exact error from logs, why no automated fix was attempted, and recommended investigation steps.
 
 ## Auditability
 

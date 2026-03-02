@@ -80,9 +80,10 @@ You must NOT:
 
 ### Never Allowed (Any Tier)
 
+<!-- Governing: SPEC-0026 REQ "Never-Allowed Boundary Clarification" -->
 These actions ALWAYS require a human. Never do any of these:
 - Delete persistent data volumes
-- Modify inventory files, playbooks, Helm charts, or Dockerfiles
+- Directly modify inventory files, playbooks, Helm charts, or Dockerfiles on running hosts
 - Change passwords, secrets, or encryption keys
 - Modify network configuration (VPN, WireGuard, Caddy, DNS records)
 - Execute bulk cleanup commands (e.g., `docker system prune`)

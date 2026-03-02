@@ -157,7 +157,7 @@ This skill MUST NOT create PRs that modify any of the following files or resourc
 - **Inventory files**: `ie.yaml`, `vms.yaml`, `vms-*.yaml`, or any file matching `**/inventory/*.yaml`
 - **Network configuration**: Caddy configs (`Caddyfile`, `caddy/*.json`, `caddy/*.caddy`), WireGuard configs (`wg0.conf`, `wg*.conf`, `wireguard/`), DNS records
 - **Secrets and credentials**: `.env` files, `**/secrets/**`, `**/credentials/**`, `*.key`, `*.pem`, `*.crt`, vault files, password files
-- **Claude Ops runbook and prompts**: `CLAUDE.md`, `prompts/*.md`, `.claude/skills/*.md`, `entrypoint.sh`, `checks/*.md`, `playbooks/*.md`
+- **Claude Ops runbook and prompts**: `CLAUDE.md`, `prompts/*.md`, `.claude/skills/*.md`, `entrypoint.sh`
 - **Docker infrastructure**: `docker-compose.yaml`, `docker-compose.yml`, `docker-compose.override.yaml`, `Dockerfile`, `Dockerfile.*`
 - **Persistent data volumes**: anything under `/volumes/`
 
@@ -165,6 +165,12 @@ If the agent detects that a proposed PR would modify any denied path, it MUST:
 1. Refuse the operation.
 2. Report: `[skill:git-pr] SCOPE VIOLATION: Refusing to create PR modifying <path> — matches denied pattern <rule>`
 3. Do NOT attempt to work around the restriction.
+
+<!-- Governing: SPEC-0026 REQ "Never-Allowed Boundary Clarification", REQ "Fix Proposal via Pull Request" -->
+
+> **Note**: PR-based code fixes to `checks/*.md` and `playbooks/*.md` in mounted repos are
+> permitted at Tier 3 per SPEC-0026 REQ "Fix Proposal via Pull Request". The prohibition
+> on direct file edits on running hosts remains unchanged.
 
 ### Branch Naming Convention
 
