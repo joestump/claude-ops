@@ -321,10 +321,113 @@ func TestResultsDirUsed(t *testing.T) {
 	}
 }
 
+// orphanPipeRunner simulates the bug where the CLI process exits (waitFn returns)
+// but child processes (e.g. MCP servers) keep the stdout pipe fd open, preventing
+// the scanner from seeing EOF. Without the fix, the session hangs forever in
+// "running" state because streamDone never closes.
+//
+// Regression test for: session #237 stuck at "running" for 38 hours.
+type orphanPipeRunner struct {
+	events []string
+}
+
+func (o *orphanPipeRunner) Start(_ context.Context, _ string, _ string, _ string, _ string, _ string) (io.ReadCloser, func() error, error) {
+	pr, pw, err := os.Pipe()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Write all events (including the result event), then leave the pipe open
+	// to simulate child processes holding the fd.
+	go func() {
+		for _, event := range o.events {
+			_, _ = fmt.Fprintln(pw, event)
+		}
+		// Intentionally do NOT close pw — this simulates MCP server
+		// child processes inheriting the stdout pipe fd.
+	}()
+
+	waitFn := func() error {
+		// Simulate the main CLI process exiting promptly after writing output.
+		// In the real bug, cmd.Wait() returns but the pipe stays open.
+		time.Sleep(50 * time.Millisecond)
+		return nil
+	}
+
+	return pr, waitFn, nil
+}
+
+// TestSessionCompletesWhenPipeOrphaned verifies that a session completes even
+// when child processes keep the stdout pipe open after the CLI process exits.
+// This is the exact scenario that caused session #237 to hang for 38 hours.
+func TestSessionCompletesWhenPipeOrphaned(t *testing.T) {
+	m, cfg := testManager(t)
+
+	events := []string{
+		`{"type":"system","subtype":"init"}`,
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"All services healthy."}]}}`,
+		`{"type":"result","result":"Health check complete.","is_error":false,"total_cost_usd":0.03,"num_turns":3,"duration_ms":5000}`,
+	}
+
+	m.runner = &orphanPipeRunner{events: events}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	start := time.Now()
+	err := m.runOnce(ctx, "", "scheduled")
+	elapsed := time.Since(start)
+
+	// Session should complete within ~10 seconds (5s grace + overhead),
+	// NOT hang until the 30-second context timeout.
+	if elapsed > 15*time.Second {
+		t.Fatalf("session took %v — likely hung on orphaned pipe (regression)", elapsed)
+	}
+
+	if err != nil {
+		t.Fatalf("runOnce: %v", err)
+	}
+
+	// Verify the session was finalized as "completed" in the DB.
+	sessions, err := m.db.ListSessions(1, 0)
+	if err != nil {
+		t.Fatalf("ListSessions: %v", err)
+	}
+	if len(sessions) == 0 {
+		t.Fatal("no sessions in DB after runOnce")
+	}
+
+	sess := sessions[0]
+	if sess.Status != "completed" {
+		t.Errorf("Status = %q, want completed", sess.Status)
+	}
+
+	// Verify the result event was still captured despite the orphaned pipe.
+	if sess.CostUSD == nil {
+		t.Fatal("CostUSD is nil — result event was not captured")
+	}
+	if *sess.CostUSD < 0.029 || *sess.CostUSD > 0.031 {
+		t.Errorf("CostUSD = %f, want ~0.03", *sess.CostUSD)
+	}
+
+	// Verify log file exists.
+	entries, _ := os.ReadDir(cfg.ResultsDir)
+	found := false
+	for _, e := range entries {
+		if strings.HasPrefix(e.Name(), "run-") && strings.HasSuffix(e.Name(), ".log") {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("no log file created")
+	}
+}
+
 // pipeRunner uses os.Pipe to simulate the real CLI subprocess pipe behavior.
-// The Wait function closes the read end of the pipe (matching exec.Cmd.Wait
-// behavior), which in the past caused a race condition where the result event
-// was lost if Wait closed the pipe before the scanner read the last line.
+// The writer closes the write-end after all events, giving the scanner EOF.
+// waitFn blocks until writing is done (simulating process exit) and returns
+// without closing the read-end — the manager's concurrent-wait logic handles
+// pipe cleanup for orphaned-pipe scenarios (see orphanPipeRunner).
 type pipeRunner struct {
 	events    []string
 	resultIdx int // index of the result event (-1 if none)
@@ -345,14 +448,12 @@ func (p *pipeRunner) Start(_ context.Context, _ string, _ string, _ string, _ st
 		defer close(writerDone)
 		for i, event := range p.events {
 			// Add a yield gap before the result event to widen the race window.
-			// Without the pipe-drain-before-Wait fix, this gap allows Wait()
-			// to close the pipe before the scanner reads the result.
 			if i == p.resultIdx {
 				time.Sleep(5 * time.Millisecond)
 			}
 			_, _ = fmt.Fprintln(pw, event)
 		}
-		_ = pw.Close()
+		_ = pw.Close() // EOF for the scanner
 	}()
 
 	waitFn := func() error {
@@ -360,10 +461,7 @@ func (p *pipeRunner) Start(_ context.Context, _ string, _ string, _ string, _ st
 		p.mu.Lock()
 		p.waitCalled = true
 		p.mu.Unlock()
-		// Simulate exec.Cmd.Wait closing the read end of stdout pipe.
-		// This is what caused the original bug: if the scanner hadn't
-		// consumed the result event yet, this Close() discarded it.
-		return pr.Close()
+		return nil
 	}
 
 	return pr, waitFn, nil

@@ -526,71 +526,35 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	}()
 
 	// Governing: SPEC-0008 REQ-7 — subprocess lifecycle: drain stdout before Wait to avoid data loss.
-	// Wait for all stdout to be consumed BEFORE calling cmd.Wait().
-	// cmd.Wait() closes the stdout pipe; calling it first can discard
-	// buffered data (including the result event with cost/turns metadata).
+	// Run cmd.Wait() concurrently with the stream reader. We must drain stdout
+	// before calling Wait to avoid discarding buffered data, BUT we also need
+	// Wait to detect process exit — because child processes (e.g. MCP servers)
+	// can inherit the stdout pipe fd, keeping it open after the CLI exits.
+	// Without this, streamDone never fires and the session hangs forever.
+	waitDone := make(chan error, 1)
+	go func() {
+		waitDone <- waitFn()
+	}()
+
+	// Wait for stream EOF, process exit, or context cancellation.
+	var waitErr error
 	select {
 	case <-streamDone:
-		// Pipe fully drained — now safe to call Wait.
-		err := waitFn()
-		runEnd := time.Now().UTC().Format(time.RFC3339)
-		fmt.Printf("[%s] Tier %d run complete.\n", runEnd, tier)
+		// Pipe fully drained — collect the process exit status.
+		waitErr = <-waitDone
 
-		status := "completed"
-		var exitCode int
-		if err != nil {
-			m.mu.Lock()
-			wasStopped := m.stoppedByUser
-			m.mu.Unlock()
-			if wasStopped {
-				status = "stopped"
-			} else {
-				status = "failed"
-			}
-			if exitErr, ok := err.(*exec.ExitError); ok {
-				exitCode = exitErr.ExitCode()
-			} else {
-				exitCode = 1
-			}
+	case waitErr = <-waitDone:
+		// Process exited but stdout pipe still open (child processes hold the fd).
+		// Give the scanner a short grace period to drain any remaining buffered data,
+		// then force-close the pipe to unblock it.
+		select {
+		case <-streamDone:
+			// Scanner finished naturally within grace period.
+		case <-time.After(5 * time.Second):
+			fmt.Fprintf(os.Stderr, "session %d: stdout pipe still open after process exit, force-closing\n", sessionID)
+			stdoutPipe.Close()
+			<-streamDone // Wait for scanner goroutine to finish.
 		}
-		m.finalizeSession(sessionID, status, &exitCode, &logPath)
-
-		// If result.result was empty (model's last turn was a tool call, e.g. writing
-		// handoff.json), fall back to the last non-empty assistant text block so the
-		// session page can render the markdown report rather than showing nothing.
-		if resultResponse == "" && lastAssistantText != "" {
-			resultResponse = lastAssistantText
-		}
-
-		// Governing: SPEC-0011 REQ "Result Event Metadata Extraction"
-		// — stores extracted metadata in the sessions table via UpdateSessionResult.
-		if resultResponse != "" || resultCostUSD > 0 || resultNumTurns > 0 {
-			if dbErr := m.db.UpdateSessionResult(sessionID, resultResponse, resultCostUSD, resultNumTurns, resultDurationMs); dbErr != nil {
-				fmt.Fprintf(os.Stderr, "failed to store session result %d: %v\n", sessionID, dbErr)
-			}
-		}
-
-		// Generate and store an LLM summary of the session response.
-		// Governing: SPEC-0021 REQ "Session Summary Generation"
-		if resultResponse != "" {
-			summary, sumErr := summarizeResponse(ctx, resultResponse, m.cfg.SummaryModel)
-			if sumErr != nil {
-				fmt.Fprintf(os.Stderr, "failed to summarize session %d: %v\n", sessionID, sumErr)
-			} else if summary != "" {
-				if dbErr := m.db.UpdateSessionSummary(sessionID, summary); dbErr != nil {
-					fmt.Fprintf(os.Stderr, "failed to store session summary %d: %v\n", sessionID, dbErr)
-				}
-			}
-		}
-
-		// Close the SSE hub AFTER DB updates so the browser reload sees the final state.
-		m.hub.Close(hubID)
-		m.rawHub.Close(hubID) // Governing: SPEC-0024 REQ-5 — close raw hub for OpenAI streaming
-
-		if err != nil {
-			return sessionID, fmt.Errorf("claude exited: %w", err)
-		}
-		return sessionID, nil
 
 	case <-ctx.Done():
 		// Governing: SPEC-0008 REQ-13 — context cancellation triggers graceful session teardown.
@@ -600,6 +564,65 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		m.rawHub.Close(hubID) // Governing: SPEC-0024 REQ-5 — close raw hub for OpenAI streaming
 		return sessionID, ctx.Err()
 	}
+
+	runEnd := time.Now().UTC().Format(time.RFC3339)
+	fmt.Printf("[%s] Tier %d run complete.\n", runEnd, tier)
+
+	status := "completed"
+	var exitCode int
+	if waitErr != nil {
+		m.mu.Lock()
+		wasStopped := m.stoppedByUser
+		m.mu.Unlock()
+		if wasStopped {
+			status = "stopped"
+		} else {
+			status = "failed"
+		}
+		if exitErr, ok := waitErr.(*exec.ExitError); ok {
+			exitCode = exitErr.ExitCode()
+		} else {
+			exitCode = 1
+		}
+	}
+	m.finalizeSession(sessionID, status, &exitCode, &logPath)
+
+	// If result.result was empty (model's last turn was a tool call, e.g. writing
+	// handoff.json), fall back to the last non-empty assistant text block so the
+	// session page can render the markdown report rather than showing nothing.
+	if resultResponse == "" && lastAssistantText != "" {
+		resultResponse = lastAssistantText
+	}
+
+	// Governing: SPEC-0011 REQ "Result Event Metadata Extraction"
+	// — stores extracted metadata in the sessions table via UpdateSessionResult.
+	if resultResponse != "" || resultCostUSD > 0 || resultNumTurns > 0 {
+		if dbErr := m.db.UpdateSessionResult(sessionID, resultResponse, resultCostUSD, resultNumTurns, resultDurationMs); dbErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to store session result %d: %v\n", sessionID, dbErr)
+		}
+	}
+
+	// Generate and store an LLM summary of the session response.
+	// Governing: SPEC-0021 REQ "Session Summary Generation"
+	if resultResponse != "" {
+		summary, sumErr := summarizeResponse(ctx, resultResponse, m.cfg.SummaryModel)
+		if sumErr != nil {
+			fmt.Fprintf(os.Stderr, "failed to summarize session %d: %v\n", sessionID, sumErr)
+		} else if summary != "" {
+			if dbErr := m.db.UpdateSessionSummary(sessionID, summary); dbErr != nil {
+				fmt.Fprintf(os.Stderr, "failed to store session summary %d: %v\n", sessionID, dbErr)
+			}
+		}
+	}
+
+	// Close the SSE hub AFTER DB updates so the browser reload sees the final state.
+	m.hub.Close(hubID)
+	m.rawHub.Close(hubID) // Governing: SPEC-0024 REQ-5 — close raw hub for OpenAI streaming
+
+	if waitErr != nil {
+		return sessionID, fmt.Errorf("claude exited: %w", waitErr)
+	}
+	return sessionID, nil
 }
 
 // runOnce is kept for backward compatibility with tests. It delegates to runTier.
