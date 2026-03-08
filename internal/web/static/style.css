@@ -465,9 +465,16 @@ table {
     letter-spacing: 0.05em;
 }
 
+/* Governing: SPEC-0029 REQ "Responsive Table Layouts" — 44px minimum row height for touch targets */
 .tbody-row {
     border-bottom: 1px solid var(--border);
     transition: background-color 0.15s;
+    min-height: 44px;
+}
+
+.tbody-row > td {
+    padding-top: 0.625rem;
+    padding-bottom: 0.625rem;
 }
 
 .tbody-row:last-child {
@@ -657,14 +664,22 @@ table {
 }
 
 /* ---- Session controls cluster (follow + stop) ---- */
+/* Governing: SPEC-0029 REQ "Session Controls Mobile Positioning" */
 .session-controls {
     position: fixed;
-    bottom: 1.5rem;
-    right: 1.5rem;
+    bottom: 1rem;
+    right: 1rem;
     display: flex;
     align-items: center;
     gap: 0.5rem;
     z-index: 50;
+}
+
+@media (min-width: 640px) {
+    .session-controls {
+        bottom: 1.5rem;
+        right: 1.5rem;
+    }
 }
 
 /* ---- Follow button (running sessions) ---- */
@@ -673,6 +688,7 @@ table {
     display: flex;
     align-items: center;
     gap: 0.5rem;
+    min-height: 44px;
     padding: 0.375rem 0.875rem;
     background: var(--terminal-bg);
     border: 1px solid rgba(255, 255, 255, 0.1);
@@ -692,6 +708,7 @@ table {
     display: flex;
     align-items: center;
     gap: 0.375rem;
+    min-height: 44px;
     padding: 0.375rem 0.875rem;
     background: var(--terminal-bg);
     border: 1px solid rgba(255, 255, 255, 0.1);

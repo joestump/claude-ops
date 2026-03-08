@@ -1,6 +1,7 @@
 {{/* Governing: SPEC-0013 "Real-Time Sessions List" — hx-trigger every 5s polling, cost/turns columns */}}
 {{/* Governing: SPEC-0013 "Sessions Display Cost and Tokens" — Cost and Turns columns in table */}}
 {{define "sessions.html"}}
+<!-- Governing: SPEC-0029 REQ "Responsive Table Layouts" -->
 <div class="max-w-5xl">
     <h1 class="text-2xl font-semibold mb-6">Sessions</h1>
 
@@ -15,11 +16,11 @@
                         <th class="pb-3 pr-4">Model</th>
                         <th class="pb-3 pr-4">Status</th>
                         <!-- Governing: SPEC-0012 REQ "Session List Shows Trigger Type" -->
-                        <th class="pb-3 pr-4">Trigger</th>
+                        <th class="pb-3 pr-4 hidden md:table-cell">Trigger</th>
                         <th class="pb-3 pr-4">Duration</th>
                         <th class="pb-3 pr-4">Cost</th>
-                        <th class="pb-3 pr-4">Turns</th>
-                        <th class="pb-3">Exit</th>
+                        <th class="pb-3 pr-4 hidden md:table-cell">Turns</th>
+                        <th class="pb-3 hidden md:table-cell">Exit</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -43,13 +44,13 @@
                         <td class="py-3 pr-4">
                             <span class="badge-pill {{statusClass .Status}}">{{.Status}}</span>
                         </td>
-                        <td class="py-3 pr-4">
+                        <td class="py-3 pr-4 hidden md:table-cell">
                             <span class="text-xs {{if eq .Trigger "manual"}}text-accent font-medium{{else}}text-muted{{end}}">{{.Trigger}}</span>
                         </td>
                         <td class="py-3 pr-4 font-mono text-xs text-muted">{{fmtDuration .StartedAt .EndedAt}}</td>
                         <td class="py-3 pr-4 font-mono text-xs text-muted">{{fmtCost .CostUSD}}{{if and .IsChainRoot (chainCostDiffers .ChainCost .CostUSD)}} <span class="text-accent" title="Total chain cost">({{fmtFloat .ChainCost}})</span>{{end}}</td>
-                        <td class="py-3 pr-4 font-mono text-xs text-muted">{{if .NumTurns}}{{intVal .NumTurns}}{{else}}--{{end}}</td>
-                        <td class="py-3 font-mono text-xs">{{intVal .ExitCode}}</td>
+                        <td class="py-3 pr-4 font-mono text-xs text-muted hidden md:table-cell">{{if .NumTurns}}{{intVal .NumTurns}}{{else}}--{{end}}</td>
+                        <td class="py-3 font-mono text-xs hidden md:table-cell">{{intVal .ExitCode}}</td>
                     </tr>
                     {{end}}
                 </tbody>

@@ -5,20 +5,21 @@
 
     {{/* Stats HUD — 2 rows of 4 DaisyUI stat tiles */}}
     {{/* Governing: SPEC-0021 REQ "Dashboard Stats HUD" */}}
+    <!-- Governing: SPEC-0029 REQ "Responsive Stats HUD Grid" -->
     <section class="mb-6">
         {{if .Stats}}
-        <div class="grid grid-cols-4 bg-white border border-border rounded-lg shadow overflow-hidden">
-            <div class="px-5 py-4 border-b border-r border-border">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 bg-white border border-border rounded-lg shadow overflow-hidden">
+            <div class="px-5 py-4 border-b sm:border-r border-border">
                 <div class="text-xs text-muted mb-1">Total Runs</div>
                 <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.TotalRuns}}</div>
                 <div class="text-xs text-muted mt-1">root sessions</div>
             </div>
-            <div class="px-5 py-4 border-b border-r border-border">
+            <div class="px-5 py-4 border-b lg:border-r border-border">
                 <div class="text-xs text-muted mb-1">Escalations</div>
                 <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.Escalations}}</div>
                 <div class="text-xs text-muted mt-1">child sessions</div>
             </div>
-            <div class="px-5 py-4 border-b border-r border-border">
+            <div class="px-5 py-4 border-b sm:border-r border-border">
                 <div class="text-xs text-muted mb-1">Remediations</div>
                 <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.Remediations}}</div>
                 <div class="text-xs text-muted mt-1">tier-3 sessions</div>
@@ -28,17 +29,17 @@
                 <div class="text-2xl font-semibold tabular-nums {{if gt .Stats.SuccessRate 0.8}}text-green-600{{else if gt .Stats.SuccessRate 0.5}}text-yellow-600{{else}}text-red-600{{end}}">{{fmtPct .Stats.SuccessRate}}</div>
                 <div class="text-xs text-muted mt-1">completed / total</div>
             </div>
-            <div class="px-5 py-4 border-r border-border">
+            <div class="px-5 py-4 border-b lg:border-b-0 sm:border-r border-border">
                 <div class="text-xs text-muted mb-1">Total Cost</div>
                 <div class="text-2xl font-semibold text-charcoal font-mono tabular-nums">{{fmtCostVal .Stats.TotalCostUSD}}</div>
                 <div class="text-xs text-muted mt-1">all sessions</div>
             </div>
-            <div class="px-5 py-4 border-r border-border">
+            <div class="px-5 py-4 border-b lg:border-b-0 lg:border-r border-border">
                 <div class="text-xs text-muted mb-1">Critical (24h)</div>
                 <div class="text-2xl font-semibold tabular-nums {{if gt .Stats.CriticalEvents 0}}text-red-600{{else}}text-charcoal{{end}}">{{.Stats.CriticalEvents}}</div>
                 <div class="text-xs text-muted mt-1">critical events</div>
             </div>
-            <div class="px-5 py-4 border-r border-border">
+            <div class="px-5 py-4 border-b sm:border-b-0 sm:border-r border-border">
                 <div class="text-xs text-muted mb-1">Memories</div>
                 <div class="text-2xl font-semibold text-charcoal tabular-nums">{{.Stats.ActiveMemories}}</div>
                 <div class="text-xs text-muted mt-1"><a href="/memories" class="text-accent hover:underline">active memories</a></div>
