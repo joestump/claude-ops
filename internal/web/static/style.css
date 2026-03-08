@@ -57,11 +57,13 @@
 }
 
 /* ---- Navigation ---- */
+/* Governing: SPEC-0029 REQ "Touch Target Minimum Size" */
 .nav-link {
     display: flex;
     align-items: center;
     gap: 0.625rem;
-    padding: 0.5rem 1.25rem;
+    padding: 0.75rem 1.25rem;
+    min-height: 44px;
     font-size: 0.875rem;
     color: var(--muted);
     transition: color 0.15s, background-color 0.15s;
@@ -359,21 +361,26 @@
     border-color: var(--accent);
 }
 
+/* Governing: SPEC-0029 REQ "Touch Target Minimum Size" */
 .checkbox-field {
-    width: 1rem;
-    height: 1rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    min-width: 1.25rem;
+    min-height: 1.25rem;
     border: 1px solid var(--border);
     border-radius: 0.25rem;
     accent-color: var(--accent);
 }
 
+/* Governing: SPEC-0029 REQ "Touch Target Minimum Size" */
 .btn-primary {
     display: inline-block;
     background-color: var(--accent);
     color: var(--white);
     font-size: 0.875rem;
     font-weight: 500;
-    padding: 0.5rem 1.25rem;
+    padding: 0.625rem 1.25rem;
+    min-height: 44px;
     border-radius: 0.25rem;
     border: none;
     cursor: pointer;
@@ -390,7 +397,8 @@
     color: var(--charcoal);
     font-size: 0.875rem;
     font-weight: 500;
-    padding: 0.5rem 1.25rem;
+    padding: 0.625rem 1.25rem;
+    min-height: 44px;
     border-radius: 0.25rem;
     border: 1px solid var(--border);
     cursor: pointer;
@@ -407,7 +415,8 @@
     color: var(--white);
     font-size: 0.875rem;
     font-weight: 500;
-    padding: 0.5rem 1.25rem;
+    padding: 0.625rem 1.25rem;
+    min-height: 44px;
     border-radius: 0.25rem;
     border: none;
     cursor: pointer;
@@ -731,7 +740,8 @@ table {
     align-items: center;
     justify-content: center;
     gap: 0.5rem;
-    padding: 0.5rem 1rem;
+    padding: 0.625rem 1rem;
+    min-height: 44px;
     background-color: var(--accent);
     color: var(--white);
     font-family: "SF Mono", "Fira Code", "Fira Mono", "Roboto Mono",
@@ -784,3 +794,67 @@ table {
 .htmx-request .htmx-indicator {
     display: inline-block;
 }
+
+/* Governing: SPEC-0029 REQ "Mobile Top Bar" */
+/* ---- Mobile hamburger button ---- */
+.mobile-hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0.5rem;
+    background: transparent;
+    border: none;
+    color: var(--charcoal);
+    cursor: pointer;
+    border-radius: 0.25rem;
+    transition: background-color 0.15s;
+}
+
+.mobile-hamburger:hover {
+    background-color: var(--surface);
+}
+
+/* Governing: SPEC-0029 REQ "Collapsible Sidebar Navigation" */
+/* ---- Mobile drawer ---- */
+.drawer-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0);
+    z-index: 60;
+    transition: background-color 0.2s ease;
+}
+
+.drawer-backdrop.backdrop-visible {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.mobile-drawer {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 16rem;
+    max-width: 80vw;
+    background: var(--white);
+    border-right: 1px solid var(--border);
+    z-index: 70;
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    overflow-y: auto;
+}
+
+.mobile-drawer.drawer-open {
+    transform: translateX(0);
+}
+
+/* Override hidden when drawer-open is applied (animation needs both) */
+.mobile-drawer:not(.hidden) {
+    display: flex;
+}
+
+/* Governing: SPEC-0029 REQ "Touch Target Minimum Size" */
+/* ---- Touch target enforcement (WCAG 2.1 — 44px minimum) ---- */

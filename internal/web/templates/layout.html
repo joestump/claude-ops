@@ -20,10 +20,98 @@
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
 </head>
-<body class="bg-surface text-charcoal h-screen overflow-hidden font-sans">
-    <div class="flex h-screen">
-        {{/* Sidebar navigation */}}
-        <nav class="w-56 bg-white border-r border-border flex flex-col shrink-0 h-screen sticky top-0">
+<!-- Governing: SPEC-0029 REQ "Body Layout Fix" -->
+<body class="bg-surface text-charcoal min-h-screen font-sans">
+    <!-- Governing: SPEC-0029 REQ "Mobile Top Bar" -->
+    <header class="sticky top-0 z-50 bg-white border-b border-border px-4 py-3 flex items-center justify-between lg:hidden">
+        <a href="/" class="flex items-center gap-3">
+            <img src="/static/logo.svg" alt="Claude Ops" class="w-8 h-8" style="image-rendering: pixelated;">
+            <span class="brand-text">CLAUDE OPS</span>
+        </a>
+        <button id="hamburger-btn" class="mobile-hamburger" aria-label="Open navigation menu">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+    </header>
+
+    <!-- Governing: SPEC-0029 REQ "Collapsible Sidebar Navigation" -->
+    <div id="drawer-backdrop" class="drawer-backdrop hidden" aria-hidden="true"></div>
+    <aside id="mobile-drawer" class="mobile-drawer hidden" role="dialog" aria-label="Navigation menu">
+        <div class="flex items-center justify-between px-5 py-5 border-b border-border">
+            <a href="/" class="flex items-center gap-3">
+                <img src="/static/logo.svg" alt="Claude Ops" class="w-8 h-8" style="image-rendering: pixelated;">
+                <span class="brand-text">CLAUDE OPS</span>
+            </a>
+            <button id="drawer-close-btn" class="mobile-hamburger" aria-label="Close navigation menu">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+            </button>
+        </div>
+        <ul class="flex-1 py-3">
+            <li>
+                <a href="/"
+                   class="nav-link{{if eq .Page "index.html"}} nav-active{{end}}"
+                   hx-get="/" hx-target="#main" hx-push-url="true">
+                    <span class="nav-icon">🤔</span>
+                    TL;DR
+                </a>
+            </li>
+            <li>
+                <a href="/sessions"
+                   class="nav-link{{if or (eq .Page "sessions.html") (eq .Page "session.html")}} nav-active{{end}}"
+                   hx-get="/sessions" hx-target="#main" hx-push-url="true">
+                    <span class="nav-icon">▶️</span>
+                    Sessions
+                </a>
+            </li>
+            <li>
+                <a href="/events"
+                   class="nav-link{{if eq .Page "events.html"}} nav-active{{end}}"
+                   hx-get="/events" hx-target="#main" hx-push-url="true">
+                    <span class="nav-icon">⚡</span>
+                    Events
+                </a>
+            </li>
+            <li>
+                <a href="/memories"
+                   class="nav-link{{if eq .Page "memories.html"}} nav-active{{end}}"
+                   hx-get="/memories" hx-target="#main" hx-push-url="true">
+                    <span class="nav-icon">🧠</span>
+                    Memories
+                </a>
+            </li>
+            <li>
+                <a href="/cooldowns"
+                   class="nav-link{{if eq .Page "cooldowns.html"}} nav-active{{end}}"
+                   hx-get="/cooldowns" hx-target="#main" hx-push-url="true">
+                    <span class="nav-icon">⏱️</span>
+                    Cooldowns
+                </a>
+            </li>
+            <li>
+                <a href="/config"
+                   class="nav-link{{if eq .Page "config.html"}} nav-active{{end}}"
+                   hx-get="/config" hx-target="#main" hx-push-url="true">
+                    <span class="nav-icon">⚙️</span>
+                    Config
+                </a>
+            </li>
+        </ul>
+        <div class="px-5 py-3 border-t border-border">
+            <button onclick="document.getElementById('run-modal').showModal()"
+                    class="run-now-btn w-full">
+                <span class="run-now-icon">&#9654;</span>
+                Run Now
+            </button>
+        </div>
+    </aside>
+
+    <div class="flex min-h-screen">
+        {{/* Sidebar navigation — desktop only */}}
+        <!-- Governing: SPEC-0029 REQ "Collapsible Sidebar Navigation" -->
+        <nav class="w-56 bg-white border-r border-border hidden lg:flex flex-col shrink-0 h-screen sticky top-0">
             <div class="px-5 py-5 border-b border-border">
                 <a href="/" class="flex items-center gap-3">
                     <img src="/static/logo.svg" alt="Claude Ops" class="w-8 h-8" style="image-rendering: pixelated;">
@@ -107,7 +195,7 @@
         </nav>
 
         {{/* Main content area */}}
-        <main id="main" class="flex-1 p-8 overflow-y-auto" hx-history-elt>
+        <main id="main" class="flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8 overflow-y-auto" hx-history-elt>
             {{.Content}}
         </main>
     </div>
@@ -189,7 +277,7 @@
     // Update active nav link on HTMX navigation.
     document.body.addEventListener('htmx:pushedIntoHistory', function() {
         var path = window.location.pathname;
-        document.querySelectorAll('nav .nav-link').forEach(function(link) {
+        document.querySelectorAll('.nav-link').forEach(function(link) {
             var href = link.getAttribute('href');
             var isActive = (href === path) || (href === '/' && path === '/');
             link.classList.toggle('nav-active', isActive);
@@ -205,6 +293,44 @@
             window.location.reload();
         }
     });
+
+    // Governing: SPEC-0029 REQ "Collapsible Sidebar Navigation"
+    // Mobile drawer toggle
+    (function() {
+        var drawer = document.getElementById('mobile-drawer');
+        var backdrop = document.getElementById('drawer-backdrop');
+        var hamburger = document.getElementById('hamburger-btn');
+        var closeBtn = document.getElementById('drawer-close-btn');
+
+        function openDrawer() {
+            drawer.classList.remove('hidden');
+            backdrop.classList.remove('hidden');
+            requestAnimationFrame(function() {
+                drawer.classList.add('drawer-open');
+                backdrop.classList.add('backdrop-visible');
+            });
+        }
+
+        function closeDrawer() {
+            drawer.classList.remove('drawer-open');
+            backdrop.classList.remove('backdrop-visible');
+            setTimeout(function() {
+                drawer.classList.add('hidden');
+                backdrop.classList.add('hidden');
+            }, 200);
+        }
+
+        hamburger.addEventListener('click', openDrawer);
+        closeBtn.addEventListener('click', closeDrawer);
+        backdrop.addEventListener('click', closeDrawer);
+
+        // Close drawer on HTMX content swap
+        document.body.addEventListener('htmx:afterSwap', function() {
+            if (!drawer.classList.contains('hidden')) {
+                closeDrawer();
+            }
+        });
+    })();
     </script>
     {{/* Governing: SPEC-0029 REQ "Service Worker for Offline Shell" — register SW from root scope */}}
     <script>
