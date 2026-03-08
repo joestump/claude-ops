@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="512" height="512" shape-rendering="crispEdges">
+  <!-- Pixelated robot/monitor icon for Claude Ops PWA (512x512) -->
+  <!-- Governing: SPEC-0029 REQ "Web App Manifest" -->
+  <rect x="4" y="2" width="24" height="20" fill="#2C2C2C"/>
+  <rect x="6" y="4" width="20" height="14" fill="#1A1A2E"/>
+  <rect x="6" y="4" width="20" height="2" fill="#1E1E34"/>
+  <rect x="10" y="8" width="4" height="4" fill="#D4764E"/>
+  <rect x="18" y="8" width="4" height="4" fill="#D4764E"/>
+  <rect x="12" y="14" width="8" height="2" fill="#5DADE2"/>
+  <rect x="14" y="0" width="4" height="2" fill="#8B8B8B"/>
+  <rect x="15" y="0" width="2" height="1" fill="#D4764E"/>
+  <rect x="12" y="22" width="8" height="2" fill="#8B8B8B"/>
+  <rect x="8" y="24" width="16" height="2" fill="#8B8B8B"/>
+  <rect x="10" y="26" width="4" height="4" fill="#2C2C2C"/>
+  <rect x="18" y="26" width="4" height="4" fill="#2C2C2C"/>
+  <rect x="8" y="30" width="6" height="2" fill="#2C2C2C"/>
+  <rect x="18" y="30" width="6" height="2" fill="#2C2C2C"/>
+</svg>

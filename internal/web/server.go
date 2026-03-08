@@ -366,6 +366,22 @@ func (s *Server) registerRoutes() {
 	staticSub, _ := fs.Sub(staticFS, "static")
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticSub))))
 
+	// Governing: SPEC-0029 REQ "Service Worker for Offline Shell" — serve sw.js from root scope
+	s.mux.HandleFunc("GET /sw.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript")
+		data, _ := staticFS.ReadFile("static/sw.js")
+		_, _ = w.Write(data)
+	})
+	// Governing: SPEC-0029 REQ "Apple Mobile Web App Meta Tags" — serve favicon from root
+	s.mux.HandleFunc("GET /favicon.svg", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "image/svg+xml")
+		data, _ := staticFS.ReadFile("static/favicon.svg")
+		_, _ = w.Write(data)
+	})
+	s.mux.HandleFunc("GET /favicon.ico", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/favicon.svg", http.StatusMovedPermanently)
+	})
+
 	s.mux.HandleFunc("GET /{$}", s.handleIndex)
 	s.mux.HandleFunc("GET /sessions", s.handleSessions)
 	s.mux.HandleFunc("GET /sessions/{id}", s.handleSession)
