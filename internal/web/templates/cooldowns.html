@@ -5,27 +5,28 @@
     {{if not .Cooldowns}}
     <div class="card-base text-sm text-muted">No active cooldowns. Cooldowns are created when the agent restarts or redeploys a service, preventing repeated actions on the same service within a short window (2 restarts per 4 hours, 1 redeployment per 24 hours).</div>
     {{else}}
+    <!-- Governing: SPEC-0029 REQ "Responsive Table Layouts" -->
     <div class="card-base overflow-x-auto">
         <table class="w-full text-sm">
             <thead>
                 <tr class="thead-row">
                     <th class="pb-3 pr-4 text-left">Service</th>
-                    <th class="pb-3 pr-4 text-left">Action</th>
+                    <th class="pb-3 pr-4 text-left hidden md:table-cell">Action</th>
                     <th class="pb-3 pr-4 text-left">Count / Limit</th>
                     <th class="pb-3 pr-4 text-left">Status</th>
-                    <th class="pb-3 text-left">Last Action</th>
+                    <th class="pb-3 text-left hidden md:table-cell">Last Action</th>
                 </tr>
             </thead>
             <tbody>
                 {{range .Cooldowns}}
                 <tr class="tbody-row">
                     <td class="py-4 pr-6 pl-2 font-medium">{{.Service}}</td>
-                    <td class="py-4 pr-4 text-xs font-mono">{{.ActionType}}</td>
+                    <td class="py-4 pr-4 text-xs font-mono hidden md:table-cell">{{.ActionType}}</td>
                     <td class="py-4 pr-4 font-mono">{{.Count}} / {{.Limit}}</td>
                     <td class="py-4 pr-4 text-muted text-sm">
                         {{if .InCooldown}}in cooldown{{else}}active{{end}}
                     </td>
-                    <td class="py-4 font-mono text-xs text-muted">{{fmtTime .LastAction}}</td>
+                    <td class="py-4 font-mono text-xs text-muted hidden md:table-cell">{{fmtTime .LastAction}}</td>
                 </tr>
                 {{end}}
             </tbody>

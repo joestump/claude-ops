@@ -63,6 +63,7 @@
     </details>
 
     {{/* Memories table */}}
+    <!-- Governing: SPEC-0029 REQ "Responsive Table Layouts" -->
     {{if .Memories}}
     <div class="card-base overflow-x-auto">
         <table class="w-full text-sm">
@@ -71,11 +72,11 @@
                     <th class="py-2 px-3">Scope</th>
                     <th class="py-2 px-3">Category</th>
                     <th class="py-2 px-3">Observation</th>
-                    <th class="py-2 px-3">Confidence</th>
+                    <th class="py-2 px-3 hidden md:table-cell">Confidence</th>
                     <th class="py-2 px-3">Active</th>
-                    <th class="py-2 px-3">Updated</th>
-                    <th class="py-2 px-3">Session</th>
-                    <th class="py-2 px-3">Tier</th>
+                    <th class="py-2 px-3 hidden md:table-cell">Updated</th>
+                    <th class="py-2 px-3 hidden md:table-cell">Session</th>
+                    <th class="py-2 px-3 hidden md:table-cell">Tier</th>
                     <th class="py-2 px-3">Actions</th>
                 </tr>
             </thead>
@@ -93,15 +94,15 @@
                         <span class="badge-pill level-info">{{.Category}}</span>
                     </td>
                     <td class="py-2 px-3 max-w-xs truncate" title="{{.Observation}}">{{.Observation}}</td>
-                    <td class="py-2 px-3 font-mono text-xs">{{fmtPct .Confidence}}</td>
+                    <td class="py-2 px-3 font-mono text-xs hidden md:table-cell">{{fmtPct .Confidence}}</td>
                     <td class="py-2 px-3">
                         {{if .Active}}<span class="dot dot-healthy"></span>{{else}}<span class="dot dot-unknown"></span>{{end}}
                     </td>
-                    <td class="py-2 px-3 text-xs text-muted font-mono whitespace-nowrap">{{fmtTime .UpdatedAt}}</td>
-                    <td class="py-2 px-3 text-xs">
+                    <td class="py-2 px-3 text-xs text-muted font-mono whitespace-nowrap hidden md:table-cell">{{fmtTime .UpdatedAt}}</td>
+                    <td class="py-2 px-3 text-xs hidden md:table-cell">
                         {{if .SessionID}}<a href="/sessions/{{.SessionID}}" class="text-accent hover:underline">#{{.SessionID}}</a>{{else}}--{{end}}
                     </td>
-                    <td class="py-2 px-3 text-xs font-mono">{{if eq .Tier 0}}manual{{else}}T{{.Tier}}{{end}}</td>
+                    <td class="py-2 px-3 text-xs font-mono hidden md:table-cell">{{if eq .Tier 0}}manual{{else}}T{{.Tier}}{{end}}</td>
                     <td class="py-2 px-3">
                         <div class="flex gap-2">
                             <button onclick="toggleEdit({{.ID}})" class="text-xs text-accent hover:underline">Edit</button>
