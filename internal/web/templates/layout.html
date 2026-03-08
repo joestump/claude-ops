@@ -8,6 +8,14 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.23/dist/full.min.css" rel="stylesheet">
     <link href="/static/style.css" rel="stylesheet">
+    {{/* Governing: SPEC-0029 REQ "Web App Manifest" — PWA manifest link */}}
+    <link rel="manifest" href="/static/manifest.json">
+    {{/* Governing: SPEC-0029 REQ "Apple Mobile Web App Meta Tags" — iOS PWA support and favicon */}}
+    <meta name="theme-color" content="#D4764E">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="/static/icon-192.svg">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     {{/* Governing: SPEC-0008 REQ-3 — HTMX loaded via CDN, no JS build toolchain required */}}
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.2/sse.js"></script>
@@ -197,6 +205,14 @@
             window.location.reload();
         }
     });
+    </script>
+    {{/* Governing: SPEC-0029 REQ "Service Worker for Offline Shell" — register SW from root scope */}}
+    <script>
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(function(err) {
+            console.log('SW registration failed:', err);
+        });
+    }
     </script>
 </body>
 </html>
