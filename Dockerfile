@@ -19,16 +19,25 @@ RUN CGO_ENABLED=0 go build -ldflags "-X github.com/joestump/claude-ops/internal/
 # Runtime stage — inherits all CLI tools from pre-built base image
 FROM ghcr.io/joestump/claude-ops:base-latest
 
+# Governing: ADR-0028 "Headless Permission Bypass" — Claude Code CLI refuses
+# --dangerously-skip-permissions when running as root. Create a non-root user
+# so the flag works in headless containers while --allowedTools/--disallowedTools
+# still enforce tier restrictions at the CLI boundary.
+RUN groupadd -r claudeops && useradd -r -g claudeops -m -s /bin/bash claudeops \
+    && chown -R claudeops:claudeops /app /state /results /repos
+
 # Copy Go binary from build stage
 COPY --from=builder /claudeops /claudeops
 
 # Copy project files (prompts, checks, playbooks, etc.)
-COPY . .
+COPY --chown=claudeops:claudeops . .
 
 # The root CLAUDE.md is the developer guide for the claude-ops codebase.
 # In the container the agent must read only the monitoring runbook, so we
 # overwrite it with prompts/agent.md after the broad COPY above.
-COPY prompts/agent.md /app/CLAUDE.md
+COPY --chown=claudeops:claudeops prompts/agent.md /app/CLAUDE.md
+
+USER claudeops
 
 # Governing: SPEC-0009 REQ "Dockerfile Structure" — container entrypoint
 ENTRYPOINT ["/claudeops"]

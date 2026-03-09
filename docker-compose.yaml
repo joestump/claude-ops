@@ -35,9 +35,9 @@ services:
       - ./results:/results
       # Governing: SPEC-0009 REQ-10 "SSH key mounting for remote access"
       # Mount SSH keys for remote host access (container inspection, logs, remediation).
-      # Keys MUST be mounted read-only (:ro).
-      # - ~/.ssh/id_ed25519:/root/.ssh/id_ed25519:ro
-      # - ~/.ssh/known_hosts:/root/.ssh/known_hosts:ro
+      # Keys MUST be mounted read-only (:ro). Container runs as non-root user 'claudeops'.
+      # - ~/.ssh/id_ed25519:/home/claudeops/.ssh/id_ed25519:ro
+      # - ~/.ssh/known_hosts:/home/claudeops/.ssh/known_hosts:ro
       # Governing: SPEC-0009 REQ-4 "repos mount from operator-specified host paths"
       # Mount infrastructure repos for service discovery
       # Governing: SPEC-0005 REQ-11 — repos SHOULD be mounted read-only (:ro)
