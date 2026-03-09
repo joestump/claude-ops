@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0021: TL;DR Overview Page with LLM-Generated Summaries
 
 ## Overview

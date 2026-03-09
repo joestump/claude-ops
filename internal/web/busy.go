@@ -12,6 +12,7 @@ import (
 	"github.com/joestump/claude-ops/internal/db"
 )
 
+// Governing: SPEC-0024 REQ "Busy Response" — LLM-generated response when session is active
 // generateBusyResponse returns an LLM-generated first-person response that
 // explains Claude Ops is currently busy running a session and summarises what
 // it has found so far.  Falls back to a static message on any error.

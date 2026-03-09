@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0013: Real-Time Dashboard and Events System
 
 ## Overview

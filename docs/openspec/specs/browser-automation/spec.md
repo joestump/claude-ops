@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0014: Browser Automation for Authenticated Web UIs
 
 ## Overview

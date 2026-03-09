@@ -17,6 +17,7 @@ REPOS_DIR="${CLAUDEOPS_REPOS_DIR:-/repos}"
 # — restricts available tools at the CLI runtime level, providing defense-in-depth
 # for the permission tier model. Configurable via env var — changes take effect on next container restart (REQ-11).
 ALLOWED_TOOLS="${CLAUDEOPS_ALLOWED_TOOLS:-Bash,Read,Grep,Glob,Task,WebFetch,WebSearch}"
+# WebSearch is a read-only research tool included at all tiers per ADR-0023.
 # Governing: ADR-0023 (AllowedTools-Based Tier Enforcement), SPEC-0010 REQ-5
 # Default to Tier 1 blocklist (most restrictive).
 # git commit/push/pr-create are NOT blocked here — Tier 2+ uses them for the PR workflow.

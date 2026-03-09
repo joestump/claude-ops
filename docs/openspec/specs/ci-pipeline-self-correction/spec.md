@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0026: CI Pipeline Failure Detection and Self-Correction
 
 ## Overview

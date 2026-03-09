@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0016: Session-Based Escalation with Structured Handoff
 
 ## Overview

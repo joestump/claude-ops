@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0017: REST API with OpenAPI Specification and Swagger UI
 
 ## Overview

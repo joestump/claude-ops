@@ -41,15 +41,14 @@ func main() {
 	f.String("results-dir", "/results", "directory for session logs")
 	f.String("repos-dir", "/repos", "directory for cloned repositories")
 	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
-	// WebSearch and WebFetch are included so the agent can research upstream image moves,
-	// release notes, and known issues on GitHub and StackExchange.
-	f.String("allowed-tools", "Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch,WebSearch", "comma-separated Claude tools")
+	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement" — Tier 1 allowed tools (observe-only, no Write/Edit)
+	// WebSearch and WebFetch are read-only research tools included at all tiers (ADR-0023).
+	f.String("allowed-tools", "Bash,Read,Grep,Glob,Task,WebFetch,WebSearch", "comma-separated Claude tools (Tier 1 default)")
 	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement"
 	// Default to Tier 1 blocklist (most restrictive). Override via CLAUDEOPS_DISALLOWED_TOOLS.
-	// git commit/push/pr-create are NOT blocked here — Tier 2+ uses them for the PR workflow
-	// (clone to /tmp, feature branch, open PR, never merge). Tier 1 is restricted by prompt.
+	// Tier 1 blocks all remediation, PR creation, notifications, and git writes.
 	// gh pr merge remains blocked at all tiers; only humans may merge PRs.
-	f.String("disallowed-tools", "Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr merge:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*),Bash(apprise:*)", "comma-separated disallowed tool patterns")
+	f.String("disallowed-tools", "Bash(docker restart:*),Bash(docker stop:*),Bash(docker start:*),Bash(docker rm:*),Bash(docker compose:*),Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(gh pr create:*),Bash(gh pr merge:*),Bash(tea pr create:*),Bash(git push:*),Bash(git commit:*),Bash(systemctl restart:*),Bash(systemctl stop:*),Bash(systemctl start:*),Bash(apprise:*)", "comma-separated disallowed tool patterns (Tier 1 default)")
 	f.Bool("dry-run", false, "skip actual remediation actions")
 	f.Bool("verbose", false, "enable verbose Claude CLI output")
 	f.String("apprise-urls", "", "Apprise notification URLs")
@@ -65,12 +64,15 @@ func main() {
 	f.String("webhook-model", "claude-haiku-4-5-20251001", "Anthropic model ID for webhook alert synthesis (must be a full model ID)")
 	f.String("webhook-system-prompt", "", "custom system prompt for webhook alert synthesis (overrides default)")
 	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
+	// Per-tier defaults match ADR-0023 "Concrete Patterns Per Tier" section.
 	f.String("tier1-allowed-tools", "", "comma-separated allowed tools for Tier 1 (overrides allowed-tools)")
 	f.String("tier1-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 1 (overrides disallowed-tools)")
-	f.String("tier2-allowed-tools", "", "comma-separated allowed tools for Tier 2 (overrides allowed-tools)")
-	f.String("tier2-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 2 (overrides disallowed-tools)")
-	f.String("tier3-allowed-tools", "", "comma-separated allowed tools for Tier 3 (overrides allowed-tools)")
-	f.String("tier3-disallowed-tools", "", "comma-separated disallowed tool patterns for Tier 3 (overrides disallowed-tools)")
+	// Governing: ADR-0023 Tier 2 — safe remediation (Write/Edit permitted, no Ansible/Helm)
+	f.String("tier2-allowed-tools", "Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch,WebSearch", "comma-separated allowed tools for Tier 2 (overrides allowed-tools)")
+	f.String("tier2-disallowed-tools", "Bash(ansible:*),Bash(ansible-playbook:*),Bash(helm:*),Bash(docker compose down:*),Bash(gh pr merge:*)", "comma-separated disallowed tool patterns for Tier 2 (overrides disallowed-tools)")
+	// Governing: ADR-0023 Tier 3 — full remediation (Ansible/Helm permitted, only catastrophic ops blocked)
+	f.String("tier3-allowed-tools", "Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch,WebSearch", "comma-separated allowed tools for Tier 3 (overrides allowed-tools)")
+	f.String("tier3-disallowed-tools", "Bash(rm -rf /:*),Bash(docker system prune:*),Bash(git push --force:*),Bash(gh pr merge:*)", "comma-separated disallowed tool patterns for Tier 3 (overrides disallowed-tools)")
 
 	// Bind flags to viper. Viper keys use underscores (tier1_model) so they
 	// match the env var suffix after stripping the CLAUDEOPS_ prefix.

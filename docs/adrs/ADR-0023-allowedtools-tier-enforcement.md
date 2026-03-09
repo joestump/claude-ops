@@ -22,7 +22,7 @@ ADR-0022 required a follow-up ADR to "evaluate and select compensating controls 
 
 The Claude Code CLI already provides two mechanisms for tool-level enforcement:
 
-1. **`--allowedTools`** — a whitelist of tools the agent may invoke (already used in `entrypoint.sh` for Tier 1: `Bash,Read,Grep,Glob,Task,WebFetch`)
+1. **`--allowedTools`** — a whitelist of tools the agent may invoke (already used in `entrypoint.sh` for Tier 1: `Bash,Read,Grep,Glob,Task,WebFetch,WebSearch`)
 2. **`--disallowedTools`** — a blocklist of tool invocation patterns the agent is forbidden from using, supporting prefix-based matching with glob patterns (e.g., `Bash(docker rm:*)` blocks any Bash invocation starting with `docker rm`)
 
 The question is: **How should Claude Ops use these CLI-level controls to restore tier enforcement guarantees lost in ADR-0022's move to skills-based orchestration?**
@@ -50,9 +50,13 @@ Chosen option: **"`--allowedTools`/`--disallowedTools` Bash command patterns per
 
 The entrypoint already sets `ALLOWED_TOOLS` per tier. This ADR adds a `DISALLOWED_TOOLS` variable with tier-specific patterns:
 
+#### Read-Only Research Tools Are Tier-Agnostic
+
+`WebSearch` and `WebFetch` are read-only tools that do not modify any infrastructure. They enable the agent to research upstream issues (release notes, known CVEs, GitHub issues, Stack Overflow answers) at any tier, which improves diagnostic quality and reduces unnecessary escalations. These tools are included in the `--allowedTools` list for all three tiers.
+
 #### Tier 1 — Observe Only
 
-**Allowed tools** (unchanged): `Bash,Read,Grep,Glob,Task,WebFetch`
+**Allowed tools**: `Bash,Read,Grep,Glob,Task,WebFetch,WebSearch`
 
 **Disallowed tool patterns** (new):
 ```
@@ -81,7 +85,7 @@ Bash(apprise:*)
 
 #### Tier 2 — Safe Remediation
 
-**Allowed tools** (unchanged): `Bash,Read,Grep,Glob,Task,WebFetch,Write,Edit`
+**Allowed tools**: `Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch,WebSearch`
 
 **Disallowed tool patterns** (new):
 ```
@@ -95,7 +99,7 @@ Bash(docker compose down:*)
 
 #### Tier 3 — Full Remediation
 
-**Allowed tools**: `Bash,Read,Grep,Glob,Task,WebFetch,Write,Edit`
+**Allowed tools**: `Bash,Read,Write,Edit,Grep,Glob,Task,WebFetch,WebSearch`
 
 **Disallowed tool patterns** (new):
 ```

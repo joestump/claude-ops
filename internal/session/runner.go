@@ -35,6 +35,9 @@ func (r *CLIRunner) Start(ctx context.Context, model string, promptContent strin
 	// and --disallowedTools command-prefix blocklist, not just prompt level.
 	args := []string{
 		"--model", model,
+		// Governing: ADR-0028 "Headless Permission Bypass" — required for non-interactive
+		// execution in Docker containers. Tool restrictions are enforced by --allowedTools
+		// and --disallowedTools (ADR-0023), not interactive approval prompts.
 		"--dangerously-skip-permissions",
 		"-p", promptContent,
 		"--output-format", "stream-json",

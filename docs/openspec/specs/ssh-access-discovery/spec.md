@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0020: SSH Access Discovery and Fallback
 
 ## Overview

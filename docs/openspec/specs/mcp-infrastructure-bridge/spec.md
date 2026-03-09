@@ -1,3 +1,9 @@
+---
+status: superseded
+superseded-by: SPEC-0023
+date: 2026-03-09
+---
+
 # SPEC-0006: MCP Infrastructure Bridge
 
 ## Overview

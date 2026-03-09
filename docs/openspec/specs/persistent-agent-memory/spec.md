@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-09
+---
+
 # SPEC-0015: Persistent Agent Memory System
 
 ## Overview
