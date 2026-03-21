@@ -60,6 +60,9 @@ On a healthy day, you spend ~$1-2 running 24 Haiku checks. Sonnet and Opus token
 - **Notifications via Apprise**: One env var, 80+ notification services. Email, ntfy, Slack, Discord, Telegram, PagerDuty, and more.
 - **Browser automation**: Optional Chrome sidecar for interacting with web UIs that don't have APIs (e.g., rotating API keys from provider dashboards). Four security layers: credential injection (agent never sees raw values), URL allowlist, log redaction, and incognito context isolation. See [docs/browser-automation.md](docs/browser-automation.md) for the full setup guide.
 - **MCP integration**: Docker, PostgreSQL, Chrome DevTools, and Fetch MCP servers included. Repos can bring their own MCP server configs.
+- **Hooks**: Claude Code hooks in `.claude/settings.json` provide deterministic lifecycle guardrails — cooldown enforcement, event emission, remediation verification, context injection, and notification bridging. See ADR-0029.
+- **Structured output**: Agent responses are constrained via `--json-schema` for type-safe extraction of events, memories, and escalation decisions. See ADR-0030.
+- **Four-layer enforcement**: Tool whitelisting (`--allowedTools`), command blocklisting (`--disallowedTools`), hooks (runtime state checks), and prompt instructions — four independent layers ensuring tier permissions hold.
 - **12-factor config**: Everything configured via environment variables. No config files to template.
 - **Manual triggers**: Kick off an ad-hoc run from the dashboard with the "Run Now" button — no need to wait for the next scheduled interval.
 
@@ -158,6 +161,7 @@ All configuration via environment variables:
 | `CLAUDEOPS_SUMMARY_MODEL` | `haiku` | Model for generating session summaries on the TL;DR page |
 | `CLAUDEOPS_ALLOWED_TOOLS` | `Bash,Read,Grep,Glob,Task,WebFetch` | Claude CLI tools to enable |
 | `CLAUDEOPS_BROWSER_ALLOWED_ORIGINS` | *(disabled)* | Comma-separated origins for browser automation (e.g., `https://sonarr.example.com`) |
+| `CLAUDEOPS_SCHEMA_PATH` | `/app/schemas/agent-response.json` | Path to JSON Schema for structured agent responses (ADR-0030) |
 | `BROWSER_CRED_{SERVICE}_{FIELD}` | *(none)* | Service credentials for browser login. `{SERVICE}` = uppercase name, `{FIELD}` = `USER`, `PASS`, `TOKEN`, or `API_KEY` |
 
 ### Using with LiteLLM or other proxies
@@ -286,6 +290,8 @@ claude-ops/
 │   ├── restart-container.md
 │   ├── redeploy-service.md
 │   └── rotate-api-key.md
+├── schemas/                        # JSON Schema for structured agent output
+│   └── agent-response.json
 ├── docs/
 │   ├── adrs/                       # 15 Architecture Decision Records
 │   ├── openspec/                   # OpenSpec specifications
@@ -298,6 +304,9 @@ claude-ops/
 ├── CLAUDE.md                       # Safety runbook (permission tiers, cooldown rules)
 ├── Makefile                        # Build, test, run, Docker targets
 ├── go.mod / go.sum                 # Go dependencies
+├── .claude/
+│   ├── settings.json               # Claude Code hooks configuration (ADR-0029)
+│   └── hooks/                      # Lifecycle hook scripts
 ├── .github/workflows/
 │   ├── ci.yaml                     # Lint + test + build + deploy docs
 │   └── release.yaml                # Build + push Docker image to GHCR

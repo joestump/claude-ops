@@ -72,6 +72,17 @@ This is not a traditional codebase — there is no application code to compile o
 - **Mounted repos extend the agent.** Infrastructure repos mounted under `/repos/` can include `CLAUDE-OPS.md` (manifest) and `.claude-ops/` (custom checks, playbooks, skills, MCP configs). See `docs/repo-mounting.md` for the full spec.
 - **MCP configs are merged at startup.** The entrypoint merges `.claude-ops/mcp.json` from all mounted repos into the baseline `.claude/mcp.json` before each run. Repo configs override baseline on name collision. Repos are processed in alphabetical order; later repos override earlier ones. <!-- Governing: SPEC-0005 REQ-9 -->
 - **Cooldown state persists in `$CLAUDEOPS_STATE_DIR/cooldown.json`.** Max 2 restarts/service/4h, max 1 redeployment/service/24h.
+- **Hooks provide deterministic lifecycle guardrails.** Claude Code hooks in `.claude/settings.json` enforce cooldown limits (PreToolUse), emit events to SQLite (PostToolUse), verify remediations (Stop, agent-based), inject dynamic context at startup (SessionStart), and bridge notifications to Apprise (Notification). See ADR-0029 and SPEC-0030. Hook scripts live in `.claude/hooks/`. <!-- Governing: ADR-0029, SPEC-0030 -->
+- **Structured output via JSON Schema.** Agent responses are constrained to a typed JSON Schema (`schemas/agent-response.json`) via `--json-schema`. Events, memories, escalation decisions, and service checks are extracted as structured JSON instead of regex-parsed text markers. See ADR-0030 and SPEC-0031. <!-- Governing: ADR-0030, SPEC-0031 -->
+
+### Four-Layer Enforcement Model
+
+Tier permissions are enforced through four independent layers (ADR-0003, ADR-0023, ADR-0029):
+
+1. **`--allowedTools`** (hard boundary) — restricts which tool types the agent may invoke
+2. **`--disallowedTools`** (hard boundary) — blocks specific command-prefix patterns within allowed tools
+3. **Hooks** (hard boundary) — deterministic shell scripts that enforce runtime state checks (cooldown limits)
+4. **Prompt instructions** (soft boundary) — handles restrictions that can't be expressed as CLI flags or hooks
 
 ### Skills
 
