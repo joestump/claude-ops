@@ -32,6 +32,11 @@ COPY --from=builder /claudeops /claudeops
 # Copy project files (prompts, checks, playbooks, etc.)
 COPY --chown=claudeops:claudeops . .
 
+# Governing: ADR-0030, SPEC-0031 REQ-1 — copy JSON Schema for structured output.
+# The broad COPY above includes schemas/, but this explicit COPY ensures the
+# schema file is present at the expected path even if the COPY order changes.
+COPY --chown=claudeops:claudeops schemas/ /app/schemas/
+
 # The root CLAUDE.md is the developer guide for the claude-ops codebase.
 # In the container the agent must read only the monitoring runbook, so we
 # overwrite it with prompts/agent.md after the broad COPY above.

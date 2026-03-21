@@ -63,6 +63,8 @@ func main() {
 	// Governing: SPEC-0025 REQ "Webhook Model Configuration"
 	f.String("webhook-model", "claude-haiku-4-5-20251001", "Anthropic model ID for webhook alert synthesis (must be a full model ID)")
 	f.String("webhook-system-prompt", "", "custom system prompt for webhook alert synthesis (overrides default)")
+	// Governing: ADR-0030, SPEC-0031 REQ-4 — path to JSON Schema for structured output
+	f.String("schema-path", "/app/schemas/agent-response.json", "path to the JSON Schema file for structured output (CLAUDEOPS_SCHEMA_PATH)")
 	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
 	// Per-tier defaults match ADR-0023 "Concrete Patterns Per Tier" section.
 	f.String("tier1-allowed-tools", "", "comma-separated allowed tools for Tier 1 (overrides allowed-tools)")
@@ -108,6 +110,7 @@ func main() {
 	bindFlag("tier2_disallowed_tools", "tier2-disallowed-tools")
 	bindFlag("tier3_allowed_tools", "tier3-allowed-tools")
 	bindFlag("tier3_disallowed_tools", "tier3-disallowed-tools")
+	bindFlag("schema_path", "schema-path")
 
 	// Governing: SPEC-0008 REQ-12 — environment variable compatibility (CLAUDEOPS_* prefix).
 	// Bind CLAUDEOPS_* environment variables. AutomaticEnv with the prefix

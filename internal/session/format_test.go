@@ -1,6 +1,7 @@
 package session
 
 import (
+	"encoding/json"
 	"regexp"
 	"strings"
 	"testing"
@@ -1134,5 +1135,194 @@ func TestParseCooldownMarkers_SpacingAroundDash(t *testing.T) {
 				t.Errorf("Message = %q, want %q", got[0].Message, "msg")
 			}
 		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Governing: ADR-0030, SPEC-0031 — Structured Output Deserialization
+// ---------------------------------------------------------------------------
+
+// TestStructuredOutputDeserialization_FullResponse verifies that a complete
+// JSON structured_output result event deserializes into AgentResponse correctly.
+// Governing: ADR-0030, SPEC-0031 REQ-1, REQ-4
+func TestStructuredOutputDeserialization_FullResponse(t *testing.T) {
+	raw := `{
+		"type": "result",
+		"result": "Health check complete.",
+		"is_error": false,
+		"total_cost_usd": 0.05,
+		"num_turns": 5,
+		"duration_ms": 12000,
+		"structured_output": {
+			"summary": "All 6 services healthy",
+			"events": [
+				{"level": "info", "service": "jellyfin", "message": "HTTP 200 OK"},
+				{"level": "warning", "message": "DNS resolution slow for loki"}
+			],
+			"memories": [
+				{"key": "jellyfin:timing", "value": "Takes 60s to start"},
+				{"key": "remediation", "value": "Restart clears stale locks"}
+			],
+			"escalation": {
+				"needed": false
+			},
+			"services_checked": [
+				{"name": "jellyfin", "status": "healthy", "detail": "HTTP 200 in 45ms"},
+				{"name": "caddy", "status": "healthy"}
+			]
+		}
+	}`
+
+	var evt streamEvent
+	if err := json.Unmarshal([]byte(raw), &evt); err != nil {
+		t.Fatalf("failed to parse stream event: %v", err)
+	}
+
+	if evt.Type != "result" {
+		t.Errorf("Type = %q, want result", evt.Type)
+	}
+	if evt.TotalCostUSD < 0.049 || evt.TotalCostUSD > 0.051 {
+		t.Errorf("TotalCostUSD = %f, want ~0.05", evt.TotalCostUSD)
+	}
+	if len(evt.StructuredOutput) == 0 {
+		t.Fatal("StructuredOutput is empty")
+	}
+
+	var resp AgentResponse
+	if err := json.Unmarshal(evt.StructuredOutput, &resp); err != nil {
+		t.Fatalf("failed to parse structured_output into AgentResponse: %v", err)
+	}
+
+	if resp.Summary != "All 6 services healthy" {
+		t.Errorf("Summary = %q", resp.Summary)
+	}
+	if len(resp.Events) != 2 {
+		t.Fatalf("Events count = %d, want 2", len(resp.Events))
+	}
+	if resp.Events[0].Level != "info" || resp.Events[0].Service != "jellyfin" {
+		t.Errorf("Events[0] = %+v", resp.Events[0])
+	}
+	if resp.Events[1].Level != "warning" || resp.Events[1].Service != "" {
+		t.Errorf("Events[1] = %+v", resp.Events[1])
+	}
+	if len(resp.Memories) != 2 {
+		t.Fatalf("Memories count = %d, want 2", len(resp.Memories))
+	}
+	if resp.Memories[0].Key != "jellyfin:timing" || resp.Memories[0].Value != "Takes 60s to start" {
+		t.Errorf("Memories[0] = %+v", resp.Memories[0])
+	}
+	if resp.Memories[1].Key != "remediation" || resp.Memories[1].Value != "Restart clears stale locks" {
+		t.Errorf("Memories[1] = %+v", resp.Memories[1])
+	}
+	if resp.Escalation.Needed {
+		t.Error("Escalation.Needed = true, want false")
+	}
+	if len(resp.ServicesChecked) != 2 {
+		t.Fatalf("ServicesChecked count = %d, want 2", len(resp.ServicesChecked))
+	}
+	if resp.ServicesChecked[0].Name != "jellyfin" || resp.ServicesChecked[0].Status != "healthy" {
+		t.Errorf("ServicesChecked[0] = %+v", resp.ServicesChecked[0])
+	}
+	if resp.ServicesChecked[0].Detail != "HTTP 200 in 45ms" {
+		t.Errorf("ServicesChecked[0].Detail = %q", resp.ServicesChecked[0].Detail)
+	}
+	if resp.ServicesChecked[1].Detail != "" {
+		t.Errorf("ServicesChecked[1].Detail = %q, want empty", resp.ServicesChecked[1].Detail)
+	}
+}
+
+// TestStructuredOutputDeserialization_WithoutStructuredOutput verifies backward
+// compatibility: a result event without structured_output should parse cleanly.
+// Governing: ADR-0030, SPEC-0031 REQ-8
+func TestStructuredOutputDeserialization_WithoutStructuredOutput(t *testing.T) {
+	raw := `{
+		"type": "result",
+		"result": "Health check complete.",
+		"is_error": false,
+		"total_cost_usd": 0.03,
+		"num_turns": 3,
+		"duration_ms": 5000
+	}`
+
+	var evt streamEvent
+	if err := json.Unmarshal([]byte(raw), &evt); err != nil {
+		t.Fatalf("failed to parse stream event: %v", err)
+	}
+
+	if evt.Type != "result" {
+		t.Errorf("Type = %q, want result", evt.Type)
+	}
+	if len(evt.StructuredOutput) != 0 {
+		t.Errorf("StructuredOutput should be empty, got %s", string(evt.StructuredOutput))
+	}
+}
+
+// TestStructuredOutputDeserialization_NullStructuredOutput verifies that
+// structured_output: null is handled gracefully.
+// Governing: ADR-0030, SPEC-0031 REQ-8
+func TestStructuredOutputDeserialization_NullStructuredOutput(t *testing.T) {
+	raw := `{
+		"type": "result",
+		"result": "Done.",
+		"is_error": false,
+		"total_cost_usd": 0.01,
+		"num_turns": 1,
+		"duration_ms": 1000,
+		"structured_output": null
+	}`
+
+	var evt streamEvent
+	if err := json.Unmarshal([]byte(raw), &evt); err != nil {
+		t.Fatalf("failed to parse stream event: %v", err)
+	}
+
+	// json.RawMessage will be nil for null values
+	if len(evt.StructuredOutput) > 0 && string(evt.StructuredOutput) != "null" {
+		t.Errorf("StructuredOutput should be null/empty, got %s", string(evt.StructuredOutput))
+	}
+}
+
+// TestStructuredOutputDeserialization_EscalationNeeded verifies deserialization
+// of a structured output where escalation is needed with full context.
+// Governing: ADR-0030, SPEC-0031 REQ-3
+func TestStructuredOutputDeserialization_EscalationNeeded(t *testing.T) {
+	raw := `{
+		"summary": "Jellyfin container is crash-looping",
+		"events": [
+			{"level": "critical", "service": "jellyfin", "message": "Container exited with code 137"}
+		],
+		"escalation": {
+			"needed": true,
+			"reason": "OOM kill requires memory limit adjustment",
+			"context": "Container used 4.2GB before OOM kill",
+			"failed_checks": ["http-health-jellyfin", "docker-status-jellyfin"]
+		},
+		"services_checked": [
+			{"name": "jellyfin", "status": "down", "detail": "Container restarting"}
+		]
+	}`
+
+	var resp AgentResponse
+	if err := json.Unmarshal([]byte(raw), &resp); err != nil {
+		t.Fatalf("failed to parse AgentResponse: %v", err)
+	}
+
+	if !resp.Escalation.Needed {
+		t.Error("Escalation.Needed = false, want true")
+	}
+	if resp.Escalation.Reason != "OOM kill requires memory limit adjustment" {
+		t.Errorf("Escalation.Reason = %q", resp.Escalation.Reason)
+	}
+	if resp.Escalation.Context != "Container used 4.2GB before OOM kill" {
+		t.Errorf("Escalation.Context = %q", resp.Escalation.Context)
+	}
+	if len(resp.Escalation.FailedChecks) != 2 {
+		t.Fatalf("FailedChecks count = %d, want 2", len(resp.Escalation.FailedChecks))
+	}
+	if resp.Escalation.FailedChecks[0] != "http-health-jellyfin" {
+		t.Errorf("FailedChecks[0] = %q", resp.Escalation.FailedChecks[0])
+	}
+	if resp.Escalation.FailedChecks[1] != "docker-status-jellyfin" {
+		t.Errorf("FailedChecks[1] = %q", resp.Escalation.FailedChecks[1])
 	}
 }

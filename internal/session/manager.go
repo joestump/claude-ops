@@ -226,71 +226,85 @@ func (m *Manager) runEscalationChain(ctx context.Context, trigger string, prompt
 			po = promptOverride
 		}
 
-		sessionID, err := m.runTier(ctx, currentTier, model, promptFile, parentSessionID, handoffContext, currentTrigger, po)
+		sessionID, agentResp, err := m.runTier(ctx, currentTier, model, promptFile, parentSessionID, handoffContext, currentTrigger, po)
 		if err != nil {
 			fmt.Printf("[%s] ERROR: tier %d session failed: %v\n",
 				time.Now().UTC().Format(time.RFC3339), currentTier, err)
 			break
 		}
 
-		// Check for a handoff file from the completed tier.
-		// Governing: SPEC-0016 REQ "Handoff Validation Events" — emit critical event on handoff failures
-		h, err := ReadHandoff(m.cfg.StateDir)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "read handoff after tier %d: %v\n", currentTier, err)
-			msg := fmt.Sprintf("Escalation blocked: could not read handoff from tier %d — %v", currentTier, err)
-			m.emitEscalationEvent(sessionID, msg)
-			break
-		}
-		if h == nil {
-			// No handoff — escalation chain complete.
-			break
+		// Governing: ADR-0030, SPEC-0031 REQ-3 — check structured output for escalation first,
+		// then fall back to handoff file for backward compatibility (SPEC-0031 REQ-8).
+		escalationNeeded := false
+		nextTier := currentTier + 1
+		var escalationCtx string
+		var servicesAffected []string
+
+		if agentResp != nil && agentResp.Escalation.Needed {
+			escalationNeeded = true
+			escalationCtx = buildStructuredEscalationContext(agentResp)
+			for _, sc := range agentResp.ServicesChecked {
+				if sc.Status != "healthy" {
+					servicesAffected = append(servicesAffected, sc.Name)
+				}
+			}
+			if len(servicesAffected) == 0 && len(agentResp.Escalation.FailedChecks) > 0 {
+				servicesAffected = agentResp.Escalation.FailedChecks
+			}
+			_ = DeleteHandoff(m.cfg.StateDir)
+		} else if agentResp != nil && !agentResp.Escalation.Needed {
+			_ = DeleteHandoff(m.cfg.StateDir)
+		} else {
+			// Governing: SPEC-0031 REQ-8 — fallback to handoff file when no structured output
+			h, hErr := ReadHandoff(m.cfg.StateDir)
+			if hErr != nil {
+				fmt.Fprintf(os.Stderr, "read handoff after tier %d: %v\n", currentTier, hErr)
+				msg := fmt.Sprintf("Escalation blocked: could not read handoff from tier %d — %v", currentTier, hErr)
+				m.emitEscalationEvent(sessionID, msg)
+				break
+			}
+			if h == nil {
+				break
+			}
+			if vErr := ValidateHandoff(h, m.cfg.MaxTier); vErr != nil {
+				fmt.Fprintf(os.Stderr, "invalid handoff from tier %d: %v\n", currentTier, vErr)
+				_ = DeleteHandoff(m.cfg.StateDir)
+				msg := fmt.Sprintf("Escalation blocked: invalid handoff from tier %d — %v", currentTier, vErr)
+				m.emitEscalationEvent(sessionID, msg)
+				break
+			}
+			escalationNeeded = true
+			nextTier = h.RecommendedTier
+			escalationCtx = buildHandoffContext(h)
+			servicesAffected = h.ServicesAffected
+			_ = DeleteHandoff(m.cfg.StateDir)
 		}
 
-		// Validate the handoff.
-		if err := ValidateHandoff(h, m.cfg.MaxTier); err != nil {
-			fmt.Fprintf(os.Stderr, "invalid handoff from tier %d: %v\n", currentTier, err)
-			if delErr := DeleteHandoff(m.cfg.StateDir); delErr != nil {
-				fmt.Fprintf(os.Stderr, "cleanup invalid handoff: %v\n", delErr)
-			}
-			msg := fmt.Sprintf("Escalation blocked: invalid handoff from tier %d — %v", currentTier, err)
-			m.emitEscalationEvent(sessionID, msg)
+		if !escalationNeeded {
 			break
 		}
 
 		// Governing: SPEC-0016 "Supervisor Escalation Logic" — dry-run prevents escalation
-		// Governing: SPEC-0016 REQ "Handoff Validation Events" — emit info event when dry-run suppresses escalation
-		// Dry-run mode: don't actually escalate.
-		if m.cfg.DryRun && h.RecommendedTier >= 2 {
+		if m.cfg.DryRun && nextTier >= 2 {
 			fmt.Printf("[%s] DRY RUN: would escalate to tier %d for services %v\n",
-				time.Now().UTC().Format(time.RFC3339), h.RecommendedTier, h.ServicesAffected)
-			if delErr := DeleteHandoff(m.cfg.StateDir); delErr != nil {
-				fmt.Fprintf(os.Stderr, "cleanup dry-run handoff: %v\n", delErr)
-			}
+				time.Now().UTC().Format(time.RFC3339), nextTier, servicesAffected)
 			msg := fmt.Sprintf("Escalation suppressed (dry run): would have escalated to tier %d for: %s",
-				h.RecommendedTier, strings.Join(h.ServicesAffected, ", "))
+				nextTier, strings.Join(servicesAffected, ", "))
 			m.emitEscalationEventLevel(sessionID, "info", msg)
 			break
 		}
 
-		// Mark the parent session as escalated.
 		if err := m.db.UpdateSessionStatus(sessionID, "escalated"); err != nil {
 			fmt.Fprintf(os.Stderr, "update escalated status for session %d: %v\n", sessionID, err)
 		}
 
-		// Prepare for next tier.
-		handoffContext = buildHandoffContext(h)
+		handoffContext = escalationCtx
 		parentSessionID = &sessionID
-		currentTier = h.RecommendedTier
-		currentTrigger = "escalation" // child sessions are triggered by escalation
-
-		// Delete the handoff file now that we've consumed it.
-		if err := DeleteHandoff(m.cfg.StateDir); err != nil {
-			fmt.Fprintf(os.Stderr, "delete handoff: %v\n", err)
-		}
+		currentTier = nextTier
+		currentTrigger = "escalation"
 
 		fmt.Printf("[%s] Escalating to tier %d for services %v\n",
-			time.Now().UTC().Format(time.RFC3339), currentTier, h.ServicesAffected)
+			time.Now().UTC().Format(time.RFC3339), currentTier, servicesAffected)
 	}
 }
 
@@ -316,10 +330,11 @@ func (m *Manager) tierToolConfig(tier int) (allowed, disallowed string) {
 }
 
 // runTier executes a single Claude CLI session for a specific tier.
-// It returns the session ID and any error.
+// It returns the session ID, the parsed AgentResponse (nil if unavailable), and any error.
 // promptOverride is used for ad-hoc sessions (non-nil pointer); promptFile is used otherwise.
 // Governing: SPEC-0008 REQ-7 — full subprocess lifecycle (start, stream, wait, exit code, crash handling).
-func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFile string, parentSessionID *int64, handoffContext string, trigger string, promptOverride *string) (int64, error) {
+// Governing: ADR-0030, SPEC-0031 — returns AgentResponse for structured escalation decisions.
+func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFile string, parentSessionID *int64, handoffContext string, trigger string, promptOverride *string) (int64, *AgentResponse, error) {
 	// Governing: SPEC-0008 REQ-5 "Session already running"
 	// — guards against starting a second session for the same tier.
 	// Create a per-session cancellable context so Stop() can kill just this
@@ -331,7 +346,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	if m.running {
 		m.mu.Unlock()
 		fmt.Println("session still running, skipping")
-		return 0, nil
+		return 0, nil, nil
 	}
 	m.running = true
 	m.stopFn = cancelSession
@@ -351,7 +366,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	// — PreSessionHook triggers MergeConfigs before each session invocation.
 	if m.PreSessionHook != nil {
 		if err := m.PreSessionHook(); err != nil {
-			return 0, fmt.Errorf("pre-session hook: %w", err)
+			return 0, nil, fmt.Errorf("pre-session hook: %w", err)
 		}
 	}
 
@@ -361,7 +376,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 
 	logFile, err := os.Create(logPath)
 	if err != nil {
-		return 0, fmt.Errorf("create log file: %w", err)
+		return 0, nil, fmt.Errorf("create log file: %w", err)
 	}
 	defer logFile.Close() //nolint:errcheck
 
@@ -385,7 +400,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	}
 	sessionID, err := m.db.InsertSession(sess)
 	if err != nil {
-		return 0, fmt.Errorf("insert session: %w", err)
+		return 0, nil, fmt.Errorf("insert session: %w", err)
 	}
 
 	// If this is a manual trigger, send the session ID back to the caller.
@@ -412,7 +427,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		data, err := os.ReadFile(promptFile)
 		if err != nil {
 			m.finalizeSession(sessionID, "failed", nil, &logPath)
-			return 0, fmt.Errorf("read prompt file %s: %w", promptFile, err)
+			return 0, nil, fmt.Errorf("read prompt file %s: %w", promptFile, err)
 		}
 		promptContent = string(data)
 	}
@@ -428,10 +443,11 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	// — passes both --allowedTools and --disallowedTools to the CLI subprocess.
 	// Governing: SPEC-0024 REQ-11 (Per-Tier Tool Enforcement for Chat Sessions), ADR-0023
 	allowedTools, disallowedTools := m.tierToolConfig(tier)
-	stdoutPipe, waitFn, err := m.runner.Start(sessionCtx, model, promptContent, allowedTools, disallowedTools, envCtx)
+	// Governing: ADR-0030, SPEC-0031 REQ-4 — pass schema path to CLI for structured output
+	stdoutPipe, waitFn, err := m.runner.Start(sessionCtx, model, promptContent, allowedTools, disallowedTools, envCtx, m.cfg.SchemaPath)
 	if err != nil {
 		m.finalizeSession(sessionID, "failed", nil, &logPath)
-		return 0, fmt.Errorf("start claude: %w", err)
+		return 0, nil, fmt.Errorf("start claude: %w", err)
 	}
 
 	// Parse stream-json events and fan out formatted lines to stdout, log, and hub.
@@ -446,6 +462,11 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	// fall back to it when result.result is empty (e.g. the model's final turn was
 	// a Write tool call to create handoff.json rather than a text response).
 	var lastAssistantText string
+	// Governing: ADR-0030, SPEC-0031 REQ-4 — capture structured_output from result event
+	var rawStructuredOutput json.RawMessage
+	// Governing: ADR-0030, SPEC-0031 REQ-8 — collect text markers for fallback if no structured output
+	var pendingEvents []parsedEvent
+	var pendingMemories []parsedMemory
 
 	streamDone := make(chan struct{})
 	go func() {
@@ -482,29 +503,24 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 					resultCostUSD = evt.TotalCostUSD
 					resultNumTurns = evt.NumTurns
 					resultDurationMs = evt.DurationMs
+					// Governing: ADR-0030, SPEC-0031 REQ-4 — capture structured_output from result event
+					if len(evt.StructuredOutput) > 0 && string(evt.StructuredOutput) != "null" {
+						rawStructuredOutput = evt.StructuredOutput
+					}
 				}
 
-				// Parse event and memory markers from assistant text blocks only.
+				// Governing: ADR-0030, SPEC-0031 REQ-8 — collect text markers during streaming
+				// for fallback. Events and memories are inserted after the stream completes,
+				// using structured output when available or text markers as fallback.
 				if evt.Type == "assistant" {
 					for _, block := range evt.Message.Content {
 						if block.Type == "text" {
 							if t := strings.TrimSpace(block.Text); t != "" {
 								lastAssistantText = t
 							}
-							for _, pe := range parseEventMarkers(block.Text) {
-								sid := sessionID
-								now := time.Now().UTC().Format(time.RFC3339)
-								_, _ = m.db.InsertEvent(&db.Event{
-									SessionID: &sid,
-									Level:     pe.Level,
-									Service:   pe.Service,
-									Message:   pe.Message,
-									CreatedAt: now,
-								})
-							}
-							for _, pm := range parseMemoryMarkers(block.Text) {
-								m.upsertMemory(sessionID, tier, pm)
-							}
+							pendingEvents = append(pendingEvents, parseEventMarkers(block.Text)...)
+							pendingMemories = append(pendingMemories, parseMemoryMarkers(block.Text)...)
+							// Cooldown markers are always parsed from text (not in structured output schema).
 							for _, pc := range parseCooldownMarkers(block.Text) {
 								m.insertCooldown(sessionID, tier, pc)
 							}
@@ -562,7 +578,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		m.finalizeSession(sessionID, "timed_out", &exitCode, &logPath)
 		m.hub.Close(hubID)
 		m.rawHub.Close(hubID) // Governing: SPEC-0024 REQ-5 — close raw hub for OpenAI streaming
-		return sessionID, ctx.Err()
+		return sessionID, nil, ctx.Err()
 	}
 
 	runEnd := time.Now().UTC().Format(time.RFC3339)
@@ -594,6 +610,48 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 		resultResponse = lastAssistantText
 	}
 
+	// Governing: ADR-0030, SPEC-0031 REQ-4, REQ-6, REQ-7, REQ-8
+	// Process structured output or fall back to text markers for events and memories.
+	var agentResp *AgentResponse
+	if rawStructuredOutput != nil {
+		var resp AgentResponse
+		if err := json.Unmarshal(rawStructuredOutput, &resp); err != nil {
+			fmt.Fprintf(os.Stderr, "session %d: failed to parse structured_output: %v (falling back to text markers)\n", sessionID, err)
+		} else {
+			agentResp = &resp
+		}
+	}
+
+	if agentResp != nil {
+		// Governing: SPEC-0031 REQ-6 — insert events from structured output
+		m.processStructuredEvents(sessionID, agentResp.Events)
+		// Governing: SPEC-0031 REQ-7 — insert memories from structured output
+		m.processStructuredMemories(sessionID, tier, agentResp.Memories)
+		// Use the structured summary for the session if the response text is empty.
+		if resultResponse == "" && agentResp.Summary != "" {
+			resultResponse = agentResp.Summary
+		}
+	} else {
+		// Governing: SPEC-0031 REQ-8 — fallback to text marker parsing when no structured output
+		if rawStructuredOutput == nil {
+			fmt.Fprintf(os.Stderr, "session %d: no structured_output in result event, using text marker fallback\n", sessionID)
+		}
+		for _, pe := range pendingEvents {
+			sid := sessionID
+			now := time.Now().UTC().Format(time.RFC3339)
+			_, _ = m.db.InsertEvent(&db.Event{
+				SessionID: &sid,
+				Level:     pe.Level,
+				Service:   pe.Service,
+				Message:   pe.Message,
+				CreatedAt: now,
+			})
+		}
+		for _, pm := range pendingMemories {
+			m.upsertMemory(sessionID, tier, pm)
+		}
+	}
+
 	// Governing: SPEC-0011 REQ "Result Event Metadata Extraction"
 	// — stores extracted metadata in the sessions table via UpdateSessionResult.
 	if resultResponse != "" || resultCostUSD > 0 || resultNumTurns > 0 {
@@ -620,9 +678,9 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 	m.rawHub.Close(hubID) // Governing: SPEC-0024 REQ-5 — close raw hub for OpenAI streaming
 
 	if waitErr != nil {
-		return sessionID, fmt.Errorf("claude exited: %w", waitErr)
+		return sessionID, agentResp, fmt.Errorf("claude exited: %w", waitErr)
 	}
-	return sessionID, nil
+	return sessionID, agentResp, nil
 }
 
 // runOnce is kept for backward compatibility with tests. It delegates to runTier.
@@ -631,7 +689,7 @@ func (m *Manager) runOnce(ctx context.Context, promptOverride string, trigger st
 	if promptOverride != "" {
 		po = &promptOverride
 	}
-	_, err := m.runTier(ctx, 1, m.cfg.Tier1Model, m.cfg.Prompt, nil, "", trigger, po)
+	_, _, err := m.runTier(ctx, 1, m.cfg.Tier1Model, m.cfg.Prompt, nil, "", trigger, po)
 	return err
 }
 
@@ -643,7 +701,81 @@ func (m *Manager) finalizeSession(id int64, status string, exitCode *int, logPat
 	}
 }
 
+// processStructuredEvents inserts events from structured output into the database.
+// Governing: ADR-0030, SPEC-0031 REQ-6
+func (m *Manager) processStructuredEvents(sessionID int64, events []AgentEvent) {
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, ae := range events {
+		sid := sessionID
+		evt := &db.Event{
+			SessionID: &sid,
+			Level:     normalizeEventLevel(ae.Level),
+			Message:   ae.Message,
+			CreatedAt: now,
+		}
+		if ae.Service != "" {
+			svc := ae.Service
+			evt.Service = &svc
+		}
+		if _, err := m.db.InsertEvent(evt); err != nil {
+			fmt.Fprintf(os.Stderr, "session %d: failed to insert structured event: %v\n", sessionID, err)
+		}
+	}
+}
+
+// processStructuredMemories inserts memories from structured output into the database.
+// The key field is parsed as "service:category" or plain "category".
+// Governing: ADR-0030, SPEC-0031 REQ-7
+func (m *Manager) processStructuredMemories(sessionID int64, tier int, memories []AgentMemory) {
+	for _, am := range memories {
+		pm := parseMemoryKey(am.Key, am.Value)
+		m.upsertMemory(sessionID, tier, pm)
+	}
+}
+
 // --- stream-json event parsing ---
+
+// AgentResponse represents the structured output from a Claude CLI session.
+// Governing: ADR-0030 (structured output), SPEC-0031 REQ-1
+type AgentResponse struct {
+	Summary         string           `json:"summary"`
+	Events          []AgentEvent     `json:"events"`
+	Memories        []AgentMemory    `json:"memories,omitempty"`
+	Escalation      AgentEscalation  `json:"escalation"`
+	ServicesChecked []ServiceCheck   `json:"services_checked"`
+}
+
+// AgentEvent represents a single event in the structured output.
+// Governing: ADR-0030, SPEC-0031 REQ-2
+type AgentEvent struct {
+	Level   string `json:"level"`
+	Service string `json:"service,omitempty"`
+	Message string `json:"message"`
+}
+
+// AgentMemory represents a single memory in the structured output.
+// Governing: ADR-0030, SPEC-0031 REQ-7
+type AgentMemory struct {
+	Key   string `json:"key"`
+	Value string `json:"value"`
+}
+
+// AgentEscalation represents the escalation decision in the structured output.
+// Governing: ADR-0030, SPEC-0031 REQ-3
+type AgentEscalation struct {
+	Needed       bool     `json:"needed"`
+	Reason       string   `json:"reason,omitempty"`
+	Context      string   `json:"context,omitempty"`
+	FailedChecks []string `json:"failed_checks,omitempty"`
+}
+
+// ServiceCheck represents a service status observation in the structured output.
+// Governing: ADR-0030, SPEC-0031 REQ-1
+type ServiceCheck struct {
+	Name   string `json:"name"`
+	Status string `json:"status"`
+	Detail string `json:"detail,omitempty"`
+}
 
 // streamEvent is a minimal representation of a Claude CLI stream-json NDJSON line.
 type streamEvent struct {
@@ -659,6 +791,8 @@ type streamEvent struct {
 	NumTurns     int     `json:"num_turns,omitempty"`
 	DurationMs   int64   `json:"duration_ms,omitempty"`
 	IsError      bool    `json:"is_error,omitempty"`
+	// Governing: ADR-0030, SPEC-0031 REQ-4 — structured output from --json-schema
+	StructuredOutput json.RawMessage `json:"structured_output,omitempty"`
 }
 
 type contentBlock struct {
@@ -1375,4 +1509,65 @@ done:
 	header := fmt.Sprintf("## Operational Memory (%d memories, ~%d tokens)\n", memCount, b.Len()/4)
 
 	return header + b.String()
+}
+
+// parseMemoryKey splits a structured output memory key into category and optional service.
+// Keys in "service:category" format extract the service; plain keys are treated as category-only.
+// Governing: ADR-0030, SPEC-0031 REQ-7 — memory key mapping
+func parseMemoryKey(key, value string) parsedMemory {
+	pm := parsedMemory{
+		Observation: value,
+	}
+	if idx := strings.IndexByte(key, ':'); idx > 0 {
+		svc := key[:idx]
+		pm.Category = key[idx+1:]
+		pm.Service = &svc
+	} else {
+		pm.Category = key
+	}
+	return pm
+}
+
+// buildStructuredEscalationContext formats an AgentResponse into a readable markdown section
+// suitable for injection into the next tier's system prompt.
+// Governing: ADR-0030, SPEC-0031 REQ-3 — structured escalation replaces handoff files
+func buildStructuredEscalationContext(resp *AgentResponse) string {
+	var b strings.Builder
+	b.WriteString("## Escalation Context\n\n")
+
+	if resp.Escalation.Reason != "" {
+		b.WriteString(fmt.Sprintf("**Reason:** %s\n\n", resp.Escalation.Reason))
+	}
+
+	if len(resp.ServicesChecked) > 0 {
+		b.WriteString("### Service Status\n\n")
+		for _, sc := range resp.ServicesChecked {
+			line := fmt.Sprintf("- **%s**: %s", sc.Name, sc.Status)
+			if sc.Detail != "" {
+				line += fmt.Sprintf(" — %s", sc.Detail)
+			}
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("\n")
+	}
+
+	if len(resp.Escalation.FailedChecks) > 0 {
+		b.WriteString("### Failed Checks\n\n")
+		for _, fc := range resp.Escalation.FailedChecks {
+			b.WriteString(fmt.Sprintf("- %s\n", fc))
+		}
+		b.WriteString("\n")
+	}
+
+	if resp.Escalation.Context != "" {
+		b.WriteString("### Investigation Findings\n\n")
+		b.WriteString(resp.Escalation.Context + "\n\n")
+	}
+
+	if resp.Summary != "" {
+		b.WriteString("### Previous Tier Summary\n\n")
+		b.WriteString(resp.Summary + "\n\n")
+	}
+
+	return b.String()
 }

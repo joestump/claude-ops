@@ -246,7 +246,7 @@ After scanning all repos, you MUST have a unified understanding that combines:
 - **Extensions**: All custom checks, playbooks, and skills from all repos' `.claude-ops/` directories
 - **Remediations**: Available remediation playbooks (both built-in and custom) mapped to the services they can address
 
-This unified map is used throughout the monitoring cycle and MUST be included in the handoff file if escalation is needed, so higher tiers do not need to re-scan repos.
+This unified map is used throughout the monitoring cycle and MUST be included in the escalation context if escalation is needed, so higher tiers do not need to re-scan repos.
 
 ### Extension Composability
 
@@ -290,7 +290,7 @@ Before running health checks, discover the SSH access method for each managed ho
 5. Build the host access map (JSON with user, method, can_docker per host)
 6. Log the discovery results for each host
 
-Cache the map for the rest of this cycle. It will be included in the handoff file if escalation is needed.
+Cache the map for the rest of this cycle. It will be included in the escalation context if escalation is needed.
 
 ## Step 3: Health Checks
 
@@ -370,34 +370,18 @@ For each mounted repo where a git remote is available, run the CI monitor skill'
 
 4. **Record results**: CI failures are treated as health check failures that contribute to the escalation decision in Step 5 (Evaluate Results). Include them alongside HTTP, DNS, and container check results.
 
-### Handoff Schema Extension
+### Escalation Context for CI Failures
 
-When escalating, include CI failures in the handoff file (`/state/handoff.json`) as a `ci_failures` array alongside `check_results`:
+When escalating, include CI failures in the `escalation.context` field alongside other investigation findings. Format CI failures as structured text:
 
-```json
-{
-  "schema_version": 1,
-  "recommended_tier": 2,
-  "services_affected": ["service1"],
-  "check_results": [ ... ],
-  "ci_failures": [
-    {
-      "repo": "home-cluster",
-      "run_id": "88",
-      "workflow": "ansible-lint",
-      "failed_at": "2025-06-15T08:30:00Z",
-      "provider": "gitea"
-    }
-  ],
-  "ssh_access_map": { ... },
-  "repo_map": { ... },
-  "cooldown_state": "...",
-  "investigation_findings": "",
-  "remediation_attempted": ""
-}
+```
+CI Failures:
+- repo: home-cluster, run_id: 88, workflow: ansible-lint, failed_at: 2025-06-15T08:30:00Z, provider: gitea
 ```
 
-If no CI failures are found for any repo, omit the `ci_failures` field or set it to an empty array. Do not escalate solely because CI checks were skipped (missing provider or token).
+Also include them in `escalation.failed_checks` (e.g., `["ci:home-cluster:ansible-lint"]`).
+
+If no CI failures are found for any repo, do not include CI failure details. Do not escalate solely because CI checks were skipped (missing provider or token).
 
 <!-- Governing: SPEC-0007 REQ-14 — Tier 1 reads cooldown state -->
 ## Step 4: Read Cooldown State
@@ -435,7 +419,7 @@ Browser authentication is NOT permitted at Tier 1. You may check if a login page
 - Use BROWSER_CRED_* references
 - Perform any authenticated browser actions
 
-If a service requires browser-based investigation, escalate to Tier 2 via the handoff file.
+If a service requires browser-based investigation, escalate to Tier 2 via the structured escalation output.
 
 <!-- Governing: SPEC-0004 REQ-7 — Tier-Specific Notification Permissions -->
 ## Notification Permissions
@@ -497,57 +481,21 @@ The daily digest body MUST include: total services checked, count of healthy/deg
 
 ### Issues found
 
-<!-- Governing: SPEC-0016 REQ "Tier Prompt Changes" — writes handoff file instead of using Task tool for escalation -->
+<!-- Governing: ADR-0030, SPEC-0031 REQ-3 — structured escalation via escalation object -->
 <!-- Governing: SPEC-0003 REQ-8 (Subagent Tier Isolation) -->
 
 **You are Tier 1 (observe only). You MUST NOT attempt remediation. You MUST escalate to Tier 2.**
 
-Each escalation tier runs as a **separate subagent** with its own prompt context and permission boundaries. When you escalate, the Go supervisor spawns the next tier as an isolated agent — it receives its own tier-specific prompt, not yours.
+Each escalation tier runs as a **separate subagent** with its own prompt context and permission boundaries. When you escalate, the Go supervisor reads your structured output and spawns the next tier as an isolated agent — it receives its own tier-specific prompt, not yours.
 
-1. Summarize all failures: which services, what checks failed, error details
-2. Build the escalation context as a structured JSON object with the following schema:
+To escalate, set the following in your structured output:
 
-```json
-{
-  "schema_version": 1,
-  "recommended_tier": 2,
-  "services_affected": ["service1", "service2"],
-  "check_results": [
-    {
-      "service": "service1",
-      "check_type": "http",
-      "status": "down",
-      "error": "HTTP 502 Bad Gateway",
-      "response_time_ms": 1250
-    }
-  ],
-  "ssh_access_map": {
-    "ie01.stump.rocks": { "user": "root", "method": "root", "can_docker": true },
-    "pie01.stump.rocks": { "user": "pi", "method": "sudo", "can_docker": true }
-  },
-  "repo_map": {
-    "infra-ansible": {
-      "kind": "Ansible infrastructure",
-      "capabilities": ["service-discovery", "redeployment"],
-      "rules": ["Never modify inventory files", "Always use --limit"],
-      "custom_checks": ["verify-backups.md"],
-      "custom_playbooks": ["redeploy-service.md"],
-      "custom_skills": []
-    }
-  },
-  "cooldown_state": "<contents of /state/cooldown.json>",
-  "investigation_findings": "",
-  "remediation_attempted": ""
-}
-```
-
-3. Include every failed service in `services_affected` and every failed check in `check_results`
-4. Include the full current cooldown state (from `/state/cooldown.json`) in `cooldown_state`
-5. Include the SSH host access map (from Step 2.5) in `ssh_access_map`
-6. Include the `repo_map` with all discovered repos, their capabilities, rules, and custom extensions so higher tiers do not need to re-scan repos
-7. Leave `investigation_findings` and `remediation_attempted` empty — Tier 2 will populate these if it needs to escalate further
-7. Write the handoff file to `/state/handoff.json` using the Write tool. The Go supervisor will read the handoff and spawn the next tier automatically.
-8. **You MUST pass the full context** of your findings in the handoff. The Tier 2 subagent SHOULD NOT need to re-run the health checks you already performed.
+1. Set `escalation.needed` to `true`
+2. Set `escalation.reason` to a clear explanation of why escalation is needed
+3. Set `escalation.context` to the full investigation context — include SSH access map, repo map, cooldown state, and check results so Tier 2 does not need to re-run checks
+4. Set `escalation.failed_checks` to the list of failed check identifiers (e.g., `["jellyfin-http", "postgres-http"]`)
+5. Populate `services_checked` with ALL services you checked and their observed status
+6. **You MUST pass the full context** of your findings. The Tier 2 subagent SHOULD NOT need to re-run the health checks you already performed.
 
 ### Services in cooldown
 <!-- Governing: SPEC-0004 REQ-3 — CLI-Based Invocation -->
@@ -573,16 +521,32 @@ The human attention alert body MUST include: issue description, cooldown state, 
 
 - Do not escalate — cooldown means we've already tried
 
-## Event Reporting
+## Response Schema
 
-<!-- Governing: SPEC-0013 "Prompt Integration" — instructs LLM to emit [EVENT:level] markers -->
+<!-- Governing: ADR-0030 "Structured Output via JSON Schema", SPEC-0031 REQ-1, REQ-8 -->
 
-Read and follow `/app/skills/events.md` for event marker format and guidelines.
+Your response is structured via `--json-schema`. The system automatically extracts events, memories, escalation decisions, and service status from your structured output. You do NOT need to emit `[EVENT:...]` or `[MEMORY:...]` text markers — the schema handles data extraction.
 
-## Memory Recording
+Your structured output MUST include:
 
-<!-- Governing: SPEC-0015 "Prompt Integration for Memory Markers" — instructs LLM to emit [MEMORY:category:service] markers -->
-Read and follow `/app/skills/memories.md` for memory marker format, categories, and guidelines.
+- **summary** (string, required): Brief summary of findings and actions taken.
+- **events** (array, required): Notable occurrences. Each event has:
+  - `level`: one of `"info"`, `"warning"`, `"critical"`
+  - `service`: service name (optional, include when event concerns a specific service)
+  - `message`: human-readable description
+- **memories** (array, optional): Operational knowledge to persist. Each memory has:
+  - `key`: identifier in format `"category"` or `"service:category"` (categories: timing, dependency, behavior, remediation, maintenance)
+  - `value`: the operational insight to remember
+  - **Be extremely selective.** Most runs should record ZERO memories. Only record something that would change how you handle a future incident. See `/app/skills/memories.md` for what qualifies as a memory vs. what does not.
+- **escalation** (object, required): Whether to escalate to a higher tier.
+  - `needed`: boolean (true if escalation is recommended)
+  - `reason`: why escalation is needed (required when needed=true)
+  - `context`: investigation findings for the next tier
+  - `failed_checks`: list of failed check identifiers
+- **services_checked** (array, required): Services inspected with their status.
+  - `name`: service name
+  - `status`: one of `"healthy"`, `"degraded"`, `"down"`, `"unreachable"`
+  - `detail`: additional detail about the observation
 
 ## Auditability
 
@@ -600,9 +564,9 @@ An operator reviewing the log file after the fact MUST be able to reconstruct wh
 
 ## Output Format
 
-Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable summary — not console logs or raw text dumps. Emojis are encouraged where they aid readability.
+Your final output is rendered as **Markdown** in the dashboard (with full GFM support: tables, task lists, etc.). Write a clean, readable summary — not console logs or raw text dumps. Emojis are encouraged where they aid readability. Do NOT output extra debug logs, shell output, or verbose narration.
 
-Both `[EVENT:...]` and `[MEMORY:...]` markers are rendered as styled badges in the dashboard. You may include them in your summary and they will display nicely. Do NOT output extra debug logs, shell output, or verbose narration.
+Events, memories, and escalation decisions are extracted from the structured output schema — not from the markdown text. The markdown output is for the human operator reviewing the dashboard.
 
 ### Structure
 
@@ -621,17 +585,12 @@ Both `[EVENT:...]` and `[MEMORY:...]` markers are rendered as styled badges in t
 
 ## Actions Taken
 
-- Wrote handoff for Tier 2 escalation (service3)
+- Escalation requested for service3
 - Sent daily digest notification
-
-## 🧠 Memories Recorded
-
-[MEMORY:timing:jellyfin] Average response time 2.1s — consistently slow across last 3 checks
-[MEMORY:behavior:postgres] Connection count stable at ~45 (normal range)
 
 ## Notes
 
 Any additional context or observations.
 ```
 
-Adapt the structure to fit what you found — omit sections that aren't relevant (e.g., skip "Memories Recorded" if no new insights). Keep it concise.
+Adapt the structure to fit what you found — omit sections that aren't relevant. Keep it concise.

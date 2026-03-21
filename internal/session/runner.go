@@ -13,8 +13,9 @@ import (
 // Governing: SPEC-0008 REQ-5 "CLI subprocess creation" — uses os/exec.Command to invoke the claude CLI binary.
 // Governing: SPEC-0008 REQ-7 — subprocess lifecycle management (startup, completion, crash handling).
 // Governing: ADR-0023 "AllowedTools-Based Tier Enforcement" — disallowedTools param for command-prefix blocklisting.
+// Governing: ADR-0030, SPEC-0031 REQ-4 — schemaPath param for --json-schema structured output.
 type ProcessRunner interface {
-	Start(ctx context.Context, model string, promptContent string, allowedTools string, disallowedTools string, appendSystemPrompt string) (stdout io.ReadCloser, wait func() error, err error)
+	Start(ctx context.Context, model string, promptContent string, allowedTools string, disallowedTools string, appendSystemPrompt string, schemaPath string) (stdout io.ReadCloser, wait func() error, err error)
 }
 
 // CLIRunner implements ProcessRunner by spawning the real `claude` CLI binary.
@@ -22,13 +23,14 @@ type CLIRunner struct{}
 
 // Governing: SPEC-0011 "CLI Invocation with stream-json" (--output-format stream-json for structured NDJSON events)
 // Governing: SPEC-0016 "Handoff Context Serialization" — passes handoff context via --append-system-prompt
+// Governing: ADR-0030, SPEC-0031 REQ-4 — passes --json-schema for structured output
 // Start builds and starts a claude CLI process with stream-json output.
 // It returns a reader for stdout, a wait function that blocks until the
 // process exits, and any startup error.
 // Governing: SPEC-0008 REQ-5 "CLI subprocess creation"
-// — passes model, prompt content, allowed tools, disallowed tools, and system prompt arguments
-// matching the entrypoint.sh invocation pattern via os/exec.Command.
-func (r *CLIRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, disallowedTools string, appendSystemPrompt string) (io.ReadCloser, func() error, error) {
+// — passes model, prompt content, allowed tools, disallowed tools, schema path,
+// and system prompt arguments matching the entrypoint.sh invocation pattern via os/exec.Command.
+func (r *CLIRunner) Start(ctx context.Context, model string, promptContent string, allowedTools string, disallowedTools string, appendSystemPrompt string, schemaPath string) (io.ReadCloser, func() error, error) {
 	// Governing: SPEC-0010 REQ-5 "Tool filtering via --allowedTools"
 	// Governing: ADR-0023 "AllowedTools-Based Tier Enforcement"
 	// — enforces tool restrictions at CLI runtime via --allowedTools whitelist
@@ -46,6 +48,14 @@ func (r *CLIRunner) Start(ctx context.Context, model string, promptContent strin
 	}
 	if disallowedTools != "" {
 		args = append(args, "--disallowedTools", disallowedTools)
+	}
+	// Governing: ADR-0030, SPEC-0031 REQ-4 — pass --json-schema to constrain LLM output.
+	// Only add the flag if a schema path is configured and the file exists,
+	// so the system degrades gracefully if the schema is missing.
+	if schemaPath != "" {
+		if _, err := os.Stat(schemaPath); err == nil {
+			args = append(args, "--json-schema", schemaPath)
+		}
 	}
 	// Governing: SPEC-0010 REQ-6 — runtime context injection via --append-system-prompt.
 	// In the container, /app/CLAUDE.md is the agent runbook (prompts/agent.md), so no

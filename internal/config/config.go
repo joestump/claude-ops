@@ -39,6 +39,8 @@ type Config struct {
 	// Governing: SPEC-0025 REQ "Webhook Model Configuration"
 	WebhookModel        string
 	WebhookSystemPrompt string
+	// Governing: ADR-0030, SPEC-0031 REQ-4 "CLI Integration" — path to JSON Schema for structured output
+	SchemaPath string
 }
 
 // Load reads configuration from viper, which merges flag values, env vars,
@@ -73,5 +75,6 @@ func Load() Config {
 		SummaryModel:          viper.GetString("summary_model"),
 		WebhookModel:          viper.GetString("webhook_model"),
 		WebhookSystemPrompt:   viper.GetString("webhook_system_prompt"),
+		SchemaPath:            viper.GetString("schema_path"),
 	}
 }

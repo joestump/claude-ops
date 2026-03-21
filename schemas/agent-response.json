@@ -1,0 +1,101 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Claude Ops Agent Response",
+  "description": "Structured output schema for Claude Ops agent tier sessions. Governing: ADR-0030, SPEC-0031 REQ-1",
+  "type": "object",
+  "properties": {
+    "summary": {
+      "type": "string",
+      "description": "Brief summary of findings and actions taken during this session"
+    },
+    "events": {
+      "type": "array",
+      "description": "Notable occurrences discovered or actions taken",
+      "items": {
+        "type": "object",
+        "properties": {
+          "level": {
+            "type": "string",
+            "enum": ["info", "warning", "critical"],
+            "description": "Severity: info (routine), warning (degraded), critical (needs attention)"
+          },
+          "service": {
+            "type": "string",
+            "description": "Service name, if the event relates to a specific service"
+          },
+          "message": {
+            "type": "string",
+            "description": "Human-readable description of the event"
+          }
+        },
+        "required": ["level", "message"]
+      }
+    },
+    "memories": {
+      "type": "array",
+      "description": "Operational knowledge to persist across sessions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": {
+            "type": "string",
+            "description": "Memory identifier in format 'category' or 'service:category'"
+          },
+          "value": {
+            "type": "string",
+            "description": "The operational knowledge to remember"
+          }
+        },
+        "required": ["key", "value"]
+      }
+    },
+    "escalation": {
+      "type": "object",
+      "description": "Whether this session recommends escalation to a higher tier",
+      "properties": {
+        "needed": {
+          "type": "boolean",
+          "description": "True if escalation to the next tier is recommended"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Why escalation is needed (required when needed=true)"
+        },
+        "context": {
+          "type": "string",
+          "description": "Investigation findings and diagnostic context for the next tier"
+        },
+        "failed_checks": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Identifiers of checks that failed"
+        }
+      },
+      "required": ["needed"]
+    },
+    "services_checked": {
+      "type": "array",
+      "description": "Services inspected during this session with observed status",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "Service name"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["healthy", "degraded", "down", "unreachable"],
+            "description": "Observed service status"
+          },
+          "detail": {
+            "type": "string",
+            "description": "Additional detail about the status observation"
+          }
+        },
+        "required": ["name", "status"]
+      }
+    }
+  },
+  "required": ["summary", "events", "escalation", "services_checked"]
+}
