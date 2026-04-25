@@ -50,7 +50,7 @@ No findings. Reviewed all ADR-spec pairings (ADR-0011/SPEC-0011 through ADR-0019
 
 | Severity | Finding | Source | Location |
 |----------|---------|--------|----------|
-| [INFO] | CLAUDE.md states spec numbering is `RFC-XXXX` but all actual specs use `SPEC-XXXX`. The CLAUDE.md instruction contradicts the design plugin's spec template and every existing spec file. Future spec creation guided by CLAUDE.md would use the wrong prefix. | CLAUDE.md | CLAUDE.md:265 |
+| [INFO] | CLAUDE.md states spec numbering is `RFC-XXXX` but all actual specs use `SPEC-XXXX`. The CLAUDE.md instruction contradicts the SDD plugin's spec template and every existing spec file. Future spec creation guided by CLAUDE.md would use the wrong prefix. | CLAUDE.md | CLAUDE.md:265 |
 
 ---
 
@@ -70,6 +70,6 @@ No findings. Reviewed all ADR-spec pairings (ADR-0011/SPEC-0011 through ADR-0019
 
 1. [CRITICAL] Add `schema_version` field to the `Handoff` struct in `internal/session/handoff.go` and add validation in `ValidateHandoff()` to reject unrecognized versions, per SPEC-0016-REQ-1.
 2. [WARNING] Decide whether `CLAUDEOPS_PR_ENABLED` gate is intentional. If so, update SPEC-0019-REQ-2 to document the env var gate on `create_pr` and change the "exactly three tools" requirement. If not, remove the gate and always expose `create_pr` with server-side tier enforcement as the spec requires.
-3. [WARNING] Update status of ADR-0011, ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0017, ADR-0018, ADR-0019 from `proposed` to `accepted`. Use `/design:status` to update each.
+3. [WARNING] Update status of ADR-0011, ADR-0012, ADR-0013, ADR-0014, ADR-0015, ADR-0016, ADR-0017, ADR-0018, ADR-0019 from `proposed` to `accepted`. Use `/sdd:status` to update each.
 4. [INFO] Fix CLAUDE.md line 265: change `RFC-XXXX` to `SPEC-XXXX` to match actual spec numbering convention.
-5. [INFO] Consider creating a spec for the CLI interface (`cmd/claudeops/` subcommands and flags). Use `/design:spec cli-interface`.
+5. [INFO] Consider creating a spec for the CLI interface (`cmd/claudeops/` subcommands and flags). Use `/sdd:spec cli-interface`.

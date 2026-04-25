@@ -172,23 +172,23 @@ The typical flow is:
 
 ## Architecture Context
 
-This project uses the [design plugin](https://github.com/joestump/claude-plugin-design) for architecture governance.
+This project uses the [SDD plugin](https://github.com/joestump/claude-plugin-sdd) for architecture governance.
 
 - Architecture Decision Records are in `docs/adrs/`
 - Specifications are in `docs/openspec/specs/`
 
-### Design Plugin Skills
+### SDD Skills
 
 | Skill | Purpose |
 |-------|---------|
-| `/design:adr` | Create a new Architecture Decision Record |
-| `/design:spec` | Create a new specification |
-| `/design:list` | List all ADRs and specs with status |
-| `/design:status` | Update the status of an ADR or spec |
-| `/design:docs` | Generate a documentation site |
-| `/design:init` | Set up CLAUDE.md with architecture context |
-| `/design:prime` | Load architecture context into session |
-| `/design:check` | Quick-check code against ADRs and specs for drift |
-| `/design:audit` | Comprehensive design artifact alignment audit |
+| `/sdd:adr` | Create a new Architecture Decision Record |
+| `/sdd:spec` | Create a new specification |
+| `/sdd:list` | List all ADRs and specs with status |
+| `/sdd:status` | Update the status of an ADR or spec |
+| `/sdd:docs` | Generate a documentation site |
+| `/sdd:init` | Set up CLAUDE.md with architecture context |
+| `/sdd:prime` | Load architecture context into session |
+| `/sdd:check` | Quick-check code against ADRs and specs for drift |
+| `/sdd:audit` | Comprehensive design artifact alignment audit |
 
-Run `/design:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
+Run `/sdd:prime [topic]` at the start of a session to load relevant ADRs and specs into context.
