@@ -1,5 +1,5 @@
 ---
-status: draft
+status: accepted
 date: 2026-06-21
 requires: [SPEC-0008, SPEC-0017]
 ---
