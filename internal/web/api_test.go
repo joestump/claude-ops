@@ -111,6 +111,35 @@ func TestAPIStatsContentType(t *testing.T) {
 	}
 }
 
+// Unhappy path: GetDashboardStats fails (here, the DB is closed) — the handler
+// must return 500 with a JSON error body rather than panicking or 200-ing.
+func TestAPIStatsDBError(t *testing.T) {
+	e := newTestEnv(t)
+	// Close the DB so the aggregate query fails. Cleanup double-closes harmlessly.
+	if err := e.srv.db.Close(); err != nil {
+		t.Fatalf("close db: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/api/v1/stats", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("expected 500, got %d", w.Code)
+	}
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Fatalf("expected application/json, got %q", ct)
+	}
+
+	var resp map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["error"] == "" {
+		t.Fatal("expected non-empty error message in body")
+	}
+}
+
 // --- Sessions Endpoints ---
 
 func TestAPIListSessionsEmpty(t *testing.T) {
