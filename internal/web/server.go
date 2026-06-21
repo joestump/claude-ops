@@ -402,6 +402,8 @@ func (s *Server) registerRoutes() {
 	// Governing: SPEC-0017 REQ-14 "Health Endpoint"
 	// Governing: SPEC-0017 REQ-19 "Backward Compatibility" — HTML routes above remain unchanged; all endpoints under /api/v1 prefix
 	s.mux.HandleFunc("GET /api/v1/health", s.handleAPIHealth)
+	// Governing: SPEC-0021 REQ "Dashboard Stats HUD" — TL;DR HUD metrics for external dashboards (e.g. Homepage)
+	s.mux.HandleFunc("GET /api/v1/stats", s.handleAPIStats)
 	// Governing: SPEC-0017 REQ-3, REQ-4, REQ-5 — session list, detail, and trigger endpoints
 	s.mux.HandleFunc("GET /api/v1/sessions", s.handleAPIListSessions)
 	s.mux.HandleFunc("GET /api/v1/sessions/{id}", s.handleAPIGetSession)

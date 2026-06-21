@@ -44,6 +44,48 @@ paths:
               example:
                 status: ok
 
+  /api/v1/stats:
+    get:
+      summary: Dashboard stats (TL;DR HUD)
+      description: >
+        Returns the aggregate metrics shown in the dashboard's TL;DR HUD —
+        total runs, escalations, remediations, success rate, total cost, active
+        memories, critical events (last 24h), and average duration — plus the
+        most recent session and the next scheduled run time. Intended for
+        external dashboards (e.g. Homepage) to poll. Unauthenticated.
+      operationId: getStats
+      responses:
+        "200":
+          description: Dashboard stats snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsResponse"
+              example:
+                stats:
+                  total_runs: 142
+                  escalations: 9
+                  remediations: 3
+                  success_rate: 0.95
+                  total_cost_usd: 12.4831
+                  active_memories: 27
+                  critical_events: 1
+                  avg_duration_ms: 84210
+                last_session:
+                  id: 142
+                  tier: 1
+                  status: completed
+                  started_at: "2026-06-21T10:00:00Z"
+                  ended_at: "2026-06-21T10:01:24Z"
+                  cost_usd: 0.0731
+                  duration_ms: 84210
+                  trigger: scheduled
+                  summary: All 5 services healthy; no action taken.
+                next_run: "2026-06-21T11:00:00Z"
+                interval_seconds: 3600
+        "500":
+          $ref: "#/components/responses/InternalError"
+
   /api/v1/sessions:
     get:
       summary: List sessions
@@ -1164,6 +1206,108 @@ components:
         dry_run:
           type: boolean
           description: Whether the agent is in observe-only mode.
+
+    Stats:
+      type: object
+      required:
+        - total_runs
+        - escalations
+        - remediations
+        - success_rate
+        - total_cost_usd
+        - active_memories
+        - critical_events
+        - avg_duration_ms
+      properties:
+        total_runs:
+          type: integer
+          description: Total root sessions (parent_session_id IS NULL).
+        escalations:
+          type: integer
+          description: Child sessions spawned by escalation (parent_session_id IS NOT NULL).
+        remediations:
+          type: integer
+          description: Tier 3 (remediate) sessions.
+        success_rate:
+          type: number
+          format: float
+          description: Completed root sessions / total root sessions (0–1).
+        total_cost_usd:
+          type: number
+          format: double
+          description: Sum of cost_usd across all sessions.
+        active_memories:
+          type: integer
+          description: Count of active memories.
+        critical_events:
+          type: integer
+          description: Critical-level events in the last 24 hours.
+        avg_duration_ms:
+          type: integer
+          format: int64
+          description: Average session duration in milliseconds.
+
+    StatsSession:
+      type: object
+      required:
+        - id
+        - tier
+        - status
+        - started_at
+        - trigger
+      properties:
+        id:
+          type: integer
+          format: int64
+        tier:
+          type: integer
+        status:
+          type: string
+        started_at:
+          type: string
+          format: date-time
+        ended_at:
+          type: string
+          format: date-time
+          nullable: true
+        cost_usd:
+          type: number
+          format: double
+          nullable: true
+        duration_ms:
+          type: integer
+          format: int64
+          nullable: true
+        trigger:
+          type: string
+          description: '"scheduled" or "manual".'
+        summary:
+          type: string
+          nullable: true
+          description: LLM-generated summary of the session response.
+
+    StatsResponse:
+      type: object
+      required:
+        - stats
+        - last_session
+        - next_run
+        - interval_seconds
+      properties:
+        stats:
+          $ref: "#/components/schemas/Stats"
+        last_session:
+          oneOf:
+            - $ref: "#/components/schemas/StatsSession"
+            - type: "null"
+          description: The most recent session, or null if none exist yet.
+        next_run:
+          type: string
+          format: date-time
+          description: Estimated time of the next scheduled run (now + interval).
+        interval_seconds:
+          type: integer
+          description: Monitoring loop interval in seconds.
 
     Error:
       type: object

@@ -66,6 +66,37 @@ func (s *Server) handleAPIHealth(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 }
 
+// Governing: SPEC-0021 REQ "Dashboard Stats HUD" — GET /api/v1/stats
+// Governing: SPEC-0017 REQ-1 "API Route Registration", REQ-2 "JSON Content Type"
+// handleAPIStats returns the TL;DR HUD aggregate metrics plus the latest session and next
+// scheduled run, for consumption by external dashboards (e.g. Homepage). Unauthenticated,
+// mirroring GET /api/v1/health.
+func (s *Server) handleAPIStats(w http.ResponseWriter, r *http.Request) {
+	stats, err := s.db.GetDashboardStats()
+	if err != nil {
+		log.Printf("handleAPIStats: GetDashboardStats: %v", err)
+		writeError(w, http.StatusInternalServerError, "database error")
+		return
+	}
+
+	resp := APIStatsResponse{
+		Stats:           toAPIStats(stats),
+		NextRun:         time.Now().UTC().Add(time.Duration(s.cfg.Interval) * time.Second).Format(time.RFC3339),
+		IntervalSeconds: s.cfg.Interval,
+	}
+
+	// LatestSession powers the "Last Run" HUD row. A missing latest session is not an
+	// error — the field is simply null (e.g. on a fresh install with no runs yet).
+	if latest, err := s.db.LatestSession(); err != nil {
+		log.Printf("handleAPIStats: LatestSession: %v", err)
+	} else if latest != nil {
+		ls := toAPIStatsSession(*latest)
+		resp.LastSession = &ls
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
 // Governing: SPEC-0017 REQ-3 "Sessions List Endpoint" — GET /api/v1/sessions with limit/offset pagination
 // Governing: SPEC-0017 REQ-18 "Pagination"
 // handleAPIListSessions returns a paginated list of sessions.

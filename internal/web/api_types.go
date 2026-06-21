@@ -100,6 +100,44 @@ type APIConfig struct {
 	ReposDir   string `json:"repos_dir"`
 }
 
+// Governing: SPEC-0021 REQ "Dashboard Stats HUD"; SPEC-0017 REQ-1 "API Route Registration"
+// APIStatsResponse is the JSON payload for GET /api/v1/stats. It exposes the same
+// aggregate metrics rendered in the TL;DR HUD so external dashboards (e.g. Homepage)
+// can poll them without scraping HTML.
+type APIStatsResponse struct {
+	Stats           APIStats         `json:"stats"`
+	LastSession     *APIStatsSession `json:"last_session"`
+	NextRun         string           `json:"next_run"`
+	IntervalSeconds int              `json:"interval_seconds"`
+}
+
+// Governing: SPEC-0021 REQ "Dashboard Stats HUD"
+// APIStats mirrors db.DashboardStats — the metrics shown in the TL;DR HUD.
+type APIStats struct {
+	TotalRuns      int     `json:"total_runs"`
+	Escalations    int     `json:"escalations"`
+	Remediations   int     `json:"remediations"`
+	SuccessRate    float64 `json:"success_rate"`
+	TotalCostUSD   float64 `json:"total_cost_usd"`
+	ActiveMemories int     `json:"active_memories"`
+	CriticalEvents int     `json:"critical_events"`
+	AvgDurationMs  int64   `json:"avg_duration_ms"`
+}
+
+// Governing: SPEC-0021 REQ "TL;DR Page Rendering" — the Last Run HUD row
+// APIStatsSession is a compact view of the most recent session for the stats endpoint.
+type APIStatsSession struct {
+	ID         int64    `json:"id"`
+	Tier       int      `json:"tier"`
+	Status     string   `json:"status"`
+	StartedAt  string   `json:"started_at"`
+	EndedAt    *string  `json:"ended_at"`
+	CostUSD    *float64 `json:"cost_usd"`
+	DurationMs *int64   `json:"duration_ms"`
+	Trigger    string   `json:"trigger"`
+	Summary    *string  `json:"summary"`
+}
+
 // Governing: SPEC-0023 REQ-9 — PR API types removed. PR operations are now skill-based (git-pr.md).
 
 // --- API Request Types ---
@@ -219,4 +257,31 @@ func toAPICooldowns(cooldowns []db.RecentCooldown) []APICooldown {
 		out[i] = toAPICooldown(c)
 	}
 	return out
+}
+
+func toAPIStats(s *db.DashboardStats) APIStats {
+	return APIStats{
+		TotalRuns:      s.TotalRuns,
+		Escalations:    s.Escalations,
+		Remediations:   s.Remediations,
+		SuccessRate:    s.SuccessRate,
+		TotalCostUSD:   s.TotalCostUSD,
+		ActiveMemories: s.ActiveMemories,
+		CriticalEvents: s.CriticalEvents,
+		AvgDurationMs:  s.AvgDurationMs,
+	}
+}
+
+func toAPIStatsSession(s db.Session) APIStatsSession {
+	return APIStatsSession{
+		ID:         s.ID,
+		Tier:       s.Tier,
+		Status:     s.Status,
+		StartedAt:  s.StartedAt,
+		EndedAt:    s.EndedAt,
+		CostUSD:    s.CostUSD,
+		DurationMs: s.DurationMs,
+		Trigger:    s.Trigger,
+		Summary:    s.Summary,
+	}
 }
