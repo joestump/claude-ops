@@ -11,6 +11,19 @@ import (
 	"time"
 )
 
+// modelsJSON builds an Anthropic-style models list response body.
+func modelsJSON(ids ...string) string {
+	body := `{"data":[`
+	for i, id := range ids {
+		if i > 0 {
+			body += ","
+		}
+		body += `{"id":"` + id + `","type":"model"}`
+	}
+	body += `],"has_more":false}`
+	return body
+}
+
 // Governing: SPEC-0035 REQ "Upstream Model Query" — fetch, parse, dedupe, sort.
 func TestAvailable_ParsesAndSorts(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -18,7 +31,7 @@ func TestAvailable_ParsesAndSorts(t *testing.T) {
 			t.Errorf("expected /v1/models, got %s", r.URL.Path)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"gemini-2.5-pro"},{"id":"deepseek-chat"},{"id":"claude-opus-4-8"},{"id":"deepseek-chat"}]}`))
+		_, _ = w.Write([]byte(modelsJSON("gemini-2.5-pro", "deepseek-chat", "claude-opus-4-8", "deepseek-chat")))
 	}))
 	defer srv.Close()
 
@@ -47,7 +60,8 @@ func TestAvailable_TrailingSlash(t *testing.T) {
 	var gotPath string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		gotPath = r.URL.Path
-		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(modelsJSON()))
 	}))
 	defer srv.Close()
 
@@ -58,19 +72,22 @@ func TestAvailable_TrailingSlash(t *testing.T) {
 	}
 }
 
-// Governing: SPEC-0035 REQ "Upstream Model Query" — Bearer auth header.
-func TestAvailable_SendsBearer(t *testing.T) {
-	var gotAuth string
+// Governing: SPEC-0035 REQ "Upstream Model Query" — the upstream credential is
+// sent to the gateway. The Anthropic SDK authenticates via the x-api-key header
+// (LiteLLM accepts this for Anthropic-compatible routing).
+func TestAvailable_SendsAPIKey(t *testing.T) {
+	var gotKey string
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m"}]}`))
+		gotKey = r.Header.Get("x-api-key")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(modelsJSON("m")))
 	}))
 	defer srv.Close()
 
 	d := New(func() string { return srv.URL }, func() string { return "secret-key" })
 	d.Available(context.Background())
-	if gotAuth != "Bearer secret-key" {
-		t.Fatalf("expected Bearer auth header, got %q", gotAuth)
+	if gotKey != "secret-key" {
+		t.Fatalf("expected x-api-key header to carry the upstream key, got %q", gotKey)
 	}
 }
 
@@ -128,7 +145,8 @@ func TestAvailable_CacheHit(t *testing.T) {
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&hits, 1)
-		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m"}]}`))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(modelsJSON("m")))
 	}))
 	defer srv.Close()
 
@@ -145,7 +163,8 @@ func TestRefresh_BypassesTTL(t *testing.T) {
 	var hits int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&hits, 1)
-		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m"}]}`))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(modelsJSON("m")))
 	}))
 	defer srv.Close()
 
@@ -164,7 +183,8 @@ func TestRefresh_SingleFlight(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&hits, 1)
 		<-release // hold the request open so concurrent callers pile up
-		_, _ = w.Write([]byte(`{"object":"list","data":[{"id":"m"}]}`))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(modelsJSON("m")))
 	}))
 	defer srv.Close()
 

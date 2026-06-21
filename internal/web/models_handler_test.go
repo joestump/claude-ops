@@ -11,19 +11,20 @@ import (
 	"github.com/joestump/claude-ops/internal/models"
 )
 
-// stubUpstream returns an httptest server speaking the OpenAI /v1/models shape,
-// plus a Discoverer pointed at it.
+// stubUpstream returns an httptest server speaking the Anthropic models-list
+// shape (the SDK requires application/json), plus a Discoverer pointed at it.
 func stubUpstream(t *testing.T, ids ...string) (*httptest.Server, *models.Discoverer) {
 	t.Helper()
-	body := `{"object":"list","data":[`
+	body := `{"data":[`
 	for i, id := range ids {
 		if i > 0 {
 			body += ","
 		}
-		body += `{"id":"` + id + `"}`
+		body += `{"id":"` + id + `","type":"model"}`
 	}
-	body += `]}`
+	body += `],"has_more":false}`
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(body))
 	}))
 	t.Cleanup(srv.Close)

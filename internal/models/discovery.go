@@ -1,17 +1,20 @@
 // Package models discovers the set of LLM models available on the upstream
-// OpenAI/Anthropic-compatible gateway (e.g. LiteLLM) that Claude Ops routes
-// through. The gateway is configured via the ANTHROPIC_BASE_URL environment
-// variable and authenticated with ANTHROPIC_API_KEY.
+// Anthropic-compatible gateway (e.g. LiteLLM) that Claude Ops routes through.
+// The gateway is configured via the ANTHROPIC_BASE_URL environment variable and
+// authenticated with ANTHROPIC_API_KEY.
+//
+// Discovery uses the official Anthropic Go SDK (already a project dependency, and
+// the same client family Claude Ops uses elsewhere) pointed at the configured
+// base URL: client.Models.List. This avoids a hand-rolled HTTP client and a
+// redundant second LLM SDK.
 //
 // Governing: SPEC-0035 (Upstream Model Auto-Discovery). The discovery SOURCE is
-// the upstream gateway's GET ${ANTHROPIC_BASE_URL}/v1/models — distinct from
-// Claude Ops' OWN served /v1/models endpoint (SPEC-0024 / ADR-0020).
+// the upstream gateway's models endpoint — distinct from Claude Ops' OWN served
+// /v1/models endpoint (SPEC-0024 / ADR-0020).
 package models
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -19,6 +22,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
 )
 
 const (
@@ -110,8 +116,39 @@ func New(baseURLFn, apiKeyFn func() string, opts ...Option) *Discoverer {
 	for _, opt := range opts {
 		opt(d)
 	}
+	// Bound the response body size regardless of which client is used, so an
+	// unexpectedly large upstream body cannot exhaust memory.
+	// Governing: SPEC-0035 REQ "Request Body Size Limits".
+	rt := d.client.Transport
+	if rt == nil {
+		rt = http.DefaultTransport
+	}
+	d.client.Transport = &limitedTransport{rt: rt, max: maxBodyBytes}
 	return d
 }
+
+// limitedTransport caps the size of response bodies returned to the SDK.
+type limitedTransport struct {
+	rt  http.RoundTripper
+	max int64
+}
+
+func (t *limitedTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	resp, err := t.rt.RoundTrip(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Body = &limitedReadCloser{r: io.LimitReader(resp.Body, t.max), c: resp.Body}
+	return resp, nil
+}
+
+type limitedReadCloser struct {
+	r io.Reader
+	c io.Closer
+}
+
+func (l *limitedReadCloser) Read(p []byte) (int, error) { return l.r.Read(p) }
+func (l *limitedReadCloser) Close() error               { return l.c.Close() }
 
 // Available returns the current discovered models, refreshing from the upstream
 // gateway if the cache is stale. It never returns an error: when discovery is
@@ -195,70 +232,51 @@ func (d *Discoverer) snapshotLocked() Result {
 	}
 }
 
-// openAIModelList mirrors the OpenAI-style models response:
-// {"object":"list","data":[{"id":"...","object":"model",...}]}.
-type openAIModelList struct {
-	Object string `json:"object"`
-	Data   []struct {
-		ID string `json:"id"`
-	} `json:"data"`
-}
-
-// fetch performs the upstream GET, parses the body, and returns a de-duplicated,
-// sorted list of model IDs. The upstream API key is sent only in the
-// Authorization header and never logged.
+// fetch lists models from the upstream gateway via the Anthropic SDK and returns
+// a de-duplicated, sorted list of model IDs. The SDK is pointed at the configured
+// base URL with the upstream key; the key is passed only to the SDK (in the auth
+// header it sets) and is never logged. The bounded http.Client (with a body-size
+// limit on its transport) and the SDK request timeout enforce the time and size
+// bounds.
 // Governing: SPEC-0035 REQ "Upstream Model Query", REQ "Upstream Call Security and Error Handling".
 func (d *Discoverer) fetch(ctx context.Context) ([]string, error) {
 	base := strings.TrimRight(strings.TrimSpace(d.baseURLFn()), "/")
-	url := base + "/v1/models"
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return nil, fmt.Errorf("discover upstream models: build request: %w", err)
+	opts := []option.RequestOption{
+		option.WithBaseURL(base),
+		option.WithHTTPClient(d.client),
+		option.WithRequestTimeout(d.client.Timeout),
+		// Discovery is best-effort; don't let the SDK retry a slow/failing
+		// gateway and blow past our bound.
+		option.WithMaxRetries(0),
 	}
 	if key := strings.TrimSpace(d.apiKeyFn()); key != "" {
-		req.Header.Set("Authorization", "Bearer "+key)
+		opts = append(opts, option.WithAPIKey(key))
 	}
-	req.Header.Set("Accept", "application/json")
+	client := anthropic.NewClient(opts...)
 
-	resp, err := d.client.Do(req)
-	if err != nil {
-		// %w preserves the underlying error (timeout, connection refused) which
-		// never contains the API key.
-		log.Printf("model discovery: request to upstream gateway failed: %v", err)
-		return nil, fmt.Errorf("discover upstream models: request failed: %w", err)
+	var ids []string
+	pager := client.Models.ListAutoPaging(ctx, anthropic.ModelListParams{})
+	for pager.Next() {
+		ids = append(ids, pager.Current().ID)
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		log.Printf("model discovery: upstream gateway returned status=%d", resp.StatusCode)
-		return nil, fmt.Errorf("discover upstream models: unexpected status %d", resp.StatusCode)
+	if err := pager.Err(); err != nil {
+		// The SDK error wraps the HTTP status / transport error (timeout,
+		// connection refused, non-2xx) and never contains the API key value.
+		log.Printf("model discovery: upstream gateway list failed: %v", err)
+		return nil, err
 	}
 
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBodyBytes))
-	if err != nil {
-		log.Printf("model discovery: reading upstream response failed: %v", err)
-		return nil, fmt.Errorf("discover upstream models: read body: %w", err)
-	}
-
-	var parsed openAIModelList
-	if err := json.Unmarshal(body, &parsed); err != nil {
-		log.Printf("model discovery: parsing upstream response failed: %v", err)
-		return nil, fmt.Errorf("discover upstream models: parse body: %w", err)
-	}
-
-	return dedupeSort(parsed.Data), nil
+	return dedupeSort(ids), nil
 }
 
-// dedupeSort extracts non-empty model IDs, removes duplicates, and sorts them
-// for a stable presentation order.
-func dedupeSort(data []struct {
-	ID string `json:"id"`
-}) []string {
-	seen := make(map[string]struct{}, len(data))
-	out := make([]string, 0, len(data))
-	for _, m := range data {
-		id := strings.TrimSpace(m.ID)
+// dedupeSort trims, de-duplicates, and sorts model IDs for a stable presentation
+// order.
+func dedupeSort(ids []string) []string {
+	seen := make(map[string]struct{}, len(ids))
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		id = strings.TrimSpace(id)
 		if id == "" {
 			continue
 		}

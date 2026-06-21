@@ -59,9 +59,9 @@ This spec depends on SPEC-0008 (configuration) and SPEC-0017 (REST API config en
 
 ### Discovery source is the upstream gateway, read from the environment
 
-**Choice**: Build the discovery URL from `ANTHROPIC_BASE_URL` (env var), querying
-`${ANTHROPIC_BASE_URL}/v1/models`, authenticating with `ANTHROPIC_API_KEY` as
-`Authorization: Bearer`.
+**Choice**: Build the discovery target from `ANTHROPIC_BASE_URL` (env var), querying the
+gateway's models-list endpoint (`${ANTHROPIC_BASE_URL}/v1/models`), authenticating with
+`ANTHROPIC_API_KEY`.
 **Rationale**: This is exactly where the operator already configures the gateway the CLI
 routes through; reusing it guarantees the discovered list matches what the tiers will
 actually hit. No new configuration surface is required.
@@ -72,12 +72,33 @@ actually hit. No new configuration surface is required.
 - Query Claude Ops' own `/v1/models`: rejected — that returns synthetic tier IDs, not the
   upstream model inventory; it would be circular and wrong.
 
+### Use the Anthropic Go SDK for the models query (not a hand-rolled HTTP client)
+
+**Choice**: Fetch the model list via the official Anthropic Go SDK
+(`github.com/anthropics/anthropic-sdk-go`, already a project dependency) configured with
+`option.WithBaseURL(ANTHROPIC_BASE_URL)`, `option.WithAPIKey(ANTHROPIC_API_KEY)`, a
+bounded `option.WithHTTPClient` + `option.WithRequestTimeout`, and `option.WithMaxRetries(0)`,
+calling `client.Models.ListAutoPaging`.
+**Rationale**: Per reviewer request, use a maintained SDK rather than hand-rolling the
+HTTP call. The gateway is Anthropic-compatible (it is configured through
+`ANTHROPIC_BASE_URL`/`ANTHROPIC_API_KEY` and is the same endpoint the CLI subprocess
+hits), and the Anthropic SDK is already vendored, so this adds no new dependency and
+matches the client family used elsewhere. The SDK authenticates via the `x-api-key`
+header (which LiteLLM accepts for Anthropic-compatible routing) rather than
+`Authorization: Bearer`. Body-size bounding is preserved by wrapping the injected
+`http.Client`'s transport with a `LimitReader`-based round-tripper.
+**Alternatives considered**:
+- The OpenAI Go SDK (`github.com/openai/openai-go`): rejected — it would add a second,
+  redundant LLM SDK for a single list call when the Anthropic SDK is already present and
+  the endpoint is reached as an Anthropic-compatible gateway.
+- Keep the hand-rolled `http.Client` + manual JSON parsing: rejected per reviewer
+  feedback in favor of the maintained SDK.
+
 ### Dedicated discovery component with a cached, single-flight client
 
-**Choice**: Introduce a small discovery component (e.g. `internal/models` or a discovery
-type owned by the web `Server`) that owns an `http.Client` with a bounded timeout, a
-mutex-guarded cache holding `(modelIDs, lastRefreshed, available)`, and single-flight
-refresh.
+**Choice**: Introduce a small discovery component (`internal/models`) that owns a bounded
+`http.Client` (injected into the SDK), a mutex-guarded cache holding
+`(modelIDs, lastRefreshed, available)`, and single-flight refresh.
 **Rationale**: Centralizes timeout, auth, parsing, caching, and concurrency safety in one
 testable place; both the API handler and the HTML handler consume the same cache. Single
 -flight prevents refresh stampedes against the gateway.
@@ -149,7 +170,7 @@ flowchart LR
     API --> DISC
     HTML --> DISC
     DISC -->|cache hit within TTL| DISC
-    DISC -->|miss or refresh:\nAuthorization Bearer ANTHROPIC_API_KEY| GW
+    DISC -->|miss or refresh: SDK Models.List\nx-api-key ANTHROPIC_API_KEY| GW
     GW -->|"object:list, data:[id...]"| DISC
 ```
 
@@ -167,7 +188,7 @@ sequenceDiagram
         D-->>C: {models, lastRefreshed, available:true}
     else stale or forced
         D->>D: single-flight guard
-        D->>G: GET /v1/models (Bearer key, timeout, ctx)
+        D->>G: SDK Models.List (x-api-key, timeout, ctx)
         alt 2xx and parseable
             G-->>D: {data:[{id}...]}
             D->>D: dedupe+sort, set lastRefreshed
@@ -186,9 +207,9 @@ sequenceDiagram
   cache serves prior results, and degradation returns immediately with a fallback flag.
 - **Refresh stampede floods the gateway** → single-flight collapses concurrent refreshes
   to one in-flight upstream call; explicit refresh is the only TTL bypass.
-- **Leaking the upstream API key** → key is read from the environment only, sent solely in
-  the `Authorization` header, and excluded from logs, errors, API payloads, and rendered
-  HTML; structured logging avoids interpolating secrets.
+- **Leaking the upstream API key** → key is read from the environment only, passed solely
+  to the SDK (which sends it in the `x-api-key` header), and excluded from logs, errors,
+  API payloads, and rendered HTML; structured logging avoids interpolating secrets.
 - **Discovered list diverges from what the CLI can actually use** → discovery is advisory;
   free-text assignment is always allowed and the runtime CLI invocation is unchanged, so
   an unusable model fails exactly as it does today.

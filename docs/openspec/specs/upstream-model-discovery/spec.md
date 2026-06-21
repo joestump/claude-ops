@@ -8,11 +8,11 @@ requires: [SPEC-0008, SPEC-0017]
 
 ## Overview
 
-Claude Ops routes its tiered agents through an upstream OpenAI/Anthropic-compatible
-LLM gateway (typically [LiteLLM](https://github.com/BerriAI/litellm)) configured via
-the `ANTHROPIC_BASE_URL` environment variable. That gateway can route to many backing
-models (Gemini, DeepSeek, Claude, etc.) and exposes the routable set through an
-OpenAI-style models endpoint (`GET /v1/models`).
+Claude Ops routes its tiered agents through an upstream Anthropic-compatible LLM
+gateway (typically [LiteLLM](https://github.com/BerriAI/litellm)) configured via the
+`ANTHROPIC_BASE_URL` environment variable. That gateway can route to many backing
+models (Gemini, DeepSeek, Claude, etc.) and exposes the routable set through a
+models-list endpoint (`GET /v1/models`).
 
 Today the per-tier model fields (`tier1_model`, `tier2_model`, `tier3_model` — see
 SPEC-0008 and SPEC-0017) are free-text strings: the operator must know and type model
@@ -36,16 +36,17 @@ per SPEC-0010.
 The system MUST be able to query the upstream gateway's models endpoint to enumerate
 the models it can route to.
 
-- The system MUST issue an HTTP `GET` request to `${ANTHROPIC_BASE_URL}/v1/models`,
-  derived from the configured `ANTHROPIC_BASE_URL`. Path joining MUST be tolerant of a
-  trailing slash on the base URL.
-- The system MUST parse the OpenAI-style response body of the form
-  `{"object":"list","data":[{"id":"...","object":"model",...}]}` and extract the `id`
-  field of each entry into a list of model identifiers.
+- The system MUST query the upstream gateway's models endpoint at
+  `${ANTHROPIC_BASE_URL}/v1/models`, derived from the configured `ANTHROPIC_BASE_URL`.
+  Path joining MUST be tolerant of a trailing slash on the base URL. (The
+  implementation queries this endpoint via the Anthropic Go SDK's models-list call,
+  configured with the base URL — see design.md.)
+- The system MUST parse the gateway's models-list response (a JSON object whose `data`
+  array contains entries each with an `id` field) and extract the `id` of each entry
+  into a list of model identifiers.
 - The system MUST authenticate the request using the upstream credential
-  (`ANTHROPIC_API_KEY`) by sending an `Authorization: Bearer <key>` header. If no key
-  is configured, the request MUST still be attempted (some gateways are unauthenticated)
-  but the absence MUST NOT cause a panic.
+  (`ANTHROPIC_API_KEY`). If no key is configured, the request MUST still be attempted
+  (some gateways are unauthenticated) but the absence MUST NOT cause a panic.
 - A bounded HTTP timeout MUST apply to the request. The timeout SHOULD default to a
   small number of seconds (RECOMMENDED: 5 seconds) so a slow or unreachable gateway
   cannot stall configuration rendering.
@@ -54,8 +55,8 @@ the models it can route to.
 
 #### Scenario: Gateway returns a model list
 
-- **WHEN** `ANTHROPIC_BASE_URL` is set and the gateway responds `200` with
-  `{"object":"list","data":[{"id":"gemini-2.5-pro"},{"id":"deepseek-chat"},{"id":"claude-opus-4-8"}]}`
+- **WHEN** `ANTHROPIC_BASE_URL` is set and the gateway responds `200` with a models-list
+  body whose `data` array is `[{"id":"gemini-2.5-pro"},{"id":"deepseek-chat"},{"id":"claude-opus-4-8"}]`
 - **THEN** the system extracts `["claude-opus-4-8","deepseek-chat","gemini-2.5-pro"]`
   (de-duplicated, sorted) as the discovered model list
 
@@ -68,7 +69,8 @@ the models it can route to.
 #### Scenario: Upstream credential is sent
 
 - **WHEN** the system queries the gateway and `ANTHROPIC_API_KEY` is set
-- **THEN** the outgoing request carries an `Authorization: Bearer <key>` header
+- **THEN** the outgoing request carries the upstream credential in its authentication
+  header (the Anthropic SDK sends `x-api-key`)
 
 ### Requirement: Discovered Model Caching and Refresh
 
