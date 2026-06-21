@@ -568,7 +568,7 @@ func (m *Manager) runTier(ctx context.Context, tier int, model string, promptFil
 			// Scanner finished naturally within grace period.
 		case <-time.After(5 * time.Second):
 			fmt.Fprintf(os.Stderr, "session %d: stdout pipe still open after process exit, force-closing\n", sessionID)
-			stdoutPipe.Close()
+			_ = stdoutPipe.Close()
 			<-streamDone // Wait for scanner goroutine to finish.
 		}
 
@@ -1289,7 +1289,7 @@ func ParseTimestampedLogLine(line string) (ts time.Time, raw string, hasTS bool)
 func buildHandoffContext(h *Handoff) string {
 	var b strings.Builder
 	b.WriteString("## Escalation Context\n\n")
-	b.WriteString(fmt.Sprintf("Services affected: %s\n\n", strings.Join(h.ServicesAffected, ", ")))
+	fmt.Fprintf(&b, "Services affected: %s\n\n", strings.Join(h.ServicesAffected, ", "))
 
 	if len(h.CheckResults) > 0 {
 		b.WriteString("### Check Results\n\n")
@@ -1536,7 +1536,7 @@ func buildStructuredEscalationContext(resp *AgentResponse) string {
 	b.WriteString("## Escalation Context\n\n")
 
 	if resp.Escalation.Reason != "" {
-		b.WriteString(fmt.Sprintf("**Reason:** %s\n\n", resp.Escalation.Reason))
+		fmt.Fprintf(&b, "**Reason:** %s\n\n", resp.Escalation.Reason)
 	}
 
 	if len(resp.ServicesChecked) > 0 {
@@ -1554,7 +1554,7 @@ func buildStructuredEscalationContext(resp *AgentResponse) string {
 	if len(resp.Escalation.FailedChecks) > 0 {
 		b.WriteString("### Failed Checks\n\n")
 		for _, fc := range resp.Escalation.FailedChecks {
-			b.WriteString(fmt.Sprintf("- %s\n", fc))
+			fmt.Fprintf(&b, "- %s\n", fc)
 		}
 		b.WriteString("\n")
 	}

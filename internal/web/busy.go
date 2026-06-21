@@ -32,7 +32,7 @@ func generateBusyResponse(ctx context.Context, database *db.DB, apiKey string) s
 	events, _ := database.ListEvents(10, 0, nil, nil)
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("You are Claude Ops, an infrastructure monitoring agent currently running a Tier %d monitoring session (session #%d, started %s).\n", session.Tier, session.ID, session.StartedAt))
+	fmt.Fprintf(&sb, "You are Claude Ops, an infrastructure monitoring agent currently running a Tier %d monitoring session (session #%d, started %s).\n", session.Tier, session.ID, session.StartedAt)
 	sb.WriteString("A user has sent a message while you are busy. Write a brief 2–3 sentence first-person response:\n")
 	sb.WriteString("1. Acknowledge that you received their message.\n")
 	sb.WriteString("2. State that you are currently running an active monitoring session.\n")
@@ -44,7 +44,7 @@ func generateBusyResponse(ctx context.Context, database *db.DB, apiKey string) s
 			if e.Service != nil {
 				svc = "[" + *e.Service + "] "
 			}
-			sb.WriteString(fmt.Sprintf("- [%s] %s%s\n", e.Level, svc, e.Message))
+			fmt.Fprintf(&sb, "- [%s] %s%s\n", e.Level, svc, e.Message)
 		}
 	} else {
 		sb.WriteString("3. Let them know you will be available shortly.\n")
