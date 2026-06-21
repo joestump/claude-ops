@@ -23,13 +23,13 @@ func webhookTestSynthServer(t *testing.T, responseText string, statusCode int) *
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if statusCode != 0 && statusCode != http.StatusOK {
 			w.WriteHeader(statusCode)
-			fmt.Fprintf(w, `{"error":{"type":"api_error","message":"upstream error"}}`)
+			_, _ = fmt.Fprintf(w, `{"error":{"type":"api_error","message":"upstream error"}}`)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		if responseText == "" {
-			fmt.Fprintf(w, `{"id":"msg_test","content":[],"model":"claude-haiku-4-5-20251001","stop_reason":"end_turn"}`)
+			_, _ = fmt.Fprintf(w, `{"id":"msg_test","content":[],"model":"claude-haiku-4-5-20251001","stop_reason":"end_turn"}`)
 			return
 		}
 		resp := map[string]any{

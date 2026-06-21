@@ -723,7 +723,7 @@ func classifyPromptTier(ctx context.Context, apiKey, prompt string) int {
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return 1
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var result struct {
 		Content []struct {
