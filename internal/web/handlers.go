@@ -658,34 +658,7 @@ func (s *Server) handleMemoryDelete(w http.ResponseWriter, r *http.Request) {
 // handleConfigGet renders the configuration form.
 // Governing: SPEC-0008 REQ-10 — configuration page: runtime parameter display and modification.
 func (s *Server) handleConfigGet(w http.ResponseWriter, r *http.Request) {
-	data := struct {
-		Interval              int
-		Tier1Model            string
-		Tier2Model            string
-		Tier3Model            string
-		DryRun                bool
-		Saved                 bool
-		StateDir              string
-		ResultsDir            string
-		ReposDir              string
-		MaxTier               int
-		BrowserAllowedOrigins string
-		ChatAPIKey            string
-	}{
-		Interval:              s.cfg.Interval,
-		Tier1Model:            s.cfg.Tier1Model,
-		Tier2Model:            s.cfg.Tier2Model,
-		Tier3Model:            s.cfg.Tier3Model,
-		DryRun:                s.cfg.DryRun,
-		StateDir:              s.cfg.StateDir,
-		ResultsDir:            s.cfg.ResultsDir,
-		ReposDir:              s.cfg.ReposDir,
-		MaxTier:               s.cfg.MaxTier,
-		BrowserAllowedOrigins: s.cfg.BrowserAllowedOrigins,
-		ChatAPIKey:            os.Getenv("CLAUDEOPS_CHAT_API_KEY"),
-	}
-
-	s.render(w, r, "config.html", data)
+	s.render(w, r, "config.html", s.buildConfigPageData(r, false))
 }
 
 // classifyPromptTier calls the Anthropic Messages API with claude-haiku to
@@ -817,35 +790,7 @@ func (s *Server) handleConfigPost(w http.ResponseWriter, r *http.Request) {
 	log.Printf("config updated: interval=%d tier1=%s tier2=%s tier3=%s dry_run=%v",
 		s.cfg.Interval, s.cfg.Tier1Model, s.cfg.Tier2Model, s.cfg.Tier3Model, s.cfg.DryRun)
 
-	data := struct {
-		Interval              int
-		Tier1Model            string
-		Tier2Model            string
-		Tier3Model            string
-		DryRun                bool
-		Saved                 bool
-		StateDir              string
-		ResultsDir            string
-		ReposDir              string
-		MaxTier               int
-		BrowserAllowedOrigins string
-		ChatAPIKey            string
-	}{
-		Interval:              s.cfg.Interval,
-		Tier1Model:            s.cfg.Tier1Model,
-		Tier2Model:            s.cfg.Tier2Model,
-		Tier3Model:            s.cfg.Tier3Model,
-		DryRun:                s.cfg.DryRun,
-		Saved:                 true,
-		StateDir:              s.cfg.StateDir,
-		ResultsDir:            s.cfg.ResultsDir,
-		ReposDir:              s.cfg.ReposDir,
-		MaxTier:               s.cfg.MaxTier,
-		BrowserAllowedOrigins: s.cfg.BrowserAllowedOrigins,
-		ChatAPIKey:            os.Getenv("CLAUDEOPS_CHAT_API_KEY"),
-	}
-
-	s.render(w, r, "config.html", data)
+	s.render(w, r, "config.html", s.buildConfigPageData(r, true))
 }
 
 // handleStopSession stops the currently running session.
