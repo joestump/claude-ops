@@ -140,6 +140,49 @@ The web dashboard runs on port 8080 and provides:
 
 Sessions can be triggered manually from the dashboard using the "Run Now" button.
 
+## Homepage Integration
+
+Claude Ops exposes a JSON stats endpoint built for dashboards like [Homepage](https://gethomepage.dev). `GET /api/v1/stats` returns the same metrics shown on the TL;DR HUD — total runs, escalations, remediations, success rate, total cost, active memories, critical events (last 24h), and average duration — plus the latest session and the next scheduled run.
+
+Add a [Custom API widget](https://gethomepage.dev/widgets/services/customapi/) to your Homepage `services.yaml`:
+
+```yaml
+- Claude Ops:
+    href: https://claude-ops.example.com
+    icon: sh-claude
+    description: AI infrastructure monitoring
+    widget:
+      type: customapi
+      url: https://claude-ops.example.com/api/v1/stats
+      refreshInterval: 60000
+      mappings:
+        - field:
+            stats: total_runs
+          label: Runs
+          format: number
+        - field:
+            stats: success_rate
+          label: Success
+          format: number
+          scale: 100
+          suffix: "%"
+        - field:
+            stats: total_cost_usd
+          label: Cost
+          format: number
+          prefix: "$"
+        - field:
+            stats: critical_events
+          label: Critical
+          format: number
+```
+
+Notes:
+
+- The endpoint is **unauthenticated** (like `/api/v1/health`), so no API key is needed for the widget.
+- Nested values use Homepage's object `field:` syntax — `stats: total_runs` maps to `stats.total_runs`. `success_rate` is a 0–1 ratio, hence `scale: 100` + `suffix: "%"`.
+- The full response schema (including `last_session` and `next_run`) is documented in the embedded Swagger UI at `/api/docs/`.
+
 ## Configuration
 
 All configuration via environment variables:
@@ -147,7 +190,7 @@ All configuration via environment variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_API_KEY` | *(required)* | Claude API key (or LiteLLM proxy key) |
-| `ANTHROPIC_BASE_URL` | *(Anthropic default)* | Base URL for the API. Set to your LiteLLM/proxy URL (e.g., `https://litellm.example.com`) |
+| `ANTHROPIC_BASE_URL` | *(Anthropic default)* | Base URL for the API. Set to your LiteLLM/proxy URL (e.g., `https://litellm.example.com`). Also enables [upstream model auto-discovery](#upstream-model-auto-discovery). |
 | `CLAUDEOPS_INTERVAL` | `3600` | Seconds between scheduled runs |
 | `CLAUDEOPS_TIER1_MODEL` | `haiku` | Model for health checks (Tier 1) |
 | `CLAUDEOPS_TIER2_MODEL` | `sonnet` | Model for investigation + safe remediation (Tier 2) |
@@ -174,6 +217,17 @@ ANTHROPIC_BASE_URL=https://litellm.example.com
 ```
 
 **Bedrock users:** If your LiteLLM routes to AWS Bedrock, ensure your model deployments use inference profile ARNs (not raw model IDs) and that `drop_params: true` is set to strip unsupported beta headers.
+
+### Upstream model auto-discovery
+
+When `ANTHROPIC_BASE_URL` points at a gateway that exposes a models-list endpoint (e.g. LiteLLM's `/v1/models`), Claude Ops automatically discovers the routable models and offers them as **dropdowns for each tier on the Config page** — so you can assign any backing model (Gemini, DeepSeek, Claude, etc.) to Tier 1/2/3 without typing identifiers by hand.
+
+- The discovered list is cached (5-minute TTL) and can be force-refreshed with the **⟳ Refresh models** control on the Config page.
+- The configured endpoint and its live discovery status are shown in the Config page's **Environment (read-only)** section.
+- Programmatic access: `GET /api/v1/models/available` returns the discovered models with freshness metadata; `POST /api/v1/models/available/refresh` forces a re-query.
+- If `ANTHROPIC_BASE_URL` is unset or the gateway is unreachable, the tier fields gracefully fall back to free-text entry (the API reports `discovery_available: false`).
+
+The discovery source (your upstream gateway) is distinct from Claude Ops' own OpenAI-compatible `/v1/models` endpoint. Governed by SPEC-0035 (Upstream Model Auto-Discovery).
 
 ## Architecture
 
