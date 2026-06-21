@@ -16,6 +16,7 @@ import (
 	"github.com/joestump/claude-ops/api"
 	"github.com/joestump/claude-ops/internal/config"
 	"github.com/joestump/claude-ops/internal/db"
+	"github.com/joestump/claude-ops/internal/models"
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/extension"
 )
@@ -74,6 +75,8 @@ type Server struct {
 	mux    *http.ServeMux
 	tmpl   *template.Template
 	server *http.Server
+	// Governing: SPEC-0035 — discovers models from the upstream gateway (ANTHROPIC_BASE_URL).
+	discoverer *models.Discoverer
 }
 
 // New creates a new web server. Pass nil for hub if SSE streaming is not yet available.
@@ -90,8 +93,14 @@ func New(cfg *config.Config, hub SSEHub, database *db.DB, mgr SessionTrigger, op
 		opt(s)
 	}
 
+	// Governing: SPEC-0035 REQ "Upstream Model Query", REQ "Graceful Degradation" —
+	// resolve the upstream endpoint/credential lazily from the environment so
+	// changes are picked up without a restart and the key is never stored.
+	s.discoverer = models.New(upstreamBaseURL, upstreamAPIKey)
+
 	s.parseTemplates()
 	s.registerRoutes()
+	s.registerModelRoutes()
 
 	s.server = &http.Server{
 		Addr:         fmt.Sprintf(":%d", cfg.DashboardPort),
@@ -196,6 +205,16 @@ func (s *Server) parseTemplates() {
 		},
 		"sub": func(a, b int) int {
 			return a - b
+		},
+		// Governing: SPEC-0035 REQ "Configuration UI Model Selection" — used to
+		// decide whether a current tier value is among the discovered models.
+		"contains": func(list []string, v string) bool {
+			for _, item := range list {
+				if item == v {
+					return true
+				}
+			}
+			return false
 		},
 		"intVal": func(p *int) int {
 			if p == nil {

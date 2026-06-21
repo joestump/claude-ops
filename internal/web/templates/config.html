@@ -22,42 +22,24 @@
                 <p class="text-xs text-muted mt-1">How often the agent runs a health check cycle. Minimum 60 seconds.</p>
             </div>
 
-            {{/* Models */}}
+            {{/* Models — Governing: SPEC-0035 REQ "Configuration UI Model Selection" */}}
             <div>
-                <div class="text-xs text-muted uppercase tracking-wider mb-2">Escalation Models</div>
-                <p class="text-xs text-muted mb-3">Each tier uses a different model. Tier 1 observes, Tier 2 investigates and applies safe fixes, Tier 3 performs full remediation.</p>
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                        <label for="tier1_model" class="block text-xs text-muted mb-1">
-                            Tier 1 &mdash; Observe
-                        </label>
-                        <select id="tier1_model" name="tier1_model" class="input-field w-full">
-                            <option value="haiku" {{if eq .Tier1Model "haiku"}}selected{{end}}>haiku</option>
-                            <option value="sonnet" {{if eq .Tier1Model "sonnet"}}selected{{end}}>sonnet</option>
-                            <option value="opus" {{if eq .Tier1Model "opus"}}selected{{end}}>opus</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="tier2_model" class="block text-xs text-muted mb-1">
-                            Tier 2 &mdash; Investigate
-                        </label>
-                        <select id="tier2_model" name="tier2_model" class="input-field w-full">
-                            <option value="haiku" {{if eq .Tier2Model "haiku"}}selected{{end}}>haiku</option>
-                            <option value="sonnet" {{if eq .Tier2Model "sonnet"}}selected{{end}}>sonnet</option>
-                            <option value="opus" {{if eq .Tier2Model "opus"}}selected{{end}}>opus</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="tier3_model" class="block text-xs text-muted mb-1">
-                            Tier 3 &mdash; Remediate
-                        </label>
-                        <select id="tier3_model" name="tier3_model" class="input-field w-full">
-                            <option value="haiku" {{if eq .Tier3Model "haiku"}}selected{{end}}>haiku</option>
-                            <option value="sonnet" {{if eq .Tier3Model "sonnet"}}selected{{end}}>sonnet</option>
-                            <option value="opus" {{if eq .Tier3Model "opus"}}selected{{end}}>opus</option>
-                        </select>
-                    </div>
+                <div class="flex items-center justify-between mb-2">
+                    <div class="text-xs text-muted uppercase tracking-wider">Escalation Models</div>
+                    {{/* Refresh control re-queries the upstream gateway and swaps just this block. */}}
+                    <button type="button"
+                            class="text-accent hover:text-charcoal cursor-pointer text-xs leading-none"
+                            aria-label="Refresh available models"
+                            title="Refresh available models"
+                            hx-post="/config/models/refresh"
+                            hx-target="#model-fields"
+                            hx-swap="outerHTML"
+                            hx-include="closest form">
+                        <span style="font-family:sans-serif">⟳ Refresh models</span>
+                    </button>
                 </div>
+                <p class="text-xs text-muted mb-3">Each tier uses a different model. Tier 1 observes, Tier 2 investigates and applies safe fixes, Tier 3 performs full remediation.</p>
+                {{template "modelFields" .}}
             </div>
 
             {{/* Dry run */}}
@@ -104,6 +86,57 @@
                     {{end}}
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+{{end}}
+
+{{/*
+  modelFields renders the three per-tier model controls. When upstream discovery
+  is available, each tier is a <select> populated from the discovered models
+  (with the current value preserved as an option even if not discovered).
+  Otherwise it falls back to a free-text <input>. This block is the HTMX swap
+  target for the refresh control.
+  Governing: SPEC-0035 REQ "Configuration UI Model Selection", REQ "Graceful Degradation".
+*/}}
+{{define "modelFields"}}
+<div id="model-fields" aria-live="polite">
+    {{if not .DiscoveryAvailable}}
+    <p class="text-xs text-muted mb-3">Upstream model discovery is unavailable (ANTHROPIC_BASE_URL unset or unreachable). Enter model names manually.</p>
+    {{end}}
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label for="tier1_model" class="block text-xs text-muted mb-1">Tier 1 &mdash; Observe</label>
+            {{if .DiscoveryAvailable}}
+            <select id="tier1_model" name="tier1_model" class="input-field w-full">
+                {{if and .Tier1Model (not (contains .AvailableModels .Tier1Model))}}<option value="{{.Tier1Model}}" selected>{{.Tier1Model}}</option>{{end}}
+                {{range .AvailableModels}}<option value="{{.}}" {{if eq . $.Tier1Model}}selected{{end}}>{{.}}</option>{{end}}
+            </select>
+            {{else}}
+            <input type="text" id="tier1_model" name="tier1_model" value="{{.Tier1Model}}" class="input-field w-full" placeholder="model name">
+            {{end}}
+        </div>
+        <div>
+            <label for="tier2_model" class="block text-xs text-muted mb-1">Tier 2 &mdash; Investigate</label>
+            {{if .DiscoveryAvailable}}
+            <select id="tier2_model" name="tier2_model" class="input-field w-full">
+                {{if and .Tier2Model (not (contains .AvailableModels .Tier2Model))}}<option value="{{.Tier2Model}}" selected>{{.Tier2Model}}</option>{{end}}
+                {{range .AvailableModels}}<option value="{{.}}" {{if eq . $.Tier2Model}}selected{{end}}>{{.}}</option>{{end}}
+            </select>
+            {{else}}
+            <input type="text" id="tier2_model" name="tier2_model" value="{{.Tier2Model}}" class="input-field w-full" placeholder="model name">
+            {{end}}
+        </div>
+        <div>
+            <label for="tier3_model" class="block text-xs text-muted mb-1">Tier 3 &mdash; Remediate</label>
+            {{if .DiscoveryAvailable}}
+            <select id="tier3_model" name="tier3_model" class="input-field w-full">
+                {{if and .Tier3Model (not (contains .AvailableModels .Tier3Model))}}<option value="{{.Tier3Model}}" selected>{{.Tier3Model}}</option>{{end}}
+                {{range .AvailableModels}}<option value="{{.}}" {{if eq . $.Tier3Model}}selected{{end}}>{{.}}</option>{{end}}
+            </select>
+            {{else}}
+            <input type="text" id="tier3_model" name="tier3_model" value="{{.Tier3Model}}" class="input-field w-full" placeholder="model name">
+            {{end}}
         </div>
     </div>
 </div>
