@@ -45,6 +45,72 @@ func TestAPIHealthContentType(t *testing.T) {
 	}
 }
 
+// --- Stats Endpoint ---
+
+func TestAPIStatsEmpty(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/api/v1/stats", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp APIStatsResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Stats.TotalRuns != 0 {
+		t.Fatalf("expected 0 total_runs, got %d", resp.Stats.TotalRuns)
+	}
+	if resp.LastSession != nil {
+		t.Fatalf("expected nil last_session, got %+v", resp.LastSession)
+	}
+	if resp.IntervalSeconds != e.srv.cfg.Interval {
+		t.Fatalf("expected interval_seconds %d, got %d", e.srv.cfg.Interval, resp.IntervalSeconds)
+	}
+	if resp.NextRun == "" {
+		t.Fatal("expected non-empty next_run")
+	}
+}
+
+func TestAPIStatsWithData(t *testing.T) {
+	e := newTestEnv(t)
+	insertTestSession(t, e, "completed")
+	insertTestSession(t, e, "running")
+
+	req := httptest.NewRequest("GET", "/api/v1/stats", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	var resp APIStatsResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.Stats.TotalRuns != 2 {
+		t.Fatalf("expected 2 total_runs, got %d", resp.Stats.TotalRuns)
+	}
+	if resp.LastSession == nil {
+		t.Fatal("expected non-nil last_session")
+	}
+}
+
+func TestAPIStatsContentType(t *testing.T) {
+	e := newTestEnv(t)
+	req := httptest.NewRequest("GET", "/api/v1/stats", nil)
+	w := httptest.NewRecorder()
+	e.srv.mux.ServeHTTP(w, req)
+
+	if ct := w.Header().Get("Content-Type"); !strings.Contains(ct, "application/json") {
+		t.Fatalf("expected application/json, got %q", ct)
+	}
+}
+
 // --- Sessions Endpoints ---
 
 func TestAPIListSessionsEmpty(t *testing.T) {
