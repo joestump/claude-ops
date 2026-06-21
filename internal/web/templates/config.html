@@ -65,6 +65,8 @@
         <div class="card-base text-sm text-muted">
             <p class="mb-2">These settings are configured via environment variables or CLI flags and cannot be changed at runtime.</p>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-2 font-mono text-xs">
+                {{/* Governing: SPEC-0035 — the upstream gateway model discovery queries */}}
+                <div>ANTHROPIC_BASE_URL</div><div class="text-charcoal">{{if .UpstreamBaseURL}}{{.UpstreamBaseURL}} <span class="{{if .DiscoveryAvailable}}text-green-700{{else}}text-muted{{end}}">({{if .DiscoveryAvailable}}model discovery active{{else}}discovery unreachable{{end}})</span>{{else}}(Anthropic default — model discovery disabled){{end}}</div>
                 <div>CLAUDEOPS_STATE_DIR</div><div class="text-charcoal">{{.StateDir}}</div>
                 <div>CLAUDEOPS_RESULTS_DIR</div><div class="text-charcoal">{{.ResultsDir}}</div>
                 <div>CLAUDEOPS_REPOS_DIR</div><div class="text-charcoal">{{.ReposDir}}</div>

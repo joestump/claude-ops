@@ -82,6 +82,11 @@ type configPageData struct {
 	// SPEC-0035 fields:
 	AvailableModels    []string
 	DiscoveryAvailable bool
+	// UpstreamBaseURL is the configured upstream gateway (ANTHROPIC_BASE_URL)
+	// that model discovery queries. Shown read-only on the config page so the
+	// operator can see which endpoint discovery is sourced from. Empty when the
+	// Anthropic default is in use (no gateway configured).
+	UpstreamBaseURL string
 }
 
 // buildConfigPageData assembles the config-page template payload, including the
@@ -106,6 +111,7 @@ func (s *Server) buildConfigPageData(r *http.Request, saved bool) configPageData
 		ChatAPIKey:            os.Getenv("CLAUDEOPS_CHAT_API_KEY"),
 		AvailableModels:       disc.Models,
 		DiscoveryAvailable:    disc.Available,
+		UpstreamBaseURL:       upstreamBaseURL(),
 	}
 }
 
